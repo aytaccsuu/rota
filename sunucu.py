@@ -85,6 +85,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         return False
 
+    def do_HEAD(self):
+        if not self.authorized():
+            return
+        super().do_HEAD()
+
     def do_GET(self):
         if not self.authorized():
             return
