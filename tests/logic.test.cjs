@@ -39,6 +39,11 @@ async function main(){
   multi.run(`configuredProviders={maptiler:true,tomtom:true};providerSearch=async p=>{if(p==='maptiler')throw new Error('timeout');return [exact]}`);
   assert.equal((await multi.run(`extraProviderSearch('adres')`)).length,1,'Tek servis hatası diğer sonucu silmemeli');
   assert.equal(run(`parseSheet([['Alıcı','Adres'],['A','Canpark']]).length`),1,'Kısa AVM adı kaybolmamalı');
+  // AVM kodlu alıcı: mağaza kodu yerine AVM adı, aynı AVM tek durak
+  assert.equal(run(`mallFromCode('TUR.Ist.GS.mll.METROGARDEN.I')`),'Metrogarden');
+  assert.equal(run(`mallFromCode('TUR.Ist.GS.mII.CANPARK.I')`),'Canpark','fotoğrafta mII okunsa da bulunmalı');
+  assert.equal(run(`mallFromCode('Fatih Katalıoğlu')`),'');
+  assert.equal(run(`(()=>{const st=buildStops([{alici:'TUR.Ist.GS.mll.METROGARDEN.I',musteri:'İpekyol',ilce:'Ümraniye',raw:'Necip Fazıl Mah. Alemdağ Cad. No:940 Zemin kat 68'},{alici:'TUR.Ist.GS.mll.METROGARDEN.I',musteri:'İpekyol',ilce:'ÜMRANİYE',raw:'Necip Fazıl Mah. Alemdağ Cad. No:940 Zemin kat 68 '}]);return st.length+'|'+st[0].mall+'|'+st[0].orders[0].alici})()`),'1|Metrogarden|Metrogarden AVM (İpekyol)');
   // "4/2": önce 4/2 kapı no, sonra 4 (2 = daire); "4-6": önce aralık, sonra 4
   assert.equal(run(`JSON.stringify(noVariants('4/2'))`),JSON.stringify([{no:'4/2',daire:''},{no:'4',daire:'2'}]));
   assert.equal(run(`JSON.stringify(noVariants('4-6').map(v=>v.no))`),JSON.stringify(['4-6','4']));

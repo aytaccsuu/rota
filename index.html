@@ -536,7 +536,21 @@ function reconcileCandidates(a,base,candidates){
   const best=pool.find(c=>c.precision==='exact')||pool[0];
   return {...best,quality:best.source==='OpenStreetMap'?'OSM':'Kapı'};
 }
+// AVM: adıyla ara; en az iki kaynak 300 m içinde aynı yeri gösterirse doğrulanmış sayılır
+async function locateMall(a){
+  const q=[a.mall+' AVM',a.ilce,'İstanbul'].filter(Boolean).join(' ');
+  const pool=[...await photonSearch(q).catch(()=>[]),...await extraProviderSearch(q,'place').catch(()=>[]),...((await yandexSearch(q))||[])];
+  const key=placeCore(a.mall);
+  const hits=pool.filter(c=>{const n=placeCore(c.name||'');return key&&n&&n.includes(key)&&(!a.ilce||!c.ilce||same(c.ilce,a.ilce))});
+  if(!hits.length){a.placeError=a.mall+' AVM bulunamadı; evraktaki adresle aranıyor.';return locateBase(a)}
+  const best=hits.find(c=>c.types.includes('shopping_mall'))||hits.find(c=>placeCore(c.name)===key)||hits[0];
+  const near=hits.filter(c=>dist(c,best)<300);
+  const sources=new Set(near.map(c=>c.source));
+  if(sources.size<2)a.placeError=a.mall+' AVM tek kaynakta bulundu; haritadan teyit edin.';
+  return {...best,name:a.mall+' AVM',road:best.road||'',no:best.no||'',mah:best.mah||a.mah,quality:sources.size>=2?'Kapı':'Kontrol',candidates:hits};
+}
 async function locate(a){
+  if(a.mall)return locateMall(a);
   const active=Object.keys(configuredProviders).some(p=>p!=='yandex'&&configuredProviders[p]);
   if(!active)return locateBase(a);
   const q=[a.raw||[a.place,a.street,a.no,a.mah].filter(Boolean).join(' '),a.ilce,'İstanbul'].filter(Boolean).join(' ');
@@ -743,10 +757,26 @@ function parseSheet(rows){
 }
 function cleanName(n){n=String(n||'').replace(/\s+/g,' ').trim();const w=n.split(' ');if(w.length%2===0){const h=w.length/2;if(fold(w.slice(0,h).join(' '))===fold(w.slice(h).join(' ')))return w.slice(0,h).join(' ')}return n}
 const stopNames=s=>[...new Map(s.orders.map(o=>[fold(cleanName(o.alici)),cleanName(o.alici)])).values()].join(', ');
+// Mağaza kodu: "TUR.Ist.GS.mll.METROGARDEN.I" → AVM adı "Metrogarden". mll = mall; fotoğraftan mII/m11 okunabilir.
+function mallFromCode(text){
+  const m=String(text||'').match(/(?:^|[^A-Za-z])m[lI1|]{2}\s*[.,]\s*([A-Za-zÇĞİÖŞÜçğıöşü0-9]{3,})/);
+  if(!m)return '';
+  const n=m[1].toLocaleLowerCase('tr-TR');
+  return n.charAt(0).toLocaleUpperCase('tr-TR')+n.slice(1);
+}
 function buildStops(orders){
   const m=new Map();let id=0;
   for(const o of orders){
     const p=parseAddress(o.raw,o.ilce);
+    const mall=mallFromCode(o.alici)||mallFromCode(o.musteri);
+    if(mall){ // AVM adı konum için yeterli; aynı AVM'deki tüm siparişler tek durak
+      Object.assign(p,{mall,place:mall+' AVM'});
+      if(!o.kod)o.kod=o.alici;
+      o.alici=mall+' AVM'+(o.musteri?' ('+o.musteri+')':'');
+      const key='avm|'+fold(mall)+'|'+fold(p.ilce);
+      if(!m.has(key))m.set(key,{id:++id,...p,orders:[],raw:o.raw,lat:null,lon:null,quality:'Bekliyor',skip:false,match:null});
+      m.get(key).orders.push(o);continue;
+    }
     const key=p.street&&p.no?fold([p.street,p.no,p.mah,p.ilce,p.place].join('|')):fold([o.raw,p.ilce].join('|'));
     if(!m.has(key))m.set(key,{id:++id,...p,orders:[],raw:o.raw,lat:null,lon:null,quality:'Bekliyor',skip:false,match:null});
     m.get(key).orders.push(o);
