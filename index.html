@@ -1,0 +1,1027 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rota Oluşturucu</title>
+<style>
+:root{--bg:#f4f6f9;--card:#fff;--ink:#1c2430;--mute:#6b7686;--line:#dfe4ec;--pri:#1f6feb;--ok:#1a8f4c;--warn:#c77800;--bad:#c62f2f}
+*{box-sizing:border-box}
+body{margin:0;font:14px/1.45 system-ui,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+.app{max-width:780px;margin:0 auto;padding:14px}
+summary{cursor:pointer;font-size:14px}
+.sira{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
+.sira .n{min-width:34px;height:34px;line-height:34px;border-radius:17px;font-size:16px}
+.sira .ad{font-size:16px;font-weight:700}
+.sira .adr{font-size:13px;color:var(--ink);margin-top:2px}
+#map{height:60vh;border-radius:8px;overflow:hidden}
+h1{font-size:18px;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+h1 button{margin-left:auto;font-size:13px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px}
+.card h2{font-size:14px;margin:0 0 8px}
+.card h2 span{display:inline-block;background:var(--pri);color:#fff;border-radius:50%;width:20px;height:20px;text-align:center;font-size:12px;line-height:20px;margin-right:6px}
+input[type=text],input[type=number]{width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:6px;font:inherit}
+button{font:inherit;padding:6px 10px;border:1px solid var(--line);background:#fff;border-radius:6px;cursor:pointer;white-space:nowrap}
+button.p{background:var(--pri);color:#fff;border-color:var(--pri)}
+button:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:6px;align-items:center;margin-bottom:6px}
+.row label{width:60px;flex:none;color:var(--mute)}
+.pt{display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
+.pt:last-of-type{border-bottom:0}
+.pt b{width:40px;flex:none}
+.pt .val{flex:1;font-family:ui-monospace,Consolas,monospace;font-size:13px}
+.pt .val.none{color:var(--bad);font-family:inherit}
+.drop{border:2px dashed var(--line);border-radius:10px;padding:18px;text-align:center;color:var(--mute);cursor:pointer}
+.drop.over{border-color:var(--pri);background:#eef4ff}
+.stop{border-top:1px solid var(--line);padding:8px 0}
+.stop .top{display:flex;gap:6px;align-items:center}
+.n{flex:none;min-width:24px;height:24px;border-radius:12px;background:var(--pri);color:#fff;text-align:center;line-height:24px;font-size:12px;font-weight:600;padding:0 4px}
+.who{flex:1;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.tag{font-size:11px;padding:1px 7px;border-radius:9px;color:#fff;flex:none}
+.t-Kapı,.t-Google,.t-OSM{background:var(--ok)}.t-Sokak{background:#2b8a9e}.t-Kontrol,.t-Mahalle{background:var(--warn)}.t-Bulunamadı{background:var(--bad)}.t-Elle{background:#6f42c1}.t-Bekliyor,.t-Aranıyor{background:#8a94a3}
+.small{font-size:12px;color:var(--mute)}
+.raw{font-size:12px;color:var(--mute);margin:2px 0 2px}
+.found{font-size:12px;margin:0 0 4px}
+.found b{color:var(--ok)}
+.stat{display:flex;gap:14px;flex-wrap:wrap;font-weight:600;margin:6px 0}
+.leg{font-size:12px;color:var(--mute)}
+.bar{background:#e6ebf3;border-radius:6px;height:8px;overflow:hidden;margin:6px 0}.bar>i{display:block;height:100%;background:var(--pri);width:0}
+.hint{position:absolute;z-index:1000;left:50%;top:10px;transform:translateX(-50%);background:#1c2430;color:#fff;padding:6px 12px;border-radius:8px;display:none}
+.modal{position:fixed;inset:0;background:#0006;display:none;align-items:flex-start;justify-content:center;z-index:2000;padding:40px 16px}
+.modal .box{background:#fff;border-radius:12px;padding:16px;width:min(560px,100%);max-height:calc(100vh - 80px);overflow:auto;box-shadow:0 10px 40px #0005}
+.modal h3{margin:0 0 4px;font-size:16px}
+.cand{display:flex;gap:8px;align-items:center;padding:8px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;cursor:pointer}
+.cand:hover{border-color:var(--pri);background:#f3f7ff}
+.cand.sel{border-color:var(--pri);background:#e8f0ff}
+.cand .m{flex:1}
+.cand .ok{color:var(--ok);font-weight:700}
+.cand .no{color:var(--warn);font-size:12px}
+
+@media print{.hide-print{display:none!important}.card{border:0}}
+
+:root{--bg:#f1f4f3;--card:#fff;--ink:#19322e;--mute:#70817c;--line:#e1e8e5;--pri:#147d64;--ok:#147d64;--warn:#ab6a13;--bad:#bc4545}
+body{font:14px/1.55 "Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+button,input{transition:border-color .18s,background .18s,box-shadow .18s}
+button{padding:9px 13px;border-radius:9px;font-weight:600}button:hover:not(:disabled){background:#edf5f1;border-color:#a7c3b8}button.p:hover:not(:disabled){background:#106950}button:focus-visible,a:focus-visible,summary:focus-visible,input:focus-visible{outline:3px solid #79cdb1;outline-offset:3px}
+input[type=text],input[type=number],input[type=password]{min-width:0;padding:9px 10px;border:1px solid var(--line);border-radius:9px;font:inherit;background:#fbfcfb;color:var(--ink)}
+a{color:var(--pri);text-underline-offset:3px}.app{max-width:1340px;padding:0 30px 40px}
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:23px 0;border-bottom:1px solid var(--line);gap:20px}.brand{display:flex;align-items:center;gap:12px}.brand-icon{width:42px;height:42px;display:grid;place-items:center;background:var(--ink);color:white;border-radius:12px}.brand h1{display:block;font-size:20px;letter-spacing:-.6px;margin:0}.brand small{font-size:10px;letter-spacing:2px;color:var(--mute);font-weight:700}.top-actions{display:flex;align-items:center;gap:16px}.local-badge{font-size:12px;color:var(--mute)}.local-badge:before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:#39a67d;margin-right:7px}
+.hero{padding:30px 0 25px;display:flex;align-items:center;justify-content:space-between;gap:24px}.eyebrow{font-size:11px;font-weight:700;letter-spacing:1.8px;color:var(--pri);margin-bottom:7px}.hero h2{font-size:clamp(24px,3vw,34px);line-height:1.2;letter-spacing:-1px;margin:0 0 10px}.hero p{color:var(--mute);margin:0;max-width:660px}.flow{display:flex;gap:8px;align-items:center;font-size:11px;white-space:nowrap;color:var(--mute)}.flow b{color:var(--pri);background:#e0eee8;padding:7px 12px;border-radius:20px}
+.workspace{display:grid;grid-template-columns:310px minmax(0,1fr);gap:22px;align-items:start}.setup-column,.route-column{min-width:0}.card{padding:20px;border-radius:16px;margin-bottom:18px;border:1px solid var(--line);box-shadow:0 3px 14px #19322e03}.card h2{font-size:15px;letter-spacing:-.2px;margin-bottom:16px}.card h2 span{background:#e5f1eb;color:var(--pri);border-radius:6px;width:24px;height:24px;line-height:24px;margin-right:9px}.card-caption{font-size:12px;color:var(--mute);margin:-6px 0 16px}
+.pt{display:grid;grid-template-columns:1fr auto auto;gap:8px;padding:13px 0}.pt b{width:auto;grid-column:1/-1;font-size:12px;color:var(--mute);text-transform:uppercase;letter-spacing:1px}.pt .val{font-size:11px;min-width:0;overflow-wrap:anywhere}.pt button{font-size:11px;padding:6px 8px}.pt input{grid-column:1/-1}.drop{background:#f7faf8;border:1.5px dashed #bfd5ca;border-radius:12px;padding:28px 15px;color:var(--ink);line-height:1.7}.drop strong{display:block;font-size:14px;margin-top:10px}.drop .small{display:block;margin-top:5px;font-size:11px}.upload-icon{display:block;margin:auto;color:var(--pri)}.side-note{padding:3px 7px;color:var(--mute);font-size:12px}.side-note b{color:var(--ink);display:block;margin-bottom:5px}.side-note p{margin:0}
+#resCard{padding:24px;min-height:440px}#routeTitle{font-size:18px;letter-spacing:-.4px}.route-toolbar{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;border-bottom:1px solid var(--line);padding:0 0 16px;margin:0 0 12px}.route-toolbar .row{margin:0;font-size:12px}.route-toolbar input{width:58px!important}.route-rule{font-size:11px;color:var(--mute);padding:11px 0;border-bottom:1px solid var(--line)}#routeInfo{font-size:12px;margin-bottom:6px}#geoInfo{font-size:12px;color:var(--pri)}
+.empty-state{text-align:center;padding:48px 24px 30px;color:var(--mute)}.empty-state svg{max-width:220px;margin-bottom:13px}.empty-state h3{font-size:19px;color:var(--ink);margin:0 0 8px;letter-spacing:-.3px}.empty-state p{max-width:380px;margin:0 auto;font-size:13px}.empty-label{display:inline-block;padding:5px 10px;background:#edf3f0;border-radius:20px;color:var(--pri);font-size:11px;margin-top:19px}
+.stat{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:18px 0}.stat>span{background:#f4f7f5;border:1px solid #eaf0ec;border-radius:11px;padding:12px 8px;font-size:12px;text-align:center}.next-stop{background:#193e34;border-radius:13px;color:white;padding:19px 20px;margin:16px 0;font-size:16px;font-weight:600;line-height:1.6}.next-stop small{display:block;color:#a1c6b7;font-size:10px;letter-spacing:1.3px;text-transform:uppercase;margin-bottom:6px}.notice{background:#fff8eb;border:1px solid #efdfbd;color:#805c20;padding:14px 16px;border-radius:11px;margin:12px 0;font-size:12px}.notice b{display:block;margin-bottom:4px}.route-explanation{font-size:11px;color:var(--mute);padding:8px 0}.result-actions{padding:14px 0;border-bottom:1px solid var(--line);gap:8px;flex-wrap:wrap}.result-actions button{font-size:12px}.neighborhood{display:flex;justify-content:space-between;align-items:center;margin:25px 0 7px;color:var(--ink);font-size:13px;font-weight:700}.neighborhood span{font-size:10px;color:var(--mute);font-weight:500;text-transform:uppercase;letter-spacing:.8px}
+.sira{position:relative;border:0;padding:14px 0;gap:15px}.sira:before{content:"";position:absolute;left:16px;top:46px;bottom:-10px;width:1px;background:var(--line)}.sira:last-of-type:before{display:none}.sira .n{position:relative;z-index:1;background:#e7f1ec;color:var(--pri);min-width:34px;width:34px;padding:0}.sira .ad{font-size:15px;line-height:1.5}.sira .adr{font-size:12px;color:#5c7068;max-width:620px;margin:5px 0}.sira .small{font-size:11px}.sira button{margin-top:10px}.sira>div{min-width:0;flex:1}.tag{font-size:10px;letter-spacing:.1px;padding:3px 7px}.stop{padding:17px 0}.stop .top{flex-wrap:wrap}.stop .row{flex-wrap:wrap;margin:10px 0 0}.stop .row button{font-size:11px}.who{min-width:120px}.raw{font-size:12px;margin:7px 0}#stopsCard summary,#mapCard summary{font-size:14px}#stopsCount{display:block;margin:5px 0 0 16px}#stops{margin-top:12px}#map{height:420px}.modal{background:#122b246e;backdrop-filter:blur(3px)}.modal .box{border-radius:18px;padding:24px;width:min(650px,100%)}.modal .row{gap:8px}.cand{align-items:flex-start;padding:13px;border-radius:10px}.cand button{white-space:normal;max-width:140px;font-size:11px}.modal input{min-width:0}.small{line-height:1.6}.found{margin-top:5px}
+@media(max-width:1000px){.app{padding:0 20px 30px}.workspace{grid-template-columns:270px minmax(0,1fr);gap:16px}.flow{display:none}.stat{grid-template-columns:repeat(2,minmax(0,1fr))}#resCard{padding:20px}}
+@media(max-width:720px){.app{padding:0 14px 24px}.workspace{display:flex;flex-direction:column;gap:0}.setup-column,.route-column{width:100%}.setup-column{display:grid;grid-template-columns:1fr 1fr;gap:12px}.setup-column .card{padding:16px}.side-note{grid-column:1/-1;margin:0 0 18px}.pt{grid-template-columns:1fr auto}.pt .val{grid-column:1/-1}.hero{padding:23px 0}.hero h2{font-size:25px}.hero p{font-size:12px}.topbar{padding:16px 0}.local-badge{display:none}.brand h1{font-size:18px}.brand small{font-size:9px}.drop{padding:20px 10px}.drop strong{font-size:12px}.card h2{font-size:13px}.card h2 span{display:none}.card-caption{font-size:11px}.empty-state{padding:30px 10px}.route-toolbar>button{width:100%}.modal{padding:15px 10px}.modal .box{max-height:calc(100vh - 30px);padding:18px}.modal .row{flex-wrap:wrap}.modal .row input{flex:1;min-width:160px}.route-column #resCard{min-height:350px}}
+@media(max-width:430px){.setup-column{grid-template-columns:1fr}.pt{grid-template-columns:1fr auto auto}.pt .val{grid-column:auto}.drop{padding:18px}.upload-icon{display:none}.drop strong{margin:0}.side-note{display:none}.top-actions button{font-size:11px}.hero h2{font-size:24px}}
+@media print{body{background:white}.topbar,.hero,.setup-column,.route-toolbar,.route-rule{display:none!important}.workspace{display:block}.app{max-width:none;padding:0}#resCard{padding:0}.stat>span{border:1px solid #ccc}.next-stop{color:#000;background:#fff;border:1px solid #ccc}.sira{break-inside:avoid}.card{box-shadow:none}.route-column{width:100%}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topbar"><div class="brand"><div class="brand-icon"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="6" cy="6" r="2.5" stroke="currentColor" stroke-width="1.7"/><circle cx="18" cy="18" r="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M8.5 6H16a4 4 0 0 1 0 8H8a4 4 0 0 0 0 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div><div><h1>Rota Planı</h1><small>GÜNLÜK DAĞITIM ASİSTANI</small></div></div><div class="top-actions"><span class="local-badge">Yerel çalışma alanı</span><button id="setBtn" class="hide-print">Ayarlar</button></div></header>
+  <section class="hero"><div><div class="eyebrow">DAHA AZ YOL. DAHA DÜZENLİ DAĞITIM.</div><h2>Bugünün rotası, doğru sırada.</h2><p>Evrak karışık olabilir. Teslimat sırasını yakınlık ve mahallelere göre yeniden oluşturuyoruz.</p></div><div class="flow"><b>Depo</b><span>→</span><b>Teslimatlar</b><span>→</span><b>Ev</b></div></section>
+  <div class="card" id="fileWarn" style="display:none;border-color:var(--bad);color:var(--bad)">Sayfa doğrudan dosyadan açılmış. Lütfen klasördeki <b>başlat.bat</b> ile açın; aksi halde ayarlar kaydedilmez ve adres arama çalışmaz.</div>
+
+  <div class="card hide-print" id="setCard" style="display:none">
+    <h2>⚙ Ayarlar</h2>
+    <div class="row"><label>Yandex</label><input type="password" id="yKeyIn" placeholder="Yandex JavaScript API anahtarı"><button class="p" id="yKeySave">Kaydet</button></div>
+    <div class="small">Anahtar bir kez kaydedilir, tekrar sorulmaz. Harita için gerekir.</div>
+    <details style="margin-top:10px"><summary>İsteğe bağlı ücretli Google API</summary><div class="row"><label>Google</label><input type="password" id="gKeyIn" placeholder="Google Places API (New) anahtarı" style="flex:1;min-width:0"><button class="p" id="gKeySave">Kaydet</button></div>
+    <div class="small" id="gStatus">Varsayılan arama ücretsiz Photon/OpenStreetMap kullanır.</div></details>
+    <div class="small" id="yWarn" role="status" style="display:none;color:var(--bad);margin-top:6px"></div><details open style="margin-top:12px"><summary>Adres servisleri ve bağlantı testleri</summary><p class="small">Kaydettiğiniz servisler adres ararken otomatik karşılaştırılır. Sorgular sağlayıcının kotasından düşer; planına göre ücret doğabilir. Anahtarlar yerel sunucuda tutulur. Google yalnızca ayrı düğmesiyle kullanılır.</p><div style="margin-top:12px"><label for="yandexKey"><b>Yandex Geocoder</b></label><div class="row"><input type="password" autocomplete="off" id="yandexKey" placeholder="Ayrı Geocoder anahtarı (boşsa harita anahtarı denenir)" style="flex:1;min-width:0"><button id="yandexSave">Kaydet</button><button id="yandexTest">Bağlantıyı test et</button><button id="yandexRemove">Kaldır</button></div><div class="small" role="status" id="yandexStatus">Anahtar kontrol ediliyor…</div></div><div style="margin-top:12px"><label for="geoapifyKey"><b>Geoapify</b></label><div class="row"><input type="password" autocomplete="off" id="geoapifyKey" placeholder="Geocoding API anahtarı" style="flex:1;min-width:0"><button id="geoapifySave">Kaydet</button><button id="geoapifyTest">Bağlantıyı test et</button><button id="geoapifyRemove">Kaldır</button></div><div class="small" role="status" id="geoapifyStatus">Anahtar kontrol ediliyor…</div></div><div style="margin-top:12px"><label for="tomtomKey"><b>TomTom</b></label><div class="row"><input type="password" autocomplete="off" id="tomtomKey" placeholder="Search API anahtarı" style="flex:1;min-width:0"><button id="tomtomSave">Kaydet</button><button id="tomtomTest">Bağlantıyı test et</button><button id="tomtomRemove">Kaldır</button></div><div class="small" role="status" id="tomtomStatus">Anahtar kontrol ediliyor…</div></div><div style="margin-top:12px"><label for="maptilerKey"><b>MapTiler</b></label><div class="row"><input type="password" autocomplete="off" id="maptilerKey" placeholder="Geocoding API anahtarı" style="flex:1;min-width:0"><button id="maptilerSave">Kaydet</button><button id="maptilerTest">Bağlantıyı test et</button><button id="maptilerRemove">Kaldır</button></div><div class="small" role="status" id="maptilerStatus">Anahtar kontrol ediliyor…</div></div><p class="small">Yandex anahtarı reddediliyorsa <a href="https://developer.tech.yandex.ru/" target="_blank" rel="noopener">Yandex geliştirici panelinde</a> Geocoder ürününü ve anahtar kısıtlarını kontrol edin. Sunucu üzerinden sorgulandığı için IP kısıtlarını da kontrol edin.</p><p class="small"><a href="https://www.geoapify.com/" target="_blank" rel="noopener">Powered by Geoapify</a> · © OpenStreetMap contributors · TomTom · MapTiler · Yandex. Her sonucun kaynağı yanında gösterilir.</p></details>
+  </div>
+
+  <div class="workspace"><aside class="setup-column">
+  <div class="card hide-print">
+    <h2><span>1</span>Başlangıç ve bitiş</h2><p class="card-caption">Bir kez kaydet, her gün kullan.</p>
+    <div id="ptBox"></div>
+    <div class="small" id="ptStatus"></div>
+  </div>
+
+  <div class="card hide-print">
+    <h2><span>2</span>Teslimatları ekle</h2><p class="card-caption">Satırların sıralı olması gerekmez.</p>
+    <div class="drop" id="drop" role="button" tabindex="0" aria-label="Teslimat evrakı yükle"><svg class="upload-icon" width="29" height="29" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 16V4m-4 4 4-4 4 4M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><strong>Dosyanı buraya bırak</strong><span class="small">veya seçmek için tıkla<br>Fotoğraf, Excel, CSV · Çoklu yükleme</span><input type="file" id="file" accept="image/*,.xlsx,.xls,.csv" multiple hidden></div>
+    <div class="bar" id="ocrBar" style="display:none"><i></i></div>
+    <div class="small" id="fileInfo" style="margin-top:6px"></div>
+  </div>
+
+  <div class="side-note"><b>Evrak sırası rota sırası değildir.</b><p>En yakın müşteriden başla. Mahalledeki işleri birlikte bitir. Son duraktan eve dön.</p></div>
+  </aside><main class="route-column">
+  <div class="card" id="resCard">
+    <h2 id="routeTitle">Teslimat planın</h2>
+    <div class="bar hide-print" id="geoBar" style="display:none"><i></i></div>
+    <div class="small hide-print" id="geoInfo"></div>
+    <div class="route-toolbar hide-print"><div class="row"><label for="svc" style="width:auto">Durak başına</label><input type="number" id="svc" value="5" min="0" aria-label="Durak başına bekleme süresi"><span class="small">dk bekleme</span></div><button id="routeBtn" class="p" disabled>Rotayı hesapla</button></div>
+    <div class="small hide-print" id="routeInfo"></div>
+    <div class="route-rule">En yakın başlangıç <span aria-hidden="true"> · </span> Mahalleleri birlikte tamamla <span aria-hidden="true"> · </span> Eve dönüş dahil</div>
+    <div id="deliveryInfo" class="small" style="margin-top:6px"></div>
+    <div id="result"></div>
+  </div>
+
+  <details class="card hide-print" id="stopsCard" style="display:none">
+    <summary><b>Adres kontrol merkezi</b> <span class="small">· Evrak kayıtları</span> <span class="small" id="stopsCount"></span></summary>
+    <div class="row" style="margin-top:8px"><button id="geoBtn">Adresleri tekrar ara</button></div>
+    <div class="small">Önce sokak, mahalle ve bina numarası eşleştirilir. Bina bulunamazsa AVM/apartman/site adı ücretsiz OpenStreetMap verisinde aranır. Yaklaşık konumlarla yalnızca rota taslağı hazırlanır. Navigasyon için bina konumlarını teyit edin. Bu liste evraktaki sırayı korur; teslimat sırası üstte gösterilir.</div>
+    <div id="stops"></div><div class="small">Yer verisi: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap katkıcıları</a> · Photon. Kamu servisi sınırlıdır; her bina kayıtlı olmayabilir.</div>
+  </details>
+
+  <details class="card hide-print" id="mapCard">
+    <summary><b>Rotayı haritada gör</b> <span class="small">· Konumları incele</span></summary>
+    <div style="position:relative;margin-top:8px"><div class="hint" id="hint"></div><div id="map"></div></div>
+  </details>
+</main></div>
+</div>
+
+<div class="modal" id="pk"><div class="box">
+  <h3 id="pkTitle">Adres seç</h3>
+  <div class="raw" id="pkRaw"></div>
+  <div class="card" style="margin-top:8px">
+    <b>Ücretsiz AVM / bina arama</b><div class="small">Photon · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap katkıcıları</a>. API anahtarı gerekmez.</div>
+    <div class="row"><input type="text" id="pkPlaceQuery" placeholder="Apartman/site adı, mahalle, ilçe"><button id="pkPlaceSearch">Kaynaklarda ara</button></div>
+    <div class="small"><a id="pkGoogleLink" target="_blank" rel="noopener">Google Haritalar’da aç</a> · Aynı isimli binalarda mahalle ve ilçeyi kontrol edin.</div>
+    <div id="pkPlaceResults"></div><button id="pkGoogleApiSearch" style="display:none">Google API ile ara (ücretli, isteğe bağlı)</button>
+    <div class="row" style="margin-top:8px"><input type="text" id="pkPlaceCoord" placeholder="Teyit ettiğiniz binanın koordinatı: 41.012345, 29.123456"><button id="pkPlaceSave">Konumu doğrula</button></div>
+    <div class="small">Google’daki bina noktasına sağ tıklayıp koordinatını kopyalayabilirsiniz. Yalnızca haritayı açmak adresi doğrulamaz.</div>
+  </div>
+  <div class="row"><label>Sokak</label><input type="text" id="pkStreet" placeholder="ör. Tepegöz Sokak"></div>
+  <div class="row"><label>İlçe</label><input type="text" id="pkIlce" placeholder="ör. Kadıköy"><button class="p" id="pkSearch">Sokağı ara</button></div>
+  <div class="small" id="pkInfo"></div>
+  <div id="pkList"></div>
+  <div id="pkStep2" style="display:none">
+    <div class="row"><label>Bina no</label><input type="text" id="pkNo" placeholder="ör. 32" style="width:120px"><button class="p" id="pkSave">Kaydet</button></div>
+    <div class="small" id="pkMsg"></div>
+  </div>
+  <div class="row" style="margin-top:10px"><button id="pkMap">📍 Haritadan seç</button><span style="flex:1"></span><button id="pkClose">Kapat</button></div>
+</div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const tr=s=>String(s||'').toLocaleLowerCase('tr-TR');
+const fold=s=>tr(s).replace(/ç/g,'c').replace(/ğ/g,'g').replace(/ı/g,'i').replace(/i̇/g,'i').replace(/ö/g,'o').replace(/ş/g,'s').replace(/ü/g,'u');
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// ---------- kalıcı ayarlar (sunucu.py → ayarlar.json) ----------
+const SYNC=['ykey','depot','home'],srv=location.protocol.startsWith('http');
+if(srv)try{const x=new XMLHttpRequest();x.open('GET','/ayarlar?'+Date.now(),false);x.send();if(x.status===200){const a=JSON.parse(x.responseText),miss={};
+  for(const k of SYNC){if(a[k]!=null)localStorage.setItem(k,JSON.stringify(a[k]));else{const v=localStorage.getItem(k);if(v)miss[k]=JSON.parse(v)}}
+  if(Object.keys(miss).length)fetch('/ayarlar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(miss)}).catch(()=>{}); // tarayıcıda kalmış eski ayarları dosyaya taşı
+}}catch(e){}
+const store={get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}
+  if(srv&&SYNC.includes(k))fetch('/ayarlar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({[k]:v})}).catch(()=>{})}};
+
+const ILCELER=['Adalar','Arnavutköy','Ataşehir','Avcılar','Bağcılar','Bahçelievler','Bakırköy','Başakşehir','Bayrampaşa','Beşiktaş','Beykoz','Beylikdüzü','Beyoğlu','Büyükçekmece','Çatalca','Çekmeköy','Esenler','Esenyurt','Eyüpsultan','Fatih','Gaziosmanpaşa','Güngören','Kadıköy','Kağıthane','Kartal','Küçükçekmece','Maltepe','Pendik','Sancaktepe','Sarıyer','Silivri','Sultanbeyli','Sultangazi','Şile','Şişli','Tuzla','Ümraniye','Üsküdar','Zeytinburnu'];
+const ilceMap=Object.fromEntries(ILCELER.map(n=>[fold(n),n]));
+const lev=(a,b)=>{const m=[...Array(b.length+1).keys()];for(let i=1;i<=a.length;i++){let p=m[0];m[0]=i;for(let j=1;j<=b.length;j++){const t=m[j];m[j]=Math.min(m[j]+1,m[j-1]+1,p+(a[i-1]===b[j-1]?0:1));p=t}}return m[b.length]};
+function matchIlce(t){const f=fold(t).replace(/[^a-z]/g,'');if(f.length<4)return null;if(ilceMap[f])return ilceMap[f];for(const k in ilceMap)if(Math.abs(k.length-f.length)<=2&&lev(k,f)<=(f.length>6?2:1))return ilceMap[k];return null}
+const isIst=t=>{const f=fold(t).replace(/[^a-z]/g,'');return f.length>=6&&lev(f,'istanbul')<=2};
+
+let yKey=store.get('ykey')||'';
+let stops=[],depot=store.get('depot'),home=store.get('home'),routeOrder=null;
+let delivered=[],routeRun=0,routeBusy=false,googleConfigured=false,pickerRun=0;
+const validPoint=p=>!!p&&Number.isFinite(p.lat)&&Number.isFinite(p.lon)&&p.lat>=-90&&p.lat<=90&&p.lon>=-180&&p.lon<=180;
+const readyStop=s=>validPoint(s)&&['Kapı','Elle','Google','OSM'].includes(s.quality);
+const pendingStops=()=>stops.filter(s=>!s.skip&&!delivered.includes(s));
+const origin=()=>delivered.at(-1)||depot;
+function stableStopKey(s){
+  const orders=(s.orders||[]).map(o=>[o.raw,o.sip,o.musteri,o.alici].map(fold).join('|')).sort().join('~');
+  return [s.lat,s.lon,core(s.ilce),core(s.mah),core(s.street),s.no,core(s.place),orders||fold(s.raw)].join('|');
+}
+function planningStops(){return pendingStops().slice().sort((a,b)=>{const x=stableStopKey(a),y=stableStopKey(b);return x<y?-1:x>y?1:0})}
+function renderEmpty(){
+  $('result').innerHTML=`<div class="empty-state"><svg width="220" height="86" viewBox="0 0 220 86" fill="none" aria-hidden="true"><path d="M28 62C65 62 53 24 94 24s30 38 67 38h30" stroke="#c7dcd1" stroke-width="2" stroke-dasharray="5 6"/><circle cx="28" cy="62" r="9" fill="#e1eee7" stroke="#7cae94" stroke-width="2"/><circle cx="94" cy="24" r="6" fill="#c5dbce"/><circle cx="153" cy="59" r="6" fill="#c5dbce"/><circle cx="191" cy="62" r="10" fill="#147d64"/><path d="m187 62 3 3 5-6" stroke="white" stroke-width="1.8" stroke-linecap="round"/></svg><h3>${stops.length?'Adreslerden rotan hazırlanıyor':'Sıradaki yolculuk burada başlıyor'}</h3><p>${stops.length?'Konumları bulduktan sonra evrak sırasından bağımsız teslimat planı burada görünecek.':'Evrakını ekle; müşterileri bulalım, mahalleleri gruplayalım ve en yakın duraktan başlayalım.'}</p><span class="empty-label">Depodan başlar, evde biter</span></div>`;
+}
+
+
+// ---------- harita (Yandex Haritalar) ----------
+let map=null,routeLine=null,pickCb=null,mapReadyRes;const mapReady=new Promise(r=>mapReadyRes=r);
+const markers={};
+const mp={
+  setView(lat,lon,z){if(map)map.setCenter([lat,lon],z)},
+  fit(pts){
+    if(!map||!pts.length)return;
+    if(pts.length===1){map.setCenter(pts[0],15);return}
+    const la=pts.map(p=>p[0]),lo=pts.map(p=>p[1]);
+    map.setBounds([[Math.min(...la),Math.min(...lo)],[Math.max(...la),Math.max(...lo)]],{checkZoomRange:true,zoomMargin:40});
+  }
+};
+function initMap(){
+  const el=$('map');
+  if(!yKey){mapReadyRes();el.innerHTML='<div style="padding:30px;color:#6b7686">Haritayı görmek için <b>⚙ Ayarlar</b> bölümüne Yandex anahtarını bir kez girin.</div>';return}
+  const sc=document.createElement('script');
+  sc.src='https://api-maps.yandex.ru/2.1/?lang=tr_TR&apikey='+encodeURIComponent(yKey);
+  sc.onerror=()=>{mapReadyRes();el.innerHTML='<div style="padding:30px;color:#c62f2f">Yandex haritası yüklenemedi. Anahtarı ve internet bağlantısını kontrol edin.</div>'};
+  sc.onload=()=>ymaps.ready(()=>{mapReadyRes();if($('mapCard').open)createMap()});
+  document.head.appendChild(sc);
+}
+function createMap(){
+  if(map||!window.ymaps||!ymaps.Map)return;
+  map=new ymaps.Map('map',{center:[41.0,29.05],zoom:11,controls:['zoomControl','typeSelector']});
+  map.events.add('click',e=>{if(!pickCb)return;const [lat,lon]=e.get('coords');const cb=pickCb;stopPick();cb(lat,lon)});
+  refreshMarkers();fitAll();drawRouteLine();
+}
+let lastCoords=null,lastGeom=false;
+function drawRouteLine(){
+  if(!map)return;
+  if(routeLine)map.geoObjects.remove(routeLine);routeLine=null;
+  if(!routeOrder||!lastCoords)return;
+  routeLine=new ymaps.Polyline(lastCoords,{},{strokeColor:'#1f6feb',strokeWidth:4,strokeOpacity:.8,strokeStyle:lastGeom?'solid':'dash'});map.geoObjects.add(routeLine);
+  mp.fit(lastCoords);
+}
+function setMarker(key,latlng,label,color,onDrag,tip){
+  if(!map)return;
+  const m=new ymaps.Placemark(latlng,{iconContent:String(label),hintContent:tip||''},{preset:'islands#circleIcon',iconColor:color,draggable:!!onDrag});
+  if(onDrag)m.events.add('dragend',()=>{const c=m.geometry.getCoordinates();onDrag(c[0],c[1])});
+  map.geoObjects.add(m);markers[key]=m;
+}
+function refreshMarkers(){
+  if(!map)return;
+  for(const k in markers){map.geoObjects.remove(markers[k]);delete markers[k]}
+  if(depot)setMarker('depot',[depot.lat,depot.lon],'D','#1a8f4c',null,'Depo');
+  if(home)setMarker('home',[home.lat,home.lon],'E','#1c2430',null,'Ev');
+  stops.forEach((s,i)=>{
+    if(s.lat==null)return;
+    const pos=routeOrder?routeOrder.indexOf(s)+1:0;
+    const color=s.skip||delivered.includes(s)?'#999999':({Kapı:'#1a8f4c',Google:'#1a8f4c',OSM:'#1a8f4c',Sokak:'#2b8a9e',Elle:'#6f42c1'}[s.quality]||'#c77800');
+    setMarker('s'+s.id,[s.lat,s.lon],delivered.includes(s)?'✓':routeOrder?(pos||'–'):'?',color,geoBusy||delivered.includes(s)?null:(a,b)=>{s.lat=a;s.lon=b;s.quality='Elle';s.match=null;clearRoute();renderStops();refreshMarkers()},s.orders.map(o=>o.alici).join(', '));
+  });
+}
+let geoBusy=false,autoT=null;
+function clearRoute(){routeRun++;routeBusy=false;if(routeLine&&map)map.geoObjects.remove(routeLine);routeLine=null;lastCoords=null;routeOrder=null;renderEmpty();updateState();autoRoute()}
+function autoRoute(){clearTimeout(autoT);autoT=setTimeout(()=>{const active=pendingStops();if(!geoBusy&&validPoint(origin())&&validPoint(home)&&(active.length||delivered.length)&&active.every(validPoint))buildRoute()},400)}
+function startPick(msg,cb){$('mapCard').open=true;createMap();$('mapCard').scrollIntoView({behavior:'smooth'});pickCb=cb;$('hint').textContent=msg+' — haritaya tıklayın (Esc: vazgeç)';$('hint').style.display='block';if(map)map.cursors.push('crosshair')}
+function stopPick(){pickCb=null;$('hint').style.display='none';if(map)map.cursors.push('arrow')}
+function fitAll(){
+  mp.fit([...stops.filter(s=>s.lat!=null).map(s=>[s.lat,s.lon]),...(depot?[[depot.lat,depot.lon]]:[]),...(home?[[home.lat,home.lon]]:[])]);
+}
+
+// ---------- depo / ev: sadece koordinat, bir kez kaydedilir ----------
+function parseCoord(t){
+  t=String(t);
+  let m=t.match(/ll=(-?\d+\.\d+)(?:,|%2C)(-?\d+\.\d+)/); // yandex linki: boylam,enlem
+  let a,b;
+  if(m){a=+m[2];b=+m[1]}
+  else{m=t.match(/(-?\d{1,2}[.,]\d{3,})\s*[,; ]\s*(-?\d{1,2}[.,]\d{3,})/);if(!m)return null;a=+m[1].replace(',','.');b=+m[2].replace(',','.')}
+  if(a<35||a>43||b<25||b>45)return null;
+  return {lat:a,lon:b};
+}
+function renderPts(){
+  const box=$('ptBox');box.innerHTML='';
+  for(const [k,name] of [['depot','Depo'],['home','Ev']]){
+    const v=k==='depot'?depot:home;
+    const d=document.createElement('div');d.className='pt';
+    if(v&&!v._edit){
+      d.innerHTML=`<b>${name}</b><span class="val">${v.lat.toFixed(6)}, ${v.lon.toFixed(6)}</span><button data-a="show">Göster</button><button data-a="edit">Değiştir</button>`;
+      d.querySelector('[data-a=show]').onclick=()=>mp.setView(v.lat,v.lon,16);
+      d.querySelector('[data-a=edit]').onclick=()=>{v._edit=true;renderPts()};
+    }else{
+      d.innerHTML=`<b>${name}</b><input type="text" placeholder="koordinat yapıştırın, ör. 41.012345, 29.123456"><button class="p" data-a="save">Kaydet</button><button data-a="pick" title="Haritaya tıklayarak seç">📍</button>${v?'<button data-a="cancel">Vazgeç</button>':''}`;
+      const inp=d.querySelector('input');
+      const save=c=>{const o={lat:c.lat,lon:c.lon};if(k==='depot')depot=o;else home=o;store.set(k,o);clearRoute();renderPts();refreshMarkers();updateState();mp.setView(o.lat,o.lon,15);$('ptStatus').textContent=name+' kaydedildi. Siz değiştirmedikçe hep bu konum kullanılacak.'};
+      d.querySelector('[data-a=save]').onclick=()=>{const c=parseCoord(inp.value);if(!c){$('ptStatus').textContent='Koordinat anlaşılamadı. Yandex Haritalar’da noktaya sağ tıklayıp “Koordinatlar”ı kopyalayın ve buraya yapıştırın.';return}save(c)};
+      inp.onkeydown=e=>{if(e.key==='Enter')d.querySelector('[data-a=save]').click()};
+      d.querySelector('[data-a=pick]').onclick=()=>startPick(name+' konumunu seçin',(lat,lon)=>save({lat,lon}));
+      const c=d.querySelector('[data-a=cancel]');if(c)c.onclick=()=>{delete v._edit;renderPts()};
+    }
+    box.appendChild(d);
+  }
+}
+
+// ---------- adres ayrıştırma (evrak metni → mahalle / sokak / kapı no) ----------
+const STREET={cad:'Caddesi',cd:'Caddesi',cadde:'Caddesi',caddesi:'Caddesi',sok:'Sokak',sk:'Sokak',sokak:'Sokak','sokağı':'Sokak',bulvar:'Bulvarı','bulvarı':'Bulvarı',blv:'Bulvarı'};
+const STOPW=/^(mah|mahallesi|mahalle|no|apt|apartman|apartmanı|sitesi|site|sit|blok|kat|daire|d|istanbul|i̇stanbul|\/|-)$/;
+function parseAddress(raw,ilceRaw){
+  const s=String(raw).replace(/\s+/g,' ').trim();
+  const mm=[...s.matchAll(/(?:^|[,;])\s*([A-Za-zÇĞİÖŞÜçğıöşü0-9]+(?:\s+[A-Za-zÇĞİÖŞÜçğıöşü0-9]+){0,3})\s+mah(?:allesi)?(?=[\s.,/]|$)/gi)].map(x=>x[1]).filter(x=>!/^mah/i.test(x));
+  const fallbackMah=[...s.matchAll(/([A-Za-zÇĞİÖŞÜçğıöşü]{3,})\s+mah(?:allesi)?(?=[\s.,/]|$)/gi)].map(x=>x[1]).find(x=>!/^mah/i.test(x));
+  const mah=mm[0]||fallbackMah||'';
+  const rest=s.replace(/([a-zçğıöşü])([A-ZÇĞİÖŞÜ])/g,'$1 $2');
+  const toks=rest.split(/[\s,]+/).filter(Boolean);
+  let street='',no='';
+  for(let i=0;i<toks.length;i++){
+    const t=tr(toks[i]).replace(/\.$/,'');
+    if(STREET[t]&&i>0){
+      const name=[];
+      for(let j=i-1;j>=0&&name.length<4;j--){
+        const p=tr(toks[j]).replace(/[.:]$/,'');
+        if(STOPW.test(p)||/:$/.test(toks[j]))break;
+        if(/\d/.test(p)){if(j===i-1&&/^\d+\.?$/.test(toks[j]))name.unshift(toks[j].replace(/\.$/,''));break}
+        name.unshift(toks[j].replace(/\.$/,''));
+      }
+      if(!name.length)continue;
+      street=name.join(' ')+' '+STREET[t];
+      const after=toks.slice(i+1).join(' ');
+      const n=after.match(/^(?:no\s*[:.]?\s*)?(\d+[A-Za-z]?(?:[-/]\d+[A-Za-z]?)?)(?=\s|[.,]|$)/i)||after.match(/\bno\s*[:.]?\s*(\d+[A-Za-z]?(?:[-/]\d+[A-Za-z]?)?)/i);
+      if(n)no=n[1];
+      break;
+    }
+  }
+  if(!no){const n=rest.match(/\bno\s*[:.]?\s*(\d+[A-Za-z]?(?:[-/]\d+[A-Za-z]?)?)/i);if(n)no=n[1]}
+  const ilce=ilceMap[fold(ilceRaw)]||matchIlce(ilceRaw||'')||ILCELER.find(x=>new RegExp('(?:^|[^a-z])'+fold(x)+'(?:$|[^a-z])').test(fold(s)))||String(ilceRaw||'').trim();
+  // AVM/site/apartman adını sokaktan bağımsız koru; yalnızca isim girilmişse de ara.
+  const placeParts=s.split(/(?:mah(?:allesi)?\.?|sokak|sokağı|sok\.?\b|sk\.|caddesi|cad\.|cd\.)\s*/i);
+  const pm=placeParts.map(part=>part.replace(/\b(?:no|kat|daire|blok)\s*[:.]?\s*[\w/-]+/gi,' ')
+    .match(/([A-Za-zÇĞİÖŞÜçğıöşü0-9][A-Za-zÇĞİÖŞÜçğıöşü0-9 '&.-]*?\s+(?:avm|alışveriş merkezi|apt\.?|apartmanı|apartman|sitesi|rezidans|residence|plaza|yerleşkesi|kampüsü))(?=\s|[.,/]|$)/i)).find(Boolean);
+  let place=pm?pm[1].replace(/^\d+[A-Za-z]?\s+/,'').trim():'';
+  if(!place&&!street)place=s.replace(/\b(?:no|kat|daire|blok)\s*[:.]?\s*[^,; ]+/gi,'').replace(/[,;].*$/,'').trim();
+  if(place&&ilce)place=place.replace(new RegExp(ilce,'i'),'').trim();
+  return {mah,street,no,ilce,place};
+}
+
+// ---------- adres servisi: Yandex (izin varsa) → Photon/OpenStreetMap ----------
+const BBOX='27.9,40.7,29.95,41.6';
+let lastReq=0,yBroken=false;
+async function throttle(ms){const w=Math.max(0,lastReq+ms-Date.now());lastReq=Date.now()+w;await new Promise(r=>setTimeout(r,w))}
+const providerFields={yandex:'ygeokey',geoapify:'geoapifyKey',tomtom:'tomtomKey',maptiler:'maptilerKey'};
+const providerNames={yandex:'Yandex Geocoder',geoapify:'Geoapify',tomtom:'TomTom',maptiler:'MapTiler'};
+let configuredProviders={},providerErrors={},yRetryAt=0,providerEpoch=0;
+const providerCache=new Map();
+function showProviderStatus(p,message){$(p+'Status').textContent=message}
+async function providerSearch(p,q,mode='address',fresh=false){
+  const epoch=providerEpoch,ck=[epoch,p,mode,q].join('|'),cached=providerCache.get(ck);
+  if(!fresh&&cached&&Date.now()-cached.at<120000)return cached.items;
+  try{
+    const r=await fetch('/api/location-search?provider='+encodeURIComponent(p)+'&mode='+mode+'&q='+encodeURIComponent(q),{signal:AbortSignal.timeout(16000)});
+    const j=await r.json();if(!r.ok){const e=new Error(j.error||'Servis yanıt vermedi.');e.code=j.code;throw e}
+    if(!Array.isArray(j.candidates))throw new Error('Sunucu güncel değil veya yanıt anlaşılamadı. başlat.bat ile yeniden başlatın.');
+    const items=j.candidates.filter(validPoint).map(c=>({...c,ilce:ILCELER.find(x=>(c.areas||[]).some(r=>core(r)===core(x)||core(r)===core(x)+'ilcesi'))||'',mah:(c.areas||[]).find(r=>/mahallesi|mah\./i.test(r))||'',types:c.types||[],areas:c.areas||[]}));
+    if(epoch===providerEpoch){delete providerErrors[p];providerCache.set(ck,{at:Date.now(),items});showProviderStatus(p,'Bağlantı başarılı · '+items.length+' sonuç');}
+    return items;
+  }catch(e){if(epoch===providerEpoch){providerErrors[p]=e.message;showProviderStatus(p,e.message);}throw e}
+}
+async function yandexSearch(q){
+  if((!yKey&&!configuredProviders.yandex)||Date.now()<yRetryAt)return null;
+  try{
+    const out=await providerSearch('yandex',q);yBroken=false;yRetryAt=0;$('yWarn').style.display='none';return out;
+  }catch(e){
+    yBroken=true;yRetryAt=Date.now()+(e.code==='auth'?60000:15000);
+    $('yWarn').textContent='Yandex Geocoder: '+e.message+' Diğer kullanılabilir kaynaklarla arama sürüyor.';
+    $('yWarn').style.display='block';return null;
+  }
+}
+async function extraProviderSearch(q,mode='address'){
+  const providers=Object.keys(providerFields).filter(p=>p!=='yandex'&&configuredProviders[p]);
+  const results=await Promise.allSettled(providers.map(p=>providerSearch(p,q,mode)));
+  return results.flatMap(r=>r.status==='fulfilled'?r.value:[]);
+}
+function photonCandidate(f){
+  const p=f.properties||{},[lon,lat]=f.geometry?.coordinates||[];
+  const isSt=p.osm_key==='highway',isArea=['district','locality','city','county','state','country'].includes(p.type);
+  const regions=[p.district,p.locality,p.city,p.county,p.state].filter(Boolean);
+  const ilce=ILCELER.find(x=>regions.some(r=>core(r)===core(x)||core(r)===core(x)+'ilcesi'))||'';
+  const types=p.osm_key==='shop'&&p.osm_value==='mall'?['shopping_mall']:
+    p.osm_key==='building'?['premise']:p.housenumber?['street_address']:
+    isSt?['route']:isArea?['locality']:['amenity','shop','tourism','leisure','office'].includes(p.osm_key)?['establishment']:['locality'];
+  const osmType={N:'node',W:'way',R:'relation'}[p.osm_type];
+  return {lat,lon,type:p.housenumber?'house':isSt?'street':isArea?'area':'poi',name:p.name||'',
+    road:isSt?(p.name||''):(p.street||''),no:p.housenumber||'',mah:p.district||p.locality||(isArea?p.name:'')||'',
+    areas:regions,ilce,types,source:'OpenStreetMap',placeId:osmType&&p.osm_id?osmType+'/'+p.osm_id:'',
+    address:[p.street,p.housenumber,p.district,p.city,p.state].filter(Boolean).join(', '),
+    url:osmType&&p.osm_id?'https://www.openstreetmap.org/'+osmType+'/'+encodeURIComponent(p.osm_id):'https://www.openstreetmap.org/?mlat='+lat+'&mlon='+lon};
+}
+async function photonSearch(q,layers,strict=false){
+  const ck='ph2:'+q+'|'+(layers||''),cached=store.get(ck);
+  if(cached&&Date.now()-cached.at<7*86400000)return cached.items;
+  await throttle(1000);
+  let u='https://photon.komoot.io/api/?limit=15&lat=41.0&lon=29.05&bbox='+BBOX+'&q='+encodeURIComponent(q);
+  if(layers)for(const l of layers)u+='&layer='+l;
+  try{
+    const response=await fetch(u,{signal:AbortSignal.timeout(12000)});
+    if(!response.ok)throw new Error('Ücretsiz arama servisi şu anda yanıt vermiyor (HTTP '+response.status+'). Daha sonra tekrar deneyin veya haritadan teyit edin.');
+    const j=await response.json();
+    if(!Array.isArray(j.features))throw new Error('Arama servisinin yanıtı anlaşılamadı.');
+    const out=j.features.map(photonCandidate).filter(c=>validPoint(c)&&c.lat>=40.7&&c.lat<=41.6&&c.lon>=27.9&&c.lon<=29.95);
+    store.set(ck,{at:Date.now(),items:out});return out;
+  }catch(e){if(strict)throw e;return []}
+}
+// Önce yer adı ve ilçe; mahalle eklenirse küçük kayıt farklılıkları tüm sonuçları gizleyebilir.
+async function freePlaceSearch(q){return photonSearch(q,null,true)}
+async function placeSearchForStop(a){
+  const first=[a.place||[a.street,a.no].filter(Boolean).join(' ')||a.raw,a.ilce,'İstanbul'].filter(Boolean).join(' ');
+  let candidates=await freePlaceSearch(first);
+  if(!candidates.length&&a.place&&placeCore(a.place)!==core(a.place)){
+    const simple=a.place.replace(/\b(?:AVM|apt\.?)\b|alışveriş merkezi|apartmanı|sitesi/gi,'').trim();
+    if(simple.length>=3)candidates=await freePlaceSearch([simple,a.ilce,'İstanbul'].filter(Boolean).join(' '));
+  }
+  return candidates;
+}
+async function search(q,layers){const y=await yandexSearch(q);return [...(y||[]),...await photonSearch(q,layers)]}
+
+const core=s=>fold(s).replace(/\bdr\b\.?/g,'doktor').replace(/\bav\b\.?/g,'avukat').replace(/\b(sokagi|sokak|sok|sk|caddesi|cadde|cad|cd|bulvari|bulvar|blv|mahallesi|mahalle|mah)\b\.?/g,' ').replace(/[^a-z0-9]/g,'');
+function same(a,b){a=core(a);b=core(b);if(!a||!b)return false;if(a===b)return true;if(Math.min(a.length,b.length)>=5&&(a.includes(b)||b.includes(a)))return true;return lev(a,b)<=Math.max(1,Math.floor(Math.min(a.length,b.length)/5))}
+const mahOk=(c,mah)=>!!mah&&c.areas.some(x=>same(x,mah));
+const noOk=(cno,no)=>!!cno&&!!no&&fold(cno).replace(/\s/g,'')===fold(no).replace(/\s/g,'');
+const dist=(a,b)=>{const R=6371e3,t=x=>x*Math.PI/180,dl=t(b.lat-a.lat),dn=t(b.lon-a.lon);const h=Math.sin(dl/2)**2+Math.cos(t(a.lat))*Math.cos(t(b.lat))*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(h))};
+
+// Sokak adaylarını bul: aynı isimli sokaklar farklı mahallelerde olabilir → mahalle bilgisiyle ayrıştır
+async function streetCandidates(street,ilce,mah){
+  const qs=[`${street} ${ilce||''}`.trim()];
+  if(mah)qs.push(`${street} ${mah}`);
+  qs.push(`${core(street)&&street.replace(/\s+(sokak|sokağı|sk\.?|sok\.?|caddesi|cad\.?|cd\.?)$/i,'')} ${ilce||''}`.trim());
+  const seen=new Map();
+  for(const q of qs){
+    for(const c of await search(q)){
+      if(!(c.type==='street'||c.type==='house'||c.type==='poi')||!same(c.road,street))continue;
+      if(ilce&&c.ilce&&!same(c.ilce,ilce))continue;
+      const key=core(c.road)+'|'+fold(c.mah);
+      const prev=seen.get(key);
+      if(!prev||(prev.type!=='street'&&c.type==='street'))seen.set(key,{...c,no:c.type==='street'?'':c.no});
+    }
+    if(mah&&[...seen.values()].some(c=>mahOk(c,mah)))break;
+  }
+  return [...seen.values()].sort((a,b)=>mahOk(b,mah)-mahOk(a,mah));
+}
+// Seçilen sokakta bina numarasını ara
+async function findHouse(st,no){
+  if(!no)return null;
+  for(const q of [`${st.road} ${no} ${st.mah||''}`,`${st.road} ${no} ${st.ilce||''}`]){
+    const houses=(await search(q.trim())).filter(c=>c.type==='house'&&same(c.road,st.road)&&noOk(c.no,no)&&(!st.ilce||(c.ilce&&same(c.ilce,st.ilce)))&&(!st.mah||mahOk(c,st.mah))&&(!c.precision||c.precision==='exact')&&dist(c,st)<2000);
+    if(houses.length)return {...houses[0],conflict:houses.some((c,i)=>houses.slice(i+1).some(other=>dist(c,other)>50)),candidates:houses};
+  }
+  return null;
+}
+// Evrak adresi → konum. Mantık: sokak ara → mahallesi tutan sokağı seç → bina no ara
+async function locateStreet(a){
+  if(a.street){
+    const cands=await streetCandidates(a.street,a.ilce,a.mah);
+    let st=cands.find(c=>mahOk(c,a.mah));
+    let quality=null;
+    if(st)quality='Sokak';
+    else if(cands.length&&cands.every(c=>dist(c,cands[0])<1500)){st=cands[0];quality='Kontrol'} // tek sokak var ama mahalle doğrulanamadı
+    if(st){
+      const h=await findHouse(st,a.no);
+      const exact=h&&core(h.road)===core(a.street)&&(!a.mah||h.areas.some(x=>core(x)===core(a.mah)))&&(!a.ilce||core(h.ilce)===core(a.ilce));
+      if(h)return {...h,quality:exact&&!h.conflict?'Kapı':'Kontrol'};
+      return {lat:st.lat,lon:st.lon,quality,road:st.road,no:'',mah:st.mah};
+    }
+  }
+  if(a.mah){
+    const R=await search(`${a.mah} ${a.ilce||''}`.trim(),['district','locality']);
+    const m=R.find(c=>c.areas.some(x=>same(x,a.mah)))||R.find(c=>same(c.mah,a.mah));
+    if(m)return {lat:m.lat,lon:m.lon,quality:'Mahalle',road:'',no:'',mah:m.mah||a.mah};
+  }
+  return null;
+}
+
+const placeQuery=s=>[s.place||s.raw,s.mah&&!fold(s.place||s.raw).includes(fold(s.mah))?s.mah+' Mahallesi':'',s.ilce,'İstanbul'].filter(Boolean).join(' ');
+const googleLink=q=>'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q);
+function googleCandidate(p){
+  const parts=p.addressComponents||[],names=parts.map(c=>c.longText||'');
+  const get=t=>parts.find(c=>(c.types||[]).includes(t))?.longText||'';
+  const ilce=ILCELER.find(x=>names.some(n=>core(n)===core(x)||core(n)===core(x)+'ilcesi'))||'';
+  return {lat:p.location?.latitude,lon:p.location?.longitude,name:p.displayName?.text||'',address:p.formattedAddress||'',
+    road:get('route'),no:get('street_number'),mah:get('administrative_area_level_4')||get('sublocality_level_1')||get('neighborhood'),
+    areas:names,ilce,types:p.types||[],placeId:p.id,source:'Google',url:googleLink(p.formattedAddress||p.displayName?.text||'')+'&query_place_id='+encodeURIComponent(p.id||'')};
+}
+async function googleSearch(q){
+  const response=await fetch('/api/google-search?q='+encodeURIComponent(q),{signal:AbortSignal.timeout(20000)});
+  const data=await response.json();
+  if(!response.ok)throw new Error(data.error||'Google araması tamamlanamadı.');
+  return (data.places||[]).map(googleCandidate).filter(c=>validPoint(c)&&c.lat>=40.7&&c.lat<=41.6&&c.lon>=27.9&&c.lon<=29.95);
+}
+const placeCore=s=>core(s).replace(/alisverisveyasammerkezi|alisverismerkezi|shoppingmall|apartmani|apartman|sitesi|residence|rezidans|avm|apt/g,'');
+function exactPlaceMatch(a,c){
+  // Bir sokak/mahalle merkezi, isim benzerliği veya sıralamada ilk çıkmak teyit değildir.
+  if(!a.ilce||!c.ilce||core(a.ilce)!==core(c.ilce))return false;
+  if(a.mah&&!c.areas.some(x=>core(x)===core(a.mah)))return false;
+  if(a.street&&core(a.street)!==core(c.road))return false;
+  if(a.no&&!noOk(c.no,a.no))return false;
+  if(a.place)return !!placeCore(a.place)&&placeCore(a.place)===placeCore(c.name)&&c.types.some(t=>['shopping_mall','premise','subpremise','establishment','point_of_interest'].includes(t));
+  return (!c.precision||c.precision==='exact')&&!!a.street&&!!a.no&&c.types.some(t=>['street_address','premise','subpremise'].includes(t));
+}
+async function locateBase(a){
+  const result=await locateStreet(a);
+  if(result?.conflict){a.placeCandidates=result.candidates;a.placeError='Çelişkili konum: adres kaynakları farklı binalar gösteriyor. Bina girişini teyit edin.';return result;}
+  if(result?.quality==='Kapı')return result;
+  a.placeCandidates=[];a.placeError='';
+  try{
+    const candidates=await placeSearchForStop(a);
+    a.placeCandidates=candidates;
+    let exact=candidates.filter(c=>exactPlaceMatch(a,c));
+    // AVM'nin bina poligonu ile alışveriş merkezi kaydı aynı yerde olabilir.
+    // Aynı adlı, yakındaki bina kaydı yerine mall etiketli kayıt seçilir; uzak eşleşme varsa teyit gerekir.
+    const malls=exact.filter(c=>c.types.includes('shopping_mall'));
+    if(malls.length===1&&exact.every(c=>c===malls[0]||(c.types.includes('premise')&&dist(c,malls[0])<100)))exact=malls;
+    if(exact.length===1)return {...exact[0],quality:'OSM'};
+    a.placeError=candidates.length?'Ücretsiz arama sonuçları var; bina/AVM adresini seçerek teyit edin.':'OpenStreetMap’te eşleşen bina/AVM bulunamadı. Harita bağlantısından veya koordinatla teyit edin.';
+  }catch(e){a.placeError=e.message||'Ücretsiz aramaya ulaşılamadı; tekrar deneyin veya haritadan teyit edin.'}
+  return result;
+}
+
+// Birden fazla kaynak aynı adresi farklı binalara yerleştirirse otomatik teyit durur.
+function reconcileCandidates(a,base,candidates){
+  if(base?.conflict)return base;
+  const exact=candidates.filter(c=>exactPlaceMatch(a,c));
+  const baseExact=base&&['Kapı','OSM'].includes(base.quality);
+  const pool=[...(baseExact?[base]:[]),...exact];
+  if(!pool.length)return base;
+  const conflict=pool.some((c,i)=>pool.slice(i+1).some(other=>dist(c,other)>50));
+  if(conflict){a.placeError='Çelişkili konum: aynı adres için farklı bina noktaları bulundu. Kaynakları karşılaştırıp bina girişini teyit edin.';return {...pool[0],quality:'Kontrol'};}
+  if(baseExact)return base;
+  const best=pool.find(c=>c.precision==='exact')||pool[0];
+  return {...best,quality:best.source==='OpenStreetMap'?'OSM':'Kapı'};
+}
+async function locate(a){
+  const active=Object.keys(configuredProviders).some(p=>p!=='yandex'&&configuredProviders[p]);
+  if(!active)return locateBase(a);
+  const q=[a.raw||[a.place,a.street,a.no,a.mah].filter(Boolean).join(' '),a.ilce,'İstanbul'].filter(Boolean).join(' ');
+  const [base,candidates]=await Promise.all([locateBase(a),extraProviderSearch(q,a.place?'place':'address')]);
+  a.placeCandidates=[...(a.placeCandidates||[]),...candidates];
+  const result=reconcileCandidates(a,base,a.placeCandidates);
+  const errors=Object.entries(providerErrors).map(([p,m])=>providerNames[p]+': '+m).join(' ');
+  if(errors)a.placeError=(a.placeError||'')+' Bazı kaynaklar karşılaştırılamadı: '+errors;
+  return result;
+}
+
+// ---------- durakları bul ----------
+let geoRun=0;
+async function geocodeAll(force){
+  const run=++geoRun;
+  geoBusy=true;stopPick();closePicker();clearRoute();refreshMarkers();$('geoBtn').disabled=true;updateState();
+  $('geoBar').style.display='block';
+  try{
+    await Promise.race([mapReady,new Promise(r=>setTimeout(r,8000))]);
+    if(run!==geoRun)return;
+    const todo=stops.filter(s=>!delivered.includes(s)&&(force?!s.match?.confirmed&&!['Elle','Google'].includes(s.quality):!readyStop(s)));
+    let done=0;
+    for(const s of todo){
+      if(run!==geoRun)return;
+      $('geoInfo').textContent=`${done+1}/${todo.length} aranıyor…`;
+      s.quality='Aranıyor';renderStops();
+      const r=await locate(s);
+      if(run!==geoRun)return;
+      if(r)Object.assign(s,{lat:r.lat,lon:r.lon,quality:r.quality,match:r});
+      else Object.assign(s,{lat:null,lon:null,quality:'Bulunamadı',match:null});
+      done++;$('geoBar').firstChild.style.width=(done/todo.length*100)+'%';
+      renderStops();refreshMarkers();
+    }
+    const missing=pendingStops().filter(s=>!readyStop(s)).length;
+    $('geoInfo').textContent=missing?`${missing} adres teyit bekliyor. Adres kontrolü bölümünü açın.`:'Tüm aktif adresler doğrulandı.';
+    if(missing)$('stopsCard').open=true;
+    fitAll();
+  }catch(e){$('geoInfo').textContent='Adres arama tamamlanamadı: '+(e.message||e)}
+  finally{
+    if(run===geoRun){geoBusy=false;$('geoBar').style.display='none';$('geoBtn').disabled=false;renderStops();refreshMarkers();updateState();autoRoute()}
+  }
+}
+
+// ---------- durak listesi ----------
+function renderStops(){
+  $('stopsCard').style.display=stops.length?'block':'none';
+  const miss=stops.filter(s=>s.lat==null).length;
+  const warn=pendingStops().filter(s=>!readyStop(s)).length;
+  $('stopsCount').innerHTML=`${stops.length} durak${warn?` · <span style="color:var(--warn);font-weight:600">⚠ ${warn} adres kontrol bekliyor</span>`:''}`;
+  const box=$('stops');box.innerHTML='';
+  stops.forEach((s,i)=>{
+    const d=document.createElement('div');d.className='stop';
+    const adet=s.orders.reduce((a,o)=>a+(o.adet||0),0);
+    const geri=s.orders.some(o=>o.geri)?' ↩ GERİ ALIM':'';
+    const m=s.match;
+    const found=s.quality==='Elle'?'→ elle seçildi':m?`→ ${m.road?`<b>${esc(m.road)}${m.no?' No:'+esc(m.no):''}</b> · `:''}${esc(m.mah||'')}${s.quality==='Kontrol'?' <span style="color:var(--warn)">(mahalle tutmadı, kontrol edin)</span>':''}`:'';
+    d.innerHTML=`<div class="top"><span class="small" style="min-width:62px">Kayıt ${i+1}</span><span class="who" title="${esc(s.orders.map(o=>o.alici).join(', '))}">${esc(s.orders.map(o=>o.alici).join(', '))}</span><span class="small">${s.orders.length>1?s.orders.length+' sipariş':''}${adet?(s.orders.length>1?' · ':'')+adet+' koli':''}${geri}</span><span class="tag t-${s.quality}">${s.quality}</span></div>
+    <div class="raw">${esc(s.raw)}</div>
+    <div class="small">Okunan: ${esc([s.place,s.mah&&s.mah+' Mah.',s.street,s.no&&'No:'+s.no,s.ilce].filter(Boolean).join(' · ')||'—')}</div>
+    <div class="found">${found}</div>
+    <div class="small">${s.match?.source?esc(s.match.source)+' · '+esc(s.match.name||'')+' · '+esc(s.match.address||''):''}${!readyStop(s)?esc(s.placeError||'Bina konumu teyit bekliyor.'):''}${delivered.includes(s)?' ✓ Teslim edildi':''}</div>
+    <div class="row"><button data-a="fix">Düzelt / yeri teyit et</button><button data-a="pick" title="Haritadan seç">📍</button><label style="width:auto"><input type="checkbox" ${s.skip?'checked':''}> atla</label></div>`;
+    d.querySelectorAll('button,input').forEach(el=>el.disabled=geoBusy||delivered.includes(s));
+    d.querySelector('[data-a=fix]').onclick=()=>openPicker(s);
+    d.querySelector('[data-a=pick]').onclick=()=>startPick('Durak '+(i+1)+' konumunu seçin',(lat,lon)=>{Object.assign(s,{lat,lon,quality:'Elle',match:null});clearRoute();renderStops();refreshMarkers();updateState()});
+    d.querySelector('input[type=checkbox]').onchange=e=>{s.skip=e.target.checked;clearRoute();refreshMarkers();updateState()};
+    d.querySelector('.who').onclick=()=>{if(s.lat!=null)mp.setView(s.lat,s.lon,17)};
+    box.appendChild(d);
+  });
+}
+
+// ---------- düzelt penceresi: sokak ara → mahalleye bak → seç → bina no → kaydet ----------
+let pkStop=null,pkSel=null,pkTmp=null;
+function tmpMark(c){if(!map)return;if(pkTmp)map.geoObjects.remove(pkTmp);pkTmp=new ymaps.Placemark([c.lat,c.lon],{iconContent:'?'},{preset:'islands#circleIcon',iconColor:'#e0245e'});map.geoObjects.add(pkTmp);mp.setView(c.lat,c.lon,16)}
+function closePicker(){pickerRun++;$('pk').style.display='none';if(pkTmp&&map)map.geoObjects.remove(pkTmp);pkTmp=null}
+function openPicker(s){
+  if(geoBusy||delivered.includes(s))return;
+  pickerRun++;pkStop=s;pkSel=null;
+  $('pkTitle').textContent='Adresi düzelt: '+s.orders.map(o=>o.alici).join(', ');
+  $('pkRaw').textContent=s.raw;
+  $('pkGoogleApiSearch').style.display=googleConfigured?'inline-block':'none';$('pkPlaceQuery').value=placeQuery(s);$('pkPlaceCoord').value='';$('pkGoogleLink').href=googleLink(placeQuery(s));
+  renderPlaceCandidates(s.placeCandidates||[],s.placeError||'');
+  $('pkStreet').value=s.street||'';$('pkIlce').value=s.ilce||'';$('pkNo').value=s.no||'';
+  $('pkList').innerHTML='';$('pkStep2').style.display='none';$('pkMsg').textContent='';
+  $('pkInfo').innerHTML=s.mah?`Evraktaki mahalle: <b>${esc(s.mah)}</b> — bu mahalledeki sokağı seçin.`:'';
+  $('pk').style.display='flex';
+  if(s.street)pkSearch();else $('pkStreet').focus();
+}
+async function pkSearch(){
+  const run=++pickerRun;
+  pkSel=null;
+  const street=$('pkStreet').value.trim(),ilce=$('pkIlce').value.trim(),mah=pkStop.mah;
+  if(!street)return;
+  $('pkList').innerHTML='<div class="small">Aranıyor…</div>';$('pkStep2').style.display='none';
+  const cands=await streetCandidates(street,ilce,mah);
+  if(run!==pickerRun)return;
+  const box=$('pkList');box.innerHTML='';
+  if(!cands.length){box.innerHTML='<div class="small">Bu isimde sokak bulunamadı. Sokak adını kısaltarak (ör. sadece “Tepegöz”) tekrar deneyin veya 📍 ile haritadan seçin.</div>';return}
+  cands.forEach(c=>{
+    const d=document.createElement('div');d.className='cand';
+    const ok=mahOk(c,mah);
+    d.innerHTML=`<div class="m"><b>${esc(c.road)}</b><br><span class="small">${esc(c.areas.join(' / ')||'mahalle bilinmiyor')}${c.ilce?', '+esc(c.ilce):''}</span></div>${ok?'<span class="ok">✓ mahalle tutuyor</span>':mah?'<span class="no">farklı mahalle</span>':''}`;
+    d.onclick=()=>{pkSel=c;[...box.children].forEach(x=>x.classList.remove('sel'));d.classList.add('sel');tmpMark(c);$('pkStep2').style.display='block';$('pkMsg').textContent='';$('pkNo').focus()};
+    box.appendChild(d);
+  });
+}
+async function pkSave(){
+  if(!pkSel)return;
+  const run=++pickerRun,selected=pkSel,s=pkStop;
+  const no=$('pkNo').value.trim().match(/\d+[A-Za-z]?(?:[-/]\d+[A-Za-z]?)?/)?.[0]||'';
+  $('pkMsg').textContent='Bina aranıyor…';
+  const h=await findHouse(selected,no);
+  if(run!==pickerRun)return;
+  if(!h){$('pkMsg').textContent='Bina doğrulanamadı. Ücretsiz yer aramasını kullanın veya haritadan doğru bina noktasını seçin; sokak merkezi rotaya alınmaz.';return}
+  Object.assign(s,{lat:h.lat,lon:h.lon,quality:'Kapı',match:{road:selected.road,no:h.no,mah:selected.mah}});
+  s.street=$('pkStreet').value.trim();if(no)s.no=no;
+  closePicker();clearRoute();renderStops();refreshMarkers();updateState();mp.setView(s.lat,s.lon,17);
+}
+function confirmPlace(s,c){
+  if(!validPoint(c))return;
+  Object.assign(s,{lat:c.lat,lon:c.lon,quality:c.source==='OpenStreetMap'?'OSM':c.source==='Google'?'Google':'Elle',match:{...c,confirmed:true},placeError:''});
+  closePicker();clearRoute();renderStops();refreshMarkers();updateState();
+}
+function renderPlaceCandidates(candidates,message){
+  const box=$('pkPlaceResults');box.innerHTML='';
+  const note=document.createElement('div');note.className='small';note.textContent=message||(candidates.length?'Adını, mahalle/ilçesini ve varsa mağaza/blok bilgisini karşılaştırın.':'Ücretsiz arama yapın veya Google Haritalar bağlantısından elle teyit edin.');box.appendChild(note);
+  const s=pkStop;
+  candidates.forEach(c=>{
+    const row=document.createElement('div');row.className='cand';
+    row.innerHTML=`<div class="m"><b>${esc(c.name)}</b><div>${esc(c.address)}</div><div class="small">${esc(c.source||'')}${c.precision&&c.precision!=='exact'?' · yaklaşık / teyit gerekli':''}${c.dataset?' · '+esc(c.dataset):''}</div><a href="${esc(c.url)}" target="_blank" rel="noopener">Haritada incele</a></div><button>Bu konumu teyit ettim</button>`;
+    const coarse=c.types.some(t=>['route','locality','neighborhood','sublocality','administrative_area_level_1','administrative_area_level_2','administrative_area_level_3','administrative_area_level_4'].includes(t))&&!c.types.some(t=>['premise','subpremise','shopping_mall','establishment','street_address'].includes(t));
+    row.querySelector('button').disabled=coarse;
+    if(coarse)row.querySelector('button').textContent='Bina konumu değil';
+    row.querySelector('button').onclick=()=>confirmPlace(s,c);box.appendChild(row);
+  });
+}
+$('pkPlaceQuery').oninput=()=>{$('pkGoogleLink').href=googleLink($('pkPlaceQuery').value)};
+$('pkPlaceSearch').onclick=async()=>{
+  const s=pkStop,run=++pickerRun,q=$('pkPlaceQuery').value.trim();if(!q)return;
+  $('pkPlaceResults').textContent='Etkin kaynaklarda bina / AVM aranıyor…';
+  try{const results=await Promise.allSettled([freePlaceSearch(q),yandexSearch(q),extraProviderSearch(q,'place')]);const c=results.flatMap(r=>r.status==='fulfilled'?(r.value||[]):[]);if(run!==pickerRun)return;s.placeCandidates=c;const errors=Object.entries(providerErrors).map(([p,m])=>providerNames[p]+': '+m);if(results[0].status==='rejected')errors.push('OpenStreetMap: '+results[0].reason.message);renderPlaceCandidates(c,errors.join(' ')||(c.length?'Adresi ve bina girişini kontrol edip teyit edin.':'Etkin kaynaklarda sonuç bulunamadı.'))}
+  catch(e){if(run===pickerRun)renderPlaceCandidates([],e.message||'Arama başarısız.')}
+};
+$('pkGoogleApiSearch').onclick=async()=>{
+  const s=pkStop,run=++pickerRun,q=$('pkPlaceQuery').value.trim();if(!q||!googleConfigured)return;
+  $('pkPlaceResults').textContent='İsteğe bağlı Google API araması…';
+  try{const c=await googleSearch(q);if(run===pickerRun){s.placeCandidates=c;renderPlaceCandidates(c,c.length?'':'Google’da sonuç bulunamadı.')}}
+  catch(e){if(run===pickerRun)renderPlaceCandidates([],e.message||'Google araması başarısız.')}
+};
+$('pkPlaceSave').onclick=()=>{
+  const c=parseCoord($('pkPlaceCoord').value);
+  if(!c){$('pkPlaceResults').textContent='Koordinat anlaşılamadı. Google’daki bina noktasından enlem, boylam değerlerini kopyalayın.';return}
+  confirmPlace(pkStop,{...c,source:'Elle teyit',name:pkStop.place||pkStop.raw,address:pkStop.raw,url:googleLink($('pkPlaceQuery').value)});
+};
+$('pkSearch').onclick=pkSearch;
+$('pkStreet').onkeydown=$('pkIlce').onkeydown=e=>{if(e.key==='Enter')pkSearch()};
+$('pkSave').onclick=pkSave;
+$('pkNo').onkeydown=e=>{if(e.key==='Enter')pkSave()};
+$('pkClose').onclick=closePicker;
+$('pkMap').onclick=()=>{const s=pkStop;closePicker();startPick('Durak konumunu seçin',(lat,lon)=>{Object.assign(s,{lat,lon,quality:'Elle',match:null});clearRoute();renderStops();refreshMarkers();updateState()})};
+
+function updateState(){
+  const act=pendingStops(),ok=act.filter(readyStop),located=act.filter(validPoint),msgs=[];
+  if(!depot)msgs.push('depo konumu kaydedilmedi');if(!home)msgs.push('ev konumu kaydedilmedi');
+  if(located.length<act.length)msgs.push((act.length-located.length)+' adresin konumu yok; düzeltin veya açıkça atlayın');
+  const draft=ok.length<act.length;
+  $('routeBtn').textContent=draft?'Taslak rotayı hesapla':routeOrder?'Sırayı yeniden hesapla':'Rotayı hesapla';
+  $('routeBtn').disabled=!(validPoint(origin())&&validPoint(home)&&(act.length||delivered.length)&&located.length===act.length)||geoBusy||routeBusy;
+  if(!routeBusy)$('routeInfo').textContent=msgs.length?'Rota bekliyor: '+msgs.join(', ')+'.':draft?(act.length-ok.length)+' bina teyit bekliyor. Yaklaşık konumlarla taslak gösterilir; ilk durak konum teyidinden sonra değişebilir.':(ok.length?ok.length+' kalan durak için mahalleleri birlikte tamamlayan rota.':delivered.length?'Teslimatlar tamamlandı; eve dönüş.':'');
+  if(!routeOrder)$('routeTitle').innerHTML=routeBusy?'Teslimat planı hesaplanıyor…':'Teslimat planın';
+  $('deliveryInfo').innerHTML=delivered.length?`${delivered.length} durak teslim edildi · ${act.length} durak kaldı. <button id="undoDelivery" class="hide-print">Son teslimatı geri al</button>`:'';
+  if($('undoDelivery'))$('undoDelivery').onclick=()=>{delivered.pop();clearRoute();renderStops();refreshMarkers()};
+}
+
+// ---------- evrak okuma ----------
+function parseSheet(rows){
+  rows=rows.filter(r=>r&&r.some(c=>String(c).trim()!==''));
+  let hi=rows.findIndex(r=>r.some(c=>fold(c).trim()==='adres'));
+  let cols={};
+  if(hi>=0){
+    rows[hi].forEach((c,i)=>{const f=fold(c).trim();
+      if(f==='adres')cols.adres=i;else if(f.startsWith('alici'))cols.alici=i;else if(f.startsWith('adet'))cols.adet=i;
+      else if(f.startsWith('siparis'))cols.sip=i;else if(f.startsWith('musteri'))cols.mus=i;else if(f==='ilce')cols.ilce=i});
+    rows=rows.slice(hi+1);
+  }else{
+    const w=Math.max(...rows.map(r=>r.length));
+    let best=-1,bl=0;
+    for(let c=0;c<w;c++){const l=rows.reduce((a,r)=>a+String(r[c]||'').length,0)/rows.length;if(l>bl){bl=l;best=c}}
+    cols.adres=best;cols.ilce=best-1;cols.mus=0;cols.sip=1;
+    let bs=-1,bsc=0;
+    for(let c=0;c<w;c++){if(c===best)continue;const sc=rows.filter(r=>/\s/.test(String(r[c]||'').trim())&&!/\d/.test(String(r[c]||''))).length;if(sc>bsc){bsc=sc;bs=c}}
+    cols.alici=bs>=0?bs:2;
+    cols.adet=cols.alici+1;
+  }
+  const g=(r,c)=>c==null?'':String(r[c]??'').trim();
+  const out=[];
+  for(const r of rows){
+    const adr=g(r,cols.adres);
+    if(adr.length<2)continue;
+    const geri=r.some(c=>/geri\s*al[ıi]m/i.test(String(c)));
+    out.push({musteri:g(r,cols.mus),sip:g(r,cols.sip),alici:g(r,cols.alici),adet:parseFloat(g(r,cols.adet))||1,ilce:g(r,cols.ilce),raw:adr,geri});
+  }
+  return out;
+}
+function cleanName(n){n=String(n||'').replace(/\s+/g,' ').trim();const w=n.split(' ');if(w.length%2===0){const h=w.length/2;if(fold(w.slice(0,h).join(' '))===fold(w.slice(h).join(' ')))return w.slice(0,h).join(' ')}return n}
+const stopNames=s=>[...new Map(s.orders.map(o=>[fold(cleanName(o.alici)),cleanName(o.alici)])).values()].join(', ');
+function buildStops(orders){
+  const m=new Map();let id=0;
+  for(const o of orders){
+    const p=parseAddress(o.raw,o.ilce);
+    const key=p.street&&p.no?fold([p.street,p.no,p.mah,p.ilce,p.place].join('|')):fold([o.raw,p.ilce].join('|'));
+    if(!m.has(key))m.set(key,{id:++id,...p,orders:[],raw:o.raw,lat:null,lon:null,quality:'Bekliyor',skip:false,match:null});
+    m.get(key).orders.push(o);
+  }
+  return [...m.values()];
+}
+
+// ---------- optimizasyon ----------
+const hav=(a,b)=>{const R=6371,t=x=>x*Math.PI/180,dl=t(b.lat-a.lat),dn=t(b.lon-a.lon);const h=Math.sin(dl/2)**2+Math.cos(t(a.lat))*Math.cos(t(b.lat))*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(h))};
+async function osrm(path){ // geçici hatalarda 3 kez dener
+  for(let i=0;i<3;i++){
+    try{const r=await fetch('https://router.project-osrm.org/'+path,{signal:AbortSignal.timeout(10000)});if(r.ok){const j=await r.json();if(j.code==='Ok')return j}}catch(e){}
+    await new Promise(r=>setTimeout(r,1500*(i+1)));
+  }
+  return null;
+}
+const cstr=pts=>pts.map(p=>(+p.lon).toFixed(6)+','+(+p.lat).toFixed(6)).join(';');
+async function getMatrix(pts){
+  if(pts.length<=100){
+    const j=await osrm('table/v1/driving/'+cstr(pts)+'?annotations=duration,distance');
+    const valid=m=>Array.isArray(m)&&m.length===pts.length&&m.every(row=>Array.isArray(row)&&row.length===pts.length&&row.every(x=>Number.isFinite(x)&&x>=0));
+    if(j&&valid(j.durations)&&valid(j.distances))return {dur:j.durations,dist:j.distances,osrm:true};
+  }
+  const d=pts.map(a=>pts.map(b=>hav(a,b)*1000*1.35));
+  return {dur:d.map(r=>r.map(x=>x/8.3)),dist:d,osrm:false};
+}
+// Aynı ilçe/mahalle tek bloktur. Mahallesi bilinmeyen adresleri rastgele birleştirme.
+function neighborhoodKey(s){
+  const ilce=core(s.match?.ilce||s.ilce),mah=core(s.match?.mah||s.mah);
+  return ilce&&mah?ilce+'|'+mah:'unknown:'+stableStopKey(s)+(validPoint(s)?'':':'+s.id);
+}
+function neighborhoodLabel(s){return [s.match?.mah||s.mah,s.match?.ilce||s.ilce].filter(Boolean).join(' / ')||'Mahalle bilgisi yok'}
+// İlk durak yol mesafesine göre en yakın olandır; başlamış mahalle varsa önce o bitirilir.
+// Mahalle bloklarının ve blok içinin süre maliyeti, eve dönüş dahil iyileştirilir.
+function solve(D,n,keys=Array.from({length:n},(_,i)=>String(i)),distance=D,activeGroup=null){
+  const valid=m=>Array.isArray(m)&&m.length===n+2&&m.every(r=>Array.isArray(r)&&r.length===n+2&&r.every(x=>Number.isFinite(x)&&x>=0));
+  if(!valid(D)||!valid(distance)||keys.length!==n)throw new Error('Rota mesafeleri veya mahalle bilgisi geçersiz.');
+  if(!n)return [0,1];
+  const groups=new Map();keys.forEach((key,i)=>{if(!groups.has(key))groups.set(key,[]);groups.get(key).push(i+1)});
+  const pool=groups.get(activeGroup)||Array.from({length:n},(_,i)=>i+1);
+  const first=[...pool].sort((a,b)=>distance[0][a]-distance[0][b]||D[0][a]-D[0][b]||a-b)[0];
+  const firstKey=keys[first-1];
+  const cost=p=>p.slice(1).reduce((sum,j,i)=>sum+D[p[i]][j],0);
+  function block(members,from,fixed){
+    const remaining=new Set(members),out=[];let current=from;
+    if(fixed!=null){out.push(fixed);remaining.delete(fixed);current=fixed}
+    while(remaining.size){const next=[...remaining].sort((a,b)=>D[current][a]-D[current][b]||a-b)[0];out.push(next);remaining.delete(next);current=next}
+    return out;
+  }
+  function assemble(order){const p=[0];order.forEach((key,i)=>p.push(...block(groups.get(key),p.at(-1),i===0?first:null)));return [...p,n+1]}
+  const order=[firstKey],remaining=new Set([...groups.keys()].filter(k=>k!==firstKey));
+  let current=block(groups.get(firstKey),0,first).at(-1);
+  while(remaining.size){
+    const key=[...remaining].sort((a,b)=>Math.min(...groups.get(a).map(j=>D[current][j]))-Math.min(...groups.get(b).map(j=>D[current][j]))||String(a).localeCompare(String(b)))[0];
+    order.push(key);remaining.delete(key);current=block(groups.get(key),current,null).at(-1);
+  }
+  let bestOrder=order,path=assemble(order),best=cost(path),budget=1200;
+  // İlk mahalleyi sabit tut. Bütün mahalle bloklarını taşı; aynı mahalleyi bölme.
+  for(let pass=0;pass<3&&budget>0;pass++){
+    let changed=false;
+    for(let i=1;i<bestOrder.length&&budget>0;i++)for(let j=1;j<bestOrder.length&&budget>0;j++){
+      if(i===j)continue;budget--;
+      const candidate=[...bestOrder],moved=candidate.splice(i,1)[0];candidate.splice(j,0,moved);
+      const p=assemble(candidate),c=cost(p);
+      if(c<best-1e-6){best=c;path=p;bestOrder=candidate;changed=true}
+    }
+    if(!changed)break;
+  }
+  // İlk teslimatı ve mahalle sınırlarını koruyarak mahalle içindeki gereksiz dolaşmayı azalt.
+  budget=6000;
+  for(let pass=0;pass<3&&budget>0;pass++){
+    let changed=false;
+    for(let i=2;i<=n&&budget>0;i++)for(let j=i+1;j<=n&&keys[path[i]-1]===keys[path[j]-1]&&budget>0;j++){
+      budget--;const p=path.slice(0,i).concat(path.slice(i,j+1).reverse(),path.slice(j+1)),c=cost(p);
+      if(c<best-1e-6){path=p;best=c;changed=true}
+    }
+    if(!changed)break;
+  }
+  return path;
+}
+const fmtT=s=>{const m=Math.round(s/60);return m>=60?Math.floor(m/60)+' sa '+(m%60)+' dk':m+' dk'};
+async function buildRoute(){
+  clearTimeout(autoT);
+  const ok=planningStops();
+  if(geoBusy||!validPoint(origin())||!validPoint(home)||!ok.every(validPoint)||(!ok.length&&!delivered.length)){updateState();return}
+  const run=++routeRun;
+  routeBusy=true;$('routeBtn').disabled=true;$('routeInfo').textContent='Depodan müşterilere yol mesafeleri ve sürüş süreleri hesaplanıyor…';
+  try{
+    const pts=[{...origin()},...ok.map(s=>({...s})),{...home}];
+    const M=await getMatrix(pts);
+    if(run!==routeRun)return;
+    const H=M.dist.map(row=>row.at(-1));
+    const path=solve(M.dur,ok.length,ok.map(neighborhoodKey),M.dist,delivered.length?neighborhoodKey(origin()):null);
+    const seq=path.map(i=>pts[i]);
+    let legs=path.slice(0,-1).map((i,k)=>({d:M.dist[i][path[k+1]],t:M.dur[i][path[k+1]]}));
+    let geom=null;
+    const j=await osrm('route/v1/driving/'+cstr(seq)+'?overview=full&geometries=geojson');
+    if(run!==routeRun)return;
+    if(j?.routes?.[0]?.legs?.length===seq.length-1){geom=j.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]);legs=j.routes[0].legs.map(l=>({d:l.distance,t:l.duration}))}
+    routeOrder=path.slice(1,-1).map(i=>ok[i-1]);
+    const dist=legs.reduce((a,l)=>a+l.d,0),dur=legs.reduce((a,l)=>a+l.t,0);
+    lastCoords=geom||seq.map(p=>[p.lat,p.lon]);lastGeom=!!geom;
+    refreshMarkers();drawRouteLine();
+    const activeKey=delivered.length?neighborhoodKey(origin()):null;
+    const choices=ok.map((s,i)=>({stop:s,d:M.dist[0][i+1],t:M.dur[0][i+1]}));
+    const inGroup=choices.filter(c=>neighborhoodKey(c.stop)===activeKey);
+    const comparison=(inGroup.length?inGroup:choices).sort((a,b)=>a.d-b.d||a.t-b.t).slice(0,3);
+    renderResult(seq,legs,dist,dur,M.osrm,path.map(i=>H[i]),!!j,comparison);
+  }catch(e){
+    if(run===routeRun){routeOrder=null;lastCoords=null;drawRouteLine();$('result').textContent='Rota hazırlanamadı: '+(e.message||e)}
+  }finally{if(run===routeRun){routeBusy=false;updateState()}}
+}
+function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=[]){
+  const unverified=routeOrder.filter(s=>!readyStop(s)),draft=unverified.length>0;
+  $('routeTitle').innerHTML=draft?'Rota taslağı · Teyit bekliyor':'Teslimat sıran hazır';
+  const svc=Math.max(0,+$('svc').value||0)*routeOrder.length*60;
+  const links=[];
+  // tüm rota tek bağlantıda: depo → duraklar (sırayla) → ev
+  const yx=`https://yandex.com.tr/harita/?rtt=auto&rtext=${seq.map(p=>(+p.lat).toFixed(6)+','+(+p.lon).toFixed(6)).join('~')}`;
+  if(!draft)links.push(`<a href="${yx}" target="_blank" rel="noopener"><button class="p">🧭 Rotayı Yandex'te aç</button></a>`);
+  const names=s=>esc(stopNames(s));
+  let h=`<div class="stat"><span>${routeOrder.length} durak</span><span>🛣 ${(dist/1000).toFixed(1)} km</span><span>⏱ sürüş ${fmtT(dur)}</span><span>toplam ≈ ${fmtT(dur+svc)}</span></div>`;
+  if(draft)h+=`<div class="notice"><b>Bu bir taslaktır: ${unverified.length} bina konumu teyit edilmedi.</b><br>Sıra yaklaşık konumlara göre hesaplandı. Sokak/mahalle merkezi gerçek bina girişinden uzakta olabilir. Navigasyon ve teslimat başlatma, konumlar teyit edilince açılır.</div>`;
+  if(routeOrder.length)h+=`<div class="next-stop"><small>İLK TESLİMAT</small>${delivered.length?'Bulunduğunuz yerden':'Depodan'} ilk durak: ${names(routeOrder[0])} · ${(legs[0].d/1000).toFixed(1)} km · ${fmtT(legs[0].t)}</div>`;
+  if(comparison.length)h+=`<details class="small"><summary>İlk durak neden seçildi? Yakınlık karşılaştırması</summary>${comparison.map(c=>`${names(c.stop)}: ${(c.d/1000).toFixed(2)} km / ${fmtT(c.t)}`).join('<br>')}<br>${exact?'Karayolu mesafesi':'Kuş uçuşundan tahmini mesafe'} karşılaştırıldı.${draft?' Konumlar yaklaşıktır.':''}</details>`;
+  if(!exact)h+='<div class="small" style="color:var(--warn)">Yol matrisi alınamadı: yakınlık ve sıralama kuş uçuşu tahminine dayanıyor. Karayolu mesafeleri doğrulanamadı.</div>';
+  if(!exact&&!roadLegs)h+='<div class="small">Kilometre ve süreler kuş uçuşundan türetilen tahminlerdir.</div>';
+  h+='<div class="small">En yakın teslimattan başlanır; aynı mahalledeki müşteriler tamamlanınca diğer mahalleye geçilir. Eve dönüş hesaba katılır; her durakta eve yaklaşmak zorunlu değildir.</div>';
+  if(delivered.length)h+='<div class="small">Başladığınız mahallede kalan müşteri varsa önce o mahalle tamamlanır.</div>';
+  const unknown=routeOrder.filter(s=>neighborhoodKey(s).startsWith('unknown:')).length;
+  if(unknown)h+=`<div class="small" style="color:var(--warn)">${unknown} durakta ilçe/mahalle eksik; bu adresler ayrı durak olarak planlandı.</div>`;
+  h+='<div class="small">Sürüş süreleri trafiksiz yol süreleridir; yoğun saatlerde biraz uzayabilir.</div>';
+  h+=`<div class="row hide-print result-actions">${links.join('')}<button id="prBtn">🖨 Yazdır</button><button id="csvBtn">CSV indir</button></div>`;
+  h+=`<div class="sira"><span class="n" style="background:#1a8f4c">D</span><div><div class="ad">${delivered.length?'Son teslimat konumundan devam':'Depodan çıkış'}</div></div></div>`;
+  routeOrder.forEach((s,i)=>{
+    if(i===0||neighborhoodKey(s)!==neighborhoodKey(routeOrder[i-1]))h+=`<div class="neighborhood">${esc(neighborhoodLabel(s))}<span>${routeOrder.filter(x=>neighborhoodKey(x)===neighborhoodKey(s)).length} durak</span></div>`;
+    const k=s.orders.reduce((a,o)=>a+(o.adet||0),0),geri=s.orders.some(o=>o.geri);
+    const warn=!readyStop(s)?' <span class="tag t-Mahalle">konum yaklaşık</span>':'';
+    h+=`<div class="sira"><span class="n">${i+1+delivered.length}</span><div><div class="ad">${names(s)}${warn}</div><div class="adr">${esc(s.raw)}</div><div class="small">${esc(neighborhoodLabel(s))} · Eve kalan mesafe (${exact?'karayolu':'tahmini'}): ${(homeDistances[i+1]/1000).toFixed(2)} km · Önceki noktadan: ${(legs[i].d/1000).toFixed(1)} km / ${fmtT(legs[i].t)}</div>${i===0&&!draft?'<button class="p hide-print" id="deliveredBtn">Teslim edildi · sıradaki durağa geç</button>':''}<div class="small">${[s.orders.length>1?s.orders.length+' sipariş':'',k?k+' koli':'',geri?'↩ GERİ ALIM':'',[...new Set(s.orders.map(o=>o.musteri).filter(Boolean))].join(', ')].filter(Boolean).join(' · ')}</div></div></div>`;
+  });
+  h+=`<div class="sira"><span class="n" style="background:#1c2430">E</span><div><div class="ad">Eve dönüş</div></div></div>`;
+  const out=stops.filter(s=>s.skip);
+  if(out.length)h+=`<div class="small" style="color:var(--bad);margin-top:8px">Sıraya girmeyen ${out.length} durak: ${out.map(names).join(', ')} — “Adres kontrolü” bölümünden düzeltin.</div>`;
+  $('result').innerHTML=h;
+  if($('deliveredBtn'))$('deliveredBtn').onclick=()=>{if(!routeOrder?.length||routeOrder.some(s=>!readyStop(s)))return;delivered.push(routeOrder[0]);clearRoute();renderStops();refreshMarkers();updateState()};
+  $('prBtn').onclick=()=>window.print();
+  $('csvBtn').onclick=()=>{
+    const rows=[['Sıra','Alıcı','Sipariş No','Müşteri','Adet','Adres','Konum','Plan']];
+    routeOrder.forEach((s,i)=>s.orders.forEach(o=>rows.push([i+1,o.alici,o.sip,o.musteri,o.adet,o.raw,s.quality,draft?'TASLAK':'Doğrulandı'])));
+    const csv='﻿'+rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(';')).join('\r\n');
+    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=(draft?'rota-taslak-':'rota-')+new Date().toISOString().slice(0,10)+'.csv';a.click();
+  };
+}
+
+// ---------- fotoğraftan okuma (OCR) ----------
+let ocrWorker=null;
+async function prepImage(f){ // küçük görselleri büyüt, gri tonlama + kontrast
+  const img=await createImageBitmap(f);
+  const k=Math.min(3,Math.max(1,2800/img.width));
+  const c=document.createElement('canvas');c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);
+  const x=c.getContext('2d');x.imageSmoothingQuality='high';x.drawImage(img,0,0,c.width,c.height);
+  const d=x.getImageData(0,0,c.width,c.height),p=d.data;
+  for(let i=0;i<p.length;i+=4){let g=.299*p[i]+.587*p[i+1]+.114*p[i+2];g=g>200?255:g<110?0:(g-110)*255/90;p[i]=p[i+1]=p[i+2]=g}
+  x.putImageData(d,0,0);return c;
+}
+async function ocrImage(f,n,tot){
+  const bar=$('ocrBar');bar.style.display='block';bar.firstChild.style.width='0';
+  const info=t=>$('fileInfo').textContent=`Fotoğraf ${n}/${tot} okunuyor: ${t}`;
+  info('hazırlanıyor…');
+  if(!ocrWorker){
+    info('okuma motoru yükleniyor (ilk seferde ~15 sn)…');
+    ocrWorker=await Tesseract.createWorker('tur',1,{logger:m=>{if(m.status==='recognizing text'){bar.firstChild.style.width=Math.round(m.progress*100)+'%';$('fileInfo').textContent='Fotoğraf okunuyor: %'+Math.round(m.progress*100)}}});
+    await ocrWorker.setParameters({tessedit_pageseg_mode:'11',preserve_interword_spaces:'1'});
+  }
+  const canvas=await prepImage(f);
+  const {data}=await ocrWorker.recognize(canvas);
+  const W=data.words.filter(w=>w.text.trim()&&w.confidence>20).map(w=>({t:w.text.trim(),x0:w.bbox.x0,x1:w.bbox.x1,y0:w.bbox.y0,y1:w.bbox.y1,yc:(w.bbox.y0+w.bbox.y1)/2}));
+  return tableFromWords(W);
+}
+function tableFromWords(W){
+  const med=a=>{a=[...a].sort((x,y)=>x-y);return a[Math.floor(a.length/2)]};
+  // 1) her satırın çapası: sipariş numarası (uzun, rakam ağırlıklı kelime)
+  const cand=W.filter(w=>{const t=w.t.replace(/[^0-9A-Za-z_]/g,'');return t.length>=9&&(t.match(/\d/g)||[]).length>=6});
+  if(!cand.length)throw new Error('sipariş numarası sütunu bulunamadı');
+  const cx=med(cand.map(w=>w.x0)),cw=med(cand.map(w=>w.x1-w.x0));
+  let anchors=cand.filter(w=>Math.abs(w.x0-cx)<cw*0.8).sort((a,b)=>a.yc-b.yc);
+  anchors=anchors.filter((a,i)=>i===0||a.yc-anchors[i-1].yc>(a.y1-a.y0)*0.8);
+  // 2) adres sütunu: ilçe (yoksa İstanbul) sütununun sağı
+  const ilceW=W.filter(w=>w.x0>cx&&matchIlce(w.t)),istW=W.filter(w=>w.x0>cx&&isIst(w.t));
+  const addrX=ilceW.length?med(ilceW.map(w=>w.x1))+4:istW.length?med(istW.map(w=>w.x1))+med(istW.map(w=>w.x1-w.x0))*1.3:null;
+  if(addrX==null)throw new Error('adres sütunu bulunamadı');
+  const ilceDef=ilceW.length?matchIlce(ilceW[0].t):'';
+  // 3) kelimeleri en yakın satıra dağıt
+  const gap=anchors.length>1?med(anchors.slice(1).map((a,i)=>a.yc-anchors[i].yc)):60;
+  const line=ws=>{ws=[...ws].sort((p,q)=>p.yc-q.yc);const L=[];for(const w of ws){const l=L.find(l=>Math.abs(l.y-w.yc)<(w.y1-w.y0)*0.6);l?l.w.push(w):L.push({y:w.yc,w:[w]})}return L.sort((p,q)=>p.y-q.y).map(l=>l.w.sort((p,q)=>p.x0-q.x0).map(w=>w.t).join(' ')).join(' ')};
+  const out=[];
+  anchors.forEach((a,i)=>{
+    const top=i?(anchors[i-1].yc+a.yc)/2:a.yc-gap/2,bot=i<anchors.length-1?(a.yc+anchors[i+1].yc)/2:a.yc+gap/2;
+    const row=W.filter(w=>w.yc>=top&&w.yc<bot);
+    const adr=line(row.filter(w=>w.x0>=addrX-2&&!(w.x1<addrX+60&&(isIst(w.t)||matchIlce(w.t))))).replace(/^[|/\s]+/,'').trim();
+    if(adr.length<2)return;
+    const mid=row.filter(w=>w.x0>a.x1+2&&w.x1<addrX).sort((p,q)=>p.x0-q.x0);
+    const name=[];let adet=0;
+    for(const w of mid){
+      if(/\d/.test(w.t)){if(name.length)break;continue}
+      if(isIst(w.t)||matchIlce(w.t)||/^(geri|al[ıi]m)$/i.test(w.t))break;
+      if(/[a-zçğıöşü]/i.test(w.t))name.push(w.t);
+    }
+    const own=row.find(w=>w.x1<addrX+60&&matchIlce(w.t));
+    out.push({musteri:line(row.filter(w=>w.x1<a.x0)),sip:a.t,alici:name.slice(0,5).join(' ')||'(isim okunamadı)',adet,
+      ilce:own?matchIlce(own.t):ilceDef,raw:adr,geri:row.some(w=>fold(w.t).replace(/[^a-z]/g,'')==='geri')});
+  });
+  return out;
+}
+
+
+// ---------- dosya yükleme ----------
+async function loadFiles(files){
+  files=[...files];if(!files.length)return;
+  let orders=[],msgs=[];
+  for(const [i,f] of files.entries()){
+    try{
+      if(/^image\//.test(f.type)||/\.(jpe?g|png|webp|bmp)$/i.test(f.name)){const o=await ocrImage(f,i+1,files.length);orders.push(...o);msgs.push(`${f.name}: ${o.length} satır`)}
+      else if(/\.(xlsx|xls|csv)$/i.test(f.name)){
+        const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
+        const o=parseSheet(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:'',raw:false}));
+        orders.push(...o);msgs.push(`${f.name}: ${o.length} satır`);
+      }else msgs.push(`${f.name}: desteklenmeyen dosya`);
+    }catch(e){msgs.push(`${f.name}: okunamadı (${e.message||e})`)}
+  }
+  $('ocrBar').style.display='none';
+  if(!orders.length){$('fileInfo').textContent='Adres bulunamadı. '+msgs.join(' · ');return}
+  geoRun++;geoBusy=false;delivered=[];stops=buildStops(orders);clearRoute();
+  $('fileInfo').innerHTML=esc(msgs.join(' · '))+`<br><b>${orders.length} sipariş → ${stops.length} durak.</b>`;
+  renderStops();refreshMarkers();updateState();geocodeAll();
+}
+
+$('drop').onclick=()=>$('file').click();
+$('drop').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('file').click()}};
+$('file').onchange=e=>{loadFiles(e.target.files);e.target.value=''};
+$('drop').ondragover=e=>{e.preventDefault();$('drop').classList.add('over')};
+$('drop').ondragleave=()=>$('drop').classList.remove('over');
+$('drop').ondrop=e=>{e.preventDefault();$('drop').classList.remove('over');loadFiles(e.dataTransfer.files)};
+document.addEventListener('paste',e=>{const f=[...(e.clipboardData?.files||[])];if(f.length&&!/input/i.test(document.activeElement?.tagName||'')){e.preventDefault();loadFiles(f)}});
+$('geoBtn').onclick=()=>geocodeAll(true);
+$('routeBtn').onclick=buildRoute;
+$('svc').onchange=()=>autoRoute();
+$('mapCard').addEventListener('toggle',()=>{if($('mapCard').open)createMap()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'){stopPick();closePicker()}});
+
+// ayarlar: anahtar bir kez kaydedilir, sonra gizli kalır
+$('setBtn').onclick=()=>{const c=$('setCard');c.style.display=c.style.display==='none'?'block':'none'};
+$('yKeyIn').value=yKey;
+$('yKeySave').onclick=async()=>{const k=$('yKeyIn').value.trim();if(!k)return;try{const r=await fetch('/ayarlar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ykey:k})});if(!r.ok)throw new Error();yKey=k;localStorage.setItem('ykey',JSON.stringify(k));location.reload()}catch(e){$('yWarn').style.display='block';$('yWarn').textContent='Anahtar kaydedilemedi. Yerel sunucuyu kontrol edin.'}};
+async function refreshGoogleStatus(){
+  try{const r=await fetch('/ayarlar');if(!r.ok)throw new Error();const a=await r.json();googleConfigured=!!a.googleConfigured;configuredProviders=a.providers||{};const hints=a.hints||{};for(const p of Object.keys(providerFields)){if(!$(p+'Key').dataset.ph)$(p+'Key').dataset.ph=$(p+'Key').placeholder;showProviderStatus(p,configuredProviders[p]?'✓ Anahtar kayıtlı (…'+(hints[p]||'')+') · Bağlantıyı test edin':'Anahtar eklenmedi');$(p+'Key').placeholder=hints[p]?'Kayıtlı: ••••••••'+hints[p]+' — değiştirmek için yenisini yapıştırın':$(p+'Key').dataset.ph||$(p+'Key').placeholder;}
+    $('gStatus').textContent=googleConfigured?'Google API yalnızca ücretli arama düğmesine basıldığında kullanılır. Varsayılan arama ücretsizdir.':'Google anahtarı gerekmez: varsayılan arama ücretsiz Photon/OpenStreetMap kullanır. İsterseniz ayrıca ücretli Google API ekleyebilirsiniz.';
+  }catch(e){$('gStatus').textContent='Ücretsiz arama hazır. İsteğe bağlı Google API için yerel sunucu gerekir.'}
+}
+$('gKeySave').onclick=async()=>{
+  const gkey=$('gKeyIn').value.trim();if(!gkey)return;
+  try{const r=await fetch('/ayarlar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({gkey})});if(!r.ok)throw new Error();$('gKeyIn').value='';await refreshGoogleStatus()}
+  catch(e){$('gStatus').textContent='Anahtar kaydedilemedi. Sunucuyu yeniden başlatın.'}
+};
+for(const p of Object.keys(providerFields)){
+  async function saveProvider(value){
+    try{
+      const r=await fetch('/ayarlar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({[providerFields[p]]:value})});
+      if(!r.ok)throw new Error();$(p+'Key').value='';providerEpoch++;providerCache.clear();providerErrors={};yRetryAt=0;yBroken=false;
+      await refreshGoogleStatus();showProviderStatus(p,value?'Anahtar kaydedildi · Bağlantıyı test edin':p==='yandex'?'Ayrı anahtar kaldırıldı; varsa harita anahtarı denenir.':'Anahtar kaldırıldı');
+    }catch(e){showProviderStatus(p,'Kaydedilemedi. Yerel sunucuyu kontrol edin.')}
+  }
+  $(p+'Save').onclick=()=>{const key=$(p+'Key').value.trim();if(key)return saveProvider(key);showProviderStatus(p,'Önce anahtarı girin.')};
+  $(p+'Remove').onclick=()=>saveProvider('');
+  $(p+'Test').onclick=async()=>{
+    const button=$(p+'Test');button.disabled=true;showProviderStatus(p,'Bağlantı deneniyor…');
+    try{await providerSearch(p,'İstanbul Kadıköy','address',true);if(p==='yandex'){yRetryAt=0;yBroken=false;$('yWarn').style.display='none';}}
+    catch(e){if(p==='yandex'){yRetryAt=0;$('yWarn').style.display='block';$('yWarn').textContent='Yandex Geocoder: '+e.message;}}
+    finally{button.disabled=false}
+  };
+}
+if(!yKey)$('setCard').style.display='block';
+if(location.protocol==='file:')$('fileWarn').style.display='block';
+renderPts();updateState();initMap();
+refreshGoogleStatus();
+renderEmpty();
+</script>
+</body>
+</html>

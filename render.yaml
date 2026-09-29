@@ -1,0 +1,29 @@
+# Render.com ücretsiz yayın ayarı. Gizli değerler (sync: false) Render panelinden girilir, koda yazılmaz.
+services:
+  - type: web
+    name: rota-olusturucu
+    runtime: python
+    plan: free
+    buildCommand: echo "bağımlılık yok"
+    startCommand: python sunucu.py
+    envVars:
+      - key: ROTA_HOST
+        value: 0.0.0.0
+      - key: ROTA_NOBROWSER
+        value: "1"
+      - key: ROTA_SIFRE
+        sync: false
+      - key: DEPO_KOORDINAT
+        sync: false
+      - key: EV_KOORDINAT
+        sync: false
+      - key: YANDEX_MAPS_JS_KEY
+        sync: false
+      - key: YANDEX_GEOCODER_API_KEY
+        sync: false
+      - key: GEOAPIFY_API_KEY
+        sync: false
+      - key: TOMTOM_API_KEY
+        sync: false
+      - key: MAPTILER_API_KEY
+        sync: false

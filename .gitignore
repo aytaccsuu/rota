@@ -1,0 +1,9 @@
+# API anahtarları ve kişisel ayarlar asla yüklenmez
+ayarlar.json
+ayarlar.json.tmp
+__pycache__/
+*.pyc
+.claude/
+
+# ev/depo konumu içeren ekran görüntüleri
+*.png
