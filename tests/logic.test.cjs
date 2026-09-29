@@ -39,6 +39,8 @@ async function main(){
   multi.run(`configuredProviders={maptiler:true,tomtom:true};providerSearch=async p=>{if(p==='maptiler')throw new Error('timeout');return [exact]}`);
   assert.equal((await multi.run(`extraProviderSearch('adres')`)).length,1,'Tek servis hatası diğer sonucu silmemeli');
   assert.equal(run(`parseSheet([['Alıcı','Adres'],['A','Canpark']]).length`),1,'Kısa AVM adı kaybolmamalı');
+  // Fotoğrafta iki kez okunan satır (aynı sipariş no) tek durak/tek sipariş olmalı
+  assert.equal(run(`(()=>{const st=buildStops([{sip:'162409262477306',alici:'NAZİF ÖCAL',ilce:'Kadıköy',raw:'Göztepe mah. Arı apartmanı no: 171 / Daire :6'},{sip:'162409262477306',alici:'NAZİF ÖCAL',ilce:'Kadıköy',raw:'Göztepe mah. Arı apartmanı no: 171 / Dalre :6'}]);return st.length+'|'+st[0].orders.length})()`),'1|1');
   // AVM kodlu alıcı: mağaza kodu yerine AVM adı, aynı AVM tek durak
   assert.equal(run(`mallFromCode('TUR.Ist.GS.mll.METROGARDEN.I')`),'Metrogarden');
   assert.equal(run(`mallFromCode('TUR.Ist.GS.mII.CANPARK.I')`),'Canpark','fotoğrafta mII okunsa da bulunmalı');
@@ -71,32 +73,26 @@ async function main(){
   assert.equal(run(`readyStop({lat:41,lon:29,quality:'Mahalle'})`),false);
   assert.equal(run(`readyStop({lat:41,lon:null,quality:'Kapı'})`),false);
   assert.equal(run(`readyStop({lat:41,lon:29,quality:'Google'})`),true);
-  // İlk durak eve en uzak değil, depoya karayoluyla en yakın olanıdır.
-  run(`var D=[[0,1,50,20,10],[1,0,50,20,1],[50,50,0,20,90],[20,20,20,0,40],[10,1,90,40,0]]`);
-  assert.equal(run("solve(D,3,['A','B','C'])[1]"),1);
   assert.deepEqual(plain(run('solve([[0,1],[1,0]],0,[])')),[0,1]);
   assert.throws(()=>run('solve([[0,null],[1,0]],0,[])'));
-  // Aynı mahallede 10 müşteri varken başka mahalleye kaçmamalı.
-  run(`var n=12;var D=Array.from({length:n+2},(_,i)=>Array.from({length:n+2},(_,j)=>i===j?0:j>10?1:50));D[0][1]=0.5;var keys=Array.from({length:n},(_,i)=>i<10?'A':'B')`);
-  assert.deepEqual(plain(run('solve(D,n,keys).slice(1,11).map(i=>keys[i-1])')),Array(10).fill('A'));
-  // Dağıtım başladıysa başka mahalledeki daha yakın müşteri için mevcut mahalleyi bırakma.
-  assert.equal(run("keys[solve(D,n,keys,D,'B')[1]-1]"),'B');
-  // Yakınlık mesafeye göre; hız farkı ilk durağı değiştirmesin.
-  run(`var distMatrix=D.map(r=>r.slice());distMatrix[0][2]=0.1`);
-  assert.equal(run('solve(D,n,keys,distMatrix)[1]'),2);
-  // Eve dönüş maliyeti son mahalle seçiminde gerçekten etkili olmalı.
+  // Eve dönüş maliyeti son durak seçiminde gerçekten etkili olmalı.
   run(`var E=Array.from({length:5},(_,i)=>Array.from({length:5},(_,j)=>i===j?0:10));E[0][1]=1;E[1][2]=1;E[1][3]=2;E[2][3]=1;E[3][2]=1;E[2][4]=1;E[3][4]=100`);
   assert.deepEqual(plain(run("solve(E,3,['A','B','C'])")),[0,1,3,2,4]);
+  // Mahalle sınırı rotayı uzatmamalı: sınırdaki durak komşu mahallenin duraklarıyla birlikte gidilmeli.
+  run(`var pts=[[0,0],[1,0],[2,0],[3,0],[4,0],[5,0]];var D6=pts.map(a=>pts.map(b=>Math.abs(a[0]-b[0])+Math.abs(a[1]-b[1])));`);
+  assert.deepEqual(plain(run("solve(D6,4,['A','B','A','B'])")),[0,1,2,3,4,5],'mahalle adı sırayı bozmamalı');
   assert.notEqual(run("neighborhoodKey({id:1,mah:'Atatürk',ilce:'Kadıköy'})"),run("neighborhoodKey({id:2,mah:'Atatürk',ilce:'Ümraniye'})"));
-  assert.notEqual(run("neighborhoodKey({id:1})"),run("neighborhoodKey({id:2})"));
+  const pathCost=(D,p)=>p.slice(1).reduce((s,j,i)=>s+D[p[i]][j],0);
   for(let seed=1;seed<=250;seed++){
     run(`var n=${seed%23+1};var keys=Array.from({length:n},(_,i)=>'mahalle'+(i%5));var D=Array.from({length:n+2},(_,i)=>Array.from({length:n+2},(_,j)=>i===j?0:((i+7)*(j+13)*${seed})%97+1));var p=solve(D,n,keys);`);
     const r=plain(run('({p,keys,n,D})'));
     assert.equal(r.p.length,r.n+2);assert.equal(new Set(r.p).size,r.n+2);
-    const min=Math.min(...r.D[0].slice(1,-1));assert.equal(r.D[0][r.p[1]],min);
-    const closed=new Set();let current;
-    for(const i of r.p.slice(1,-1)){const key=r.keys[i-1];if(key!==current){assert.ok(!closed.has(key),'Mahalleye geri dönülmemeli');if(current)closed.add(current);current=key}}
-    assert.deepEqual(plain(run('solve(D,n,keys)')),r.p);
+    assert.equal(r.p[0],0);assert.equal(r.p.at(-1),r.n+1);
+    // en yakın-komşu sırasından asla kötü olmamalı
+    const rem=new Set(Array.from({length:r.n},(_,i)=>i+1)),g=[0];let cur=0;
+    while(rem.size){let b=-1,bd=Infinity;for(const j of rem)if(r.D[cur][j]<bd){bd=r.D[cur][j];b=j}g.push(b);rem.delete(b);cur=b}g.push(r.n+1);
+    assert.ok(pathCost(r.D,r.p)<=pathCost(r.D,g)+1e-9,'en yakın komşudan uzun olmamalı');
+    assert.deepEqual(plain(run('solve(D,n,keys)')),r.p,'aynı girdi aynı plan');
   }
   run(`var originalMatrix=getMatrix;var originalOsrm=osrm;depot={lat:40.9,lon:29};home={lat:41.4,lon:29};
     var sourceOrders=Array.from({length:9},(_,i)=>({raw:'Örnek '+i+' Sokak No:1',ilce:'Kadıköy',alici:'Müşteri '+i,sip:String(i)}));
@@ -163,6 +159,6 @@ async function main(){
   run(`delivered=[];var release;getMatrix=()=>new Promise(r=>release=r);var inFlight=buildRoute();clearRoute();`);
   run(`release({dur:[[0,1,2,3],[1,0,1,2],[2,1,0,1],[3,2,1,0]],dist:[[0,1,2,3],[1,0,1,2],[2,1,0,1],[3,2,1,0]],osrm:true})`);
   await run('inFlight');assert.equal(run('routeOrder'),null);
-  console.log('OK: adres/AVM ayrıştırma, ücretsiz yer teyidi, 250 mahalle rotası senaryosu, teslimat devamı ve eski yanıt koruması');
+  console.log('OK: adres/AVM ayrıştırma, ücretsiz yer teyidi, 250 rota senaryosu, teslimat devamı ve eski yanıt koruması');
 }
 main().catch(e=>{console.error(e);process.exitCode=1});

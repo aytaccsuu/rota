@@ -108,7 +108,7 @@ a{color:var(--pri);text-underline-offset:3px}.app{max-width:1340px;padding:0 30p
     <div class="small" id="fileInfo" style="margin-top:6px"></div>
   </div>
 
-  <div class="side-note"><b>Evrak sırası rota sırası değildir.</b><p>En yakın müşteriden başla. Mahalledeki işleri birlikte bitir. Son duraktan eve dön.</p></div>
+  <div class="side-note"><b>Evrak sırası rota sırası değildir.</b><p>Depodan çık, toplam sürüş süresi en kısa sırayla dağıt, son duraktan eve dön.</p></div>
   </aside><main class="route-column">
   <div class="card" id="resCard">
     <h2 id="routeTitle">Teslimat planın</h2>
@@ -116,7 +116,7 @@ a{color:var(--pri);text-underline-offset:3px}.app{max-width:1340px;padding:0 30p
     <div class="small hide-print" id="geoInfo"></div>
     <div class="route-toolbar hide-print"><div class="row"><label for="svc" style="width:auto">Durak başına</label><input type="number" id="svc" value="5" min="0" aria-label="Durak başına bekleme süresi"><span class="small">dk bekleme</span></div><button id="routeBtn" class="p" disabled>Rotayı hesapla</button></div>
     <div class="small hide-print" id="routeInfo"></div>
-    <div class="route-rule">En yakın başlangıç <span aria-hidden="true"> · </span> Mahalleleri birlikte tamamla <span aria-hidden="true"> · </span> Eve dönüş dahil</div>
+    <div class="route-rule">En kısa toplam süre <span aria-hidden="true"> · </span> Eve dönüş dahil</div>
     <div id="deliveryInfo" class="small" style="margin-top:6px"></div>
     <div id="result"></div>
   </div>
@@ -766,6 +766,9 @@ function mallFromCode(text){
 }
 function buildStops(orders){
   const m=new Map();let id=0;
+  // Aynı sipariş numarası (ör. fotoğrafta iki kez okunan satır) tek sipariş sayılır
+  const seenSip=new Set();
+  orders=orders.filter(o=>{const k=String(o.sip||'').replace(/\D/g,'');if(k.length<6)return true;if(seenSip.has(k))return false;seenSip.add(k);return true});
   for(const o of orders){
     const p=parseAddress(o.raw,o.ilce);
     const mall=mallFromCode(o.alici)||mallFromCode(o.musteri);
@@ -809,52 +812,59 @@ function neighborhoodKey(s){
   return ilce&&mah?ilce+'|'+mah:'unknown:'+stableStopKey(s)+(validPoint(s)?'':':'+s.id);
 }
 function neighborhoodLabel(s){return [s.match?.mah||s.mah,s.match?.ilce||s.ilce].filter(Boolean).join(' / ')||'Mahalle bilgisi yok'}
-// İlk durak yol mesafesine göre en yakın olandır; başlamış mahalle varsa önce o bitirilir.
-// Mahalle bloklarının ve blok içinin süre maliyeti, eve dönüş dahil iyileştirilir.
+// Rota: depo sabit başlangıç, ev sabit bitiş; aradaki sıra toplam sürüş süresi (eve dönüş dahil) en az olacak şekilde seçilir.
+// Mahalle sınırı ve "ilk durak en yakın" kuralı yoktur: sınırdaki sokak komşu mahalleye daha yakın olabilir.
+// Aynı girdi her zaman aynı planı verir (rastgelelik sabit tohumludur).
 function solve(D,n,keys=Array.from({length:n},(_,i)=>String(i)),distance=D,activeGroup=null){
   const valid=m=>Array.isArray(m)&&m.length===n+2&&m.every(r=>Array.isArray(r)&&r.length===n+2&&r.every(x=>Number.isFinite(x)&&x>=0));
-  if(!valid(D)||!valid(distance)||keys.length!==n)throw new Error('Rota mesafeleri veya mahalle bilgisi geçersiz.');
+  if(!valid(D)||!valid(distance)||keys.length!==n)throw new Error('Rota mesafeleri geçersiz.');
   if(!n)return [0,1];
-  const groups=new Map();keys.forEach((key,i)=>{if(!groups.has(key))groups.set(key,[]);groups.get(key).push(i+1)});
-  const pool=groups.get(activeGroup)||Array.from({length:n},(_,i)=>i+1);
-  const first=[...pool].sort((a,b)=>distance[0][a]-distance[0][b]||D[0][a]-D[0][b]||a-b)[0];
-  const firstKey=keys[first-1];
-  const cost=p=>p.slice(1).reduce((sum,j,i)=>sum+D[p[i]][j],0);
-  function block(members,from,fixed){
-    const remaining=new Set(members),out=[];let current=from;
-    if(fixed!=null){out.push(fixed);remaining.delete(fixed);current=fixed}
-    while(remaining.size){const next=[...remaining].sort((a,b)=>D[current][a]-D[current][b]||a-b)[0];out.push(next);remaining.delete(next);current=next}
-    return out;
-  }
-  function assemble(order){const p=[0];order.forEach((key,i)=>p.push(...block(groups.get(key),p.at(-1),i===0?first:null)));return [...p,n+1]}
-  const order=[firstKey],remaining=new Set([...groups.keys()].filter(k=>k!==firstKey));
-  let current=block(groups.get(firstKey),0,first).at(-1);
-  while(remaining.size){
-    const key=[...remaining].sort((a,b)=>Math.min(...groups.get(a).map(j=>D[current][j]))-Math.min(...groups.get(b).map(j=>D[current][j]))||String(a).localeCompare(String(b)))[0];
-    order.push(key);remaining.delete(key);current=block(groups.get(key),current,null).at(-1);
-  }
-  let bestOrder=order,path=assemble(order),best=cost(path),budget=1200;
-  // İlk mahalleyi sabit tut. Bütün mahalle bloklarını taşı; aynı mahalleyi bölme.
-  for(let pass=0;pass<3&&budget>0;pass++){
-    let changed=false;
-    for(let i=1;i<bestOrder.length&&budget>0;i++)for(let j=1;j<bestOrder.length&&budget>0;j++){
-      if(i===j)continue;budget--;
-      const candidate=[...bestOrder],moved=candidate.splice(i,1)[0];candidate.splice(j,0,moved);
-      const p=assemble(candidate),c=cost(p);
-      if(c<best-1e-6){best=c;path=p;bestOrder=candidate;changed=true}
+  const cost=p=>{let c=0;for(let i=0;i<p.length-1;i++)c+=D[p[i]][p[i+1]];return c};
+  const all=()=>Array.from({length:n},(_,i)=>i+1);
+  function greedyFwd(){const rem=new Set(all()),p=[0];let cur=0;while(rem.size){let b=-1,bd=Infinity;for(const j of rem)if(D[cur][j]<bd||(D[cur][j]===bd&&j<b)){bd=D[cur][j];b=j}p.push(b);rem.delete(b);cur=b}return p.concat(n+1)}
+  function greedyBack(){const rem=new Set(all()),p=[n+1];let cur=n+1;while(rem.size){let b=-1,bd=Infinity;for(const j of rem)if(D[j][cur]<bd||(D[j][cur]===bd&&j<b)){bd=D[j][cur];b=j}p.unshift(b);rem.delete(b);cur=b}return [0].concat(p)}
+  function improve(path){ // 2-opt + or-opt (1-3 durak taşıma); yalnız değişen bağlantılar hesaplanır
+    path=path.slice();let changed=true;
+    while(changed){
+      changed=false;
+      // 2-opt: path[i..j] ters çevrilir (yönlü maliyet: iç kenarlar da ters yönde sayılır)
+      for(let i=1;i<n&&!changed;i++){
+        let fwd=0,rev=0;
+        for(let j=i+1;j<=n;j++){
+          fwd+=D[path[j-1]][path[j]];rev+=D[path[j]][path[j-1]];
+          const delta=D[path[i-1]][path[j]]+D[path[i]][path[j+1]]+rev-D[path[i-1]][path[i]]-D[path[j]][path[j+1]]-fwd;
+          if(delta<-1e-9){path=path.slice(0,i).concat(path.slice(i,j+1).reverse(),path.slice(j+1));changed=true;break}
+        }
+      }
+      if(changed)continue;
+      // or-opt: 1-3 duraklık parçayı başka yere (düz veya ters) taşı
+      outer:for(let len=1;len<=3;len++)for(let i=1;i+len-1<=n;i++){
+        const e=i+len-1,seg=path.slice(i,e+1);
+        let inF=0,inR=0;for(let k=i;k<e;k++){inF+=D[path[k]][path[k+1]];inR+=D[path[k+1]][path[k]]}
+        const removeGain=D[path[i-1]][path[i]]+inF+D[path[e]][path[e+1]]-D[path[i-1]][path[e+1]];
+        const base=path.slice(0,i).concat(path.slice(e+1));
+        for(let k=1;k<base.length;k++){
+          if(k===i)continue;
+          const x=base[k-1],y=base[k];
+          const addF=D[x][seg[0]]+inF+D[seg[len-1]][y]-D[x][y];
+          const addR=D[x][seg[len-1]]+inR+D[seg[0]][y]-D[x][y];
+          if(addF-removeGain<-1e-9){path=base.slice(0,k).concat(seg,base.slice(k));changed=true;break outer}
+          if(len>1&&addR-removeGain<-1e-9){path=base.slice(0,k).concat(seg.slice().reverse(),base.slice(k));changed=true;break outer}
+        }
+      }
     }
-    if(!changed)break;
+    return path;
   }
-  // İlk teslimatı ve mahalle sınırlarını koruyarak mahalle içindeki gereksiz dolaşmayı azalt.
-  budget=6000;
-  for(let pass=0;pass<3&&budget>0;pass++){
-    let changed=false;
-    for(let i=2;i<=n&&budget>0;i++)for(let j=i+1;j<=n&&keys[path[i]-1]===keys[path[j]-1]&&budget>0;j++){
-      budget--;const p=path.slice(0,i).concat(path.slice(i,j+1).reverse(),path.slice(j+1)),c=cost(p);
-      if(c<best-1e-6){path=p;best=c;changed=true}
-    }
-    if(!changed)break;
+  let seed=n*2654435761>>>0;const rnd=()=>{seed=(seed+0x6D2B79F5)>>>0;let t=seed;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296};
+  function kick(path){ // rotayı 3 yerden kesip parçaların yerini değiştir
+    const a=path.slice(1,-1);if(a.length<4)return path;
+    const c=[1+Math.floor(rnd()*(a.length-1)),1+Math.floor(rnd()*(a.length-1)),1+Math.floor(rnd()*(a.length-1))].sort((x,y)=>x-y);
+    return [0,...a.slice(0,c[0]),...a.slice(c[1],c[2]),...a.slice(c[0],c[1]),...a.slice(c[2]),n+1];
   }
+  let path=null,best=Infinity;
+  for(const start of [greedyFwd(),greedyBack()]){const p=improve(start),c=cost(p);if(c<best-1e-9){best=c;path=p}}
+  const iters=n<=30?250:n<=60?60:15;
+  for(let it=0;it<iters&&n>=4;it++){const p=improve(kick(path)),c=cost(p);if(c<best-1e-9){best=c;path=p}}
   return path;
 }
 const fmtT=s=>{const m=Math.round(s/60);return m>=60?Math.floor(m/60)+' sa '+(m%60)+' dk':m+' dk'};

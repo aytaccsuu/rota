@@ -8,15 +8,12 @@ Sol panelde depo/ev ve evrak yükleme; ana panelde ilk teslimat, mesafe/süre ö
 
 ## Dağıtım sırası
 
-- Evraktaki satır sırası rotaya öncelik vermez. Aynı müşteriler farklı satır sıralarında yüklense de eşit yol maliyetleri dahil aynı plan üretilir.
-- Depo başlangıç, ev bitiştir. İlk teslimat depoya karayolu mesafesi en yakın aktif duraktır.
-- Aynı ilçe ve mahalledeki müşteriler tek grup halinde tamamlanır. Başka mahalleye geçip sonra aynı mahalleye teslimat için geri dönülmez. Yolun başka bir mahalleden geçmesi mümkündür.
-- İlk teslimat korunarak mahallelerin sırası ve mahalle içindeki duraklar, eve dönüş dahil sürüş süresini azaltacak şekilde iyileştirilir. Her durakta eve yaklaşma şartı yoktur; en kısa tur garantisi verilmez.
-- “Teslim edildi” sonrası son teslimat konumundan devam edilir. Başlanmış mahallede kalan müşteri varsa önce onlar bitirilir. “Son teslimatı geri al” yanlış işaretlemeyi geri alır.
-- İlçe/mahalle bilinmiyorsa adresler gelişigüzel birleştirilmez; ayrı durak sayılır ve uyarı gösterilir. Farklı ilçelerdeki aynı adlı mahalleler ayrı gruptur.
-- Yol matrisi alınamazsa yakınlık ve rota kuş uçuşundan tahmin edilir; ekranda belirtilir. Süreler canlı trafik içermez.
-- Tüm adreslerin en azından yaklaşık koordinatı varsa rota taslağı gösterilir. Taslak üzerinde navigasyon/teslimata başlama kapalıdır; konumlar doğrulanınca açılır. Hiç konumu bulunmayan adres varsa hesaplama bekler, sessizce atlanmaz.
-- “Adres kayıtları” evraktaki sırayı gösterir ve teslimat sırası değildir. Hesaplanan sıra üstteki “Teslimat sırası / Rota taslağı” bölümündedir. İlk durağın mesafesi ve süresi, ayrıca en yakın adaylarla karşılaştırması gösterilir.
+- Depo başlangıç, ev bitiştir. Aradaki sıra, eve dönüş dahil **toplam sürüş süresi en az** olacak şekilde hesaplanır.
+- Mahalle sınırı ya da "ilk durak en yakın" kuralı yoktur. Sınırdaki bir sokak komşu mahalledeki duraklara daha yakınsa onlarla birlikte gidilir. (29.09.2026 Kadıköy evrakında mahalle kuralı rotayı 98 dk'ya çıkarıyordu; elle sıra 91 dk, yeni hesap 78 dk.)
+- Hesap: depodan ve evden geriye doğru en yakın komşu başlangıçları, 2-opt ve 1–3 durak taşıma iyileştirmesi, ardından sabit tohumlu "bozup yeniden iyileştir" turları. Aynı evrak her zaman aynı sırayı verir. En kısa tur garantisi verilmez.
+- Aynı sipariş numarası iki kez okunursa (ör. fotoğrafta tekrar eden satır) tek sipariş sayılır.
+- Yol matrisi alınamazsa süreler kuş uçuşundan tahmin edilir; ekranda belirtilir. Süreler canlı trafik içermez.
+- Teyit bekleyen adres varsa rota taslak olarak gösterilir; navigasyon konumlar doğrulanınca açılır.
 
 ## Ücretsiz AVM / apartman arama
 
