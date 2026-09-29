@@ -36,6 +36,9 @@ class ProviderTests(unittest.TestCase):
             result, _ = self.search('tomtom', {'results':[{'type':kind,'position':{'lat':41,'lon':29},
                 'address':{'streetNumber':'12A','streetName':'Örnek Sokak'}}]})
             self.assertEqual(result[0]['precision'],'exact' if kind == 'Point Address' else 'approximate')
+        result, _ = self.search('tomtom', {'results':[{'type':'Point Address','position':{'lat':41,'lon':29},
+            'address':{'streetNumber':'16','streetName':'Cavitpaşa Sokak','municipalitySecondarySubdivision':'Göztepe','municipality':'İstanbul'}}]})
+        self.assertIn('Göztepe', result[0]['areas'], 'TomTom mahallesi kaybolmamalı')
         for lat in (None, float('nan'), 0, 90):
             self.assertEqual(self.search('tomtom', {'results':[{'position':{'lat':lat,'lon':29}}]})[0], [])
 

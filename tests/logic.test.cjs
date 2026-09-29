@@ -39,6 +39,13 @@ async function main(){
   multi.run(`configuredProviders={maptiler:true,tomtom:true};providerSearch=async p=>{if(p==='maptiler')throw new Error('timeout');return [exact]}`);
   assert.equal((await multi.run(`extraProviderSearch('adres')`)).length,1,'Tek servis hatası diğer sonucu silmemeli');
   assert.equal(run(`parseSheet([['Alıcı','Adres'],['A','Canpark']]).length`),1,'Kısa AVM adı kaybolmamalı');
+  // "4/2": önce 4/2 kapı no, sonra 4 (2 = daire); "4-6": önce aralık, sonra 4
+  assert.equal(run(`JSON.stringify(noVariants('4/2'))`),JSON.stringify([{no:'4/2',daire:''},{no:'4',daire:'2'}]));
+  assert.equal(run(`JSON.stringify(noVariants('4-6').map(v=>v.no))`),JSON.stringify(['4-6','4']));
+  assert.equal(run(`JSON.stringify(noVariants('12A').map(v=>v.no))`),JSON.stringify(['12A']),'12A ile 12 farklı bina');
+  assert.equal(run(`noMatches('32','32/17')`),true,'32/17 evrakı 32 numaralı binayla eşleşmeli');
+  assert.equal(run(`noMatches('3','32/17')`),false);
+  assert.equal(run(`parseAddress('Göztepe mah. tepegöz sk. 32/17','Kadıköy').no`),'32/17');
   for(const s of ['Canpark','Canpark AVM','Canpark AVM Kat:2 Mağaza:17']){
     assert.equal(run(`placeCore(parseAddress(${JSON.stringify(s)},'Ümraniye').place)`),'canpark');
   }

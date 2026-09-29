@@ -415,6 +415,15 @@ const core=s=>fold(s).replace(/\bdr\b\.?/g,'doktor').replace(/\bav\b\.?/g,'avuka
 function same(a,b){a=core(a);b=core(b);if(!a||!b)return false;if(a===b)return true;if(Math.min(a.length,b.length)>=5&&(a.includes(b)||b.includes(a)))return true;return lev(a,b)<=Math.max(1,Math.floor(Math.min(a.length,b.length)/5))}
 const mahOk=(c,mah)=>!!mah&&c.areas.some(x=>same(x,mah));
 const noOk=(cno,no)=>!!cno&&!!no&&fold(cno).replace(/\s/g,'')===fold(no).replace(/\s/g,'');
+// Kapı no denemeleri: "4/2" önce tam haliyle kapı no; bulunamazsa 2 daire kabul edilir → "4".
+// "4-6" gibi aralıklarda ilk numara denenir. "12A" ile "12" farklı binadır; harf atılmaz.
+function noVariants(no){
+  no=String(no||'').replace(/\s/g,'');if(!no)return [];
+  const out=[{no,daire:''}],m=no.match(/^(\d+[A-Za-z]?)([/-])(\d+[A-Za-z]?)$/);
+  if(m)out.push({no:m[1],daire:m[2]==='/'?m[3]:''});
+  return out;
+}
+const noMatches=(cno,no)=>noVariants(no).some(v=>noOk(cno,v.no));
 const dist=(a,b)=>{const R=6371e3,t=x=>x*Math.PI/180,dl=t(b.lat-a.lat),dn=t(b.lon-a.lon);const h=Math.sin(dl/2)**2+Math.cos(t(a.lat))*Math.cos(t(b.lat))*Math.sin(dn/2)**2;return 2*R*Math.asin(Math.sqrt(h))};
 
 // Sokak adaylarını bul: aynı isimli sokaklar farklı mahallelerde olabilir → mahalle bilgisiyle ayrıştır
@@ -438,9 +447,11 @@ async function streetCandidates(street,ilce,mah){
 // Seçilen sokakta bina numarasını ara
 async function findHouse(st,no){
   if(!no)return null;
-  for(const q of [`${st.road} ${no} ${st.mah||''}`,`${st.road} ${no} ${st.ilce||''}`]){
-    const houses=(await search(q.trim())).filter(c=>c.type==='house'&&same(c.road,st.road)&&noOk(c.no,no)&&(!st.ilce||(c.ilce&&same(c.ilce,st.ilce)))&&(!st.mah||mahOk(c,st.mah))&&(!c.precision||c.precision==='exact')&&dist(c,st)<2000);
-    if(houses.length)return {...houses[0],conflict:houses.some((c,i)=>houses.slice(i+1).some(other=>dist(c,other)>50)),candidates:houses};
+  for(const v of noVariants(no))for(const q of [`${st.road} ${v.no} ${st.mah||''}`,`${st.road} ${v.no} ${st.ilce||''}`]){
+    // TomTom/MapTiler/Geoapify de bina aramasına katılır (anahtarı kayıtlı olanlar)
+    const pool=[...await search(q.trim()),...await extraProviderSearch(q.trim()).catch(()=>[])];
+    const houses=pool.filter(c=>c.type==='house'&&same(c.road,st.road)&&noOk(c.no,v.no)&&(!st.ilce||!c.ilce||same(c.ilce,st.ilce))&&(!st.mah||mahOk(c,st.mah))&&(!c.precision||c.precision==='exact')&&dist(c,st)<2000);
+    if(houses.length)return {...houses[0],daire:v.daire,conflict:houses.some((c,i)=>houses.slice(i+1).some(other=>dist(c,other)>50)),candidates:houses};
   }
   return null;
 }
@@ -454,7 +465,7 @@ async function locateStreet(a){
     else if(cands.length&&cands.every(c=>dist(c,cands[0])<1500)){st=cands[0];quality='Kontrol'} // tek sokak var ama mahalle doğrulanamadı
     if(st){
       const h=await findHouse(st,a.no);
-      const exact=h&&core(h.road)===core(a.street)&&(!a.mah||h.areas.some(x=>core(x)===core(a.mah)))&&(!a.ilce||core(h.ilce)===core(a.ilce));
+      const exact=h&&core(h.road)===core(a.street)&&(!a.mah||h.areas.some(x=>core(x)===core(a.mah)))&&(!a.ilce||!h.ilce||core(h.ilce)===core(a.ilce));
       if(h)return {...h,quality:exact&&!h.conflict?'Kapı':'Kontrol'};
       return {lat:st.lat,lon:st.lon,quality,road:st.road,no:'',mah:st.mah};
     }
@@ -489,7 +500,7 @@ function exactPlaceMatch(a,c){
   if(!a.ilce||!c.ilce||core(a.ilce)!==core(c.ilce))return false;
   if(a.mah&&!c.areas.some(x=>core(x)===core(a.mah)))return false;
   if(a.street&&core(a.street)!==core(c.road))return false;
-  if(a.no&&!noOk(c.no,a.no))return false;
+  if(a.no&&!noMatches(c.no,a.no))return false;
   if(a.place)return !!placeCore(a.place)&&placeCore(a.place)===placeCore(c.name)&&c.types.some(t=>['shopping_mall','premise','subpremise','establishment','point_of_interest'].includes(t));
   return (!c.precision||c.precision==='exact')&&!!a.street&&!!a.no&&c.types.some(t=>['street_address','premise','subpremise'].includes(t));
 }

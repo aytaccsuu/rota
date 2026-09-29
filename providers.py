@@ -68,7 +68,7 @@ def provider_search(provider, query, key, mode='address'):
         data = get_json('https://api.tomtom.com/search/2/search/' + urllib.parse.quote(query, safe='') + '.json', dict(key=key, language='tr-TR', countrySet='TR', limit=10, lat=41, lon=29.05))
         for p in data['results']:
             a = p.get('address', {}); pos = p.get('position', {})
-            out.append(candidate('TomTom', pos.get('lat'), pos.get('lon'), name=p.get('poi',{}).get('name',''), road=a.get('streetName',''), no=a.get('streetNumber',''), areas=[a.get(k) for k in ('municipalitySubdivision','municipality','countrySecondarySubdivision','countrySubdivision')], address=a.get('freeformAddress',''), precise=p.get('type') == 'Point Address', poi=p.get('type') == 'POI'))
+            out.append(candidate('TomTom', pos.get('lat'), pos.get('lon'), name=p.get('poi',{}).get('name',''), road=a.get('streetName',''), no=a.get('streetNumber',''), areas=[a.get(k) for k in ('municipalitySecondarySubdivision','municipalitySubdivision','municipality','countrySecondarySubdivision','countrySubdivision')], address=a.get('freeformAddress',''), precise=p.get('type') == 'Point Address', poi=p.get('type') == 'POI'))
     elif provider == 'maptiler':
         data = get_json('https://api.maptiler.com/geocoding/' + urllib.parse.quote(query, safe='') + '.json', dict(key=key, language='tr', country='tr', limit=10, bbox='27.9,40.7,29.95,41.6', proximity='29.05,41'))
         for f in data['features']:
