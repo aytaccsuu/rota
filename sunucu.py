@@ -1,5 +1,7 @@
 """Yerel rota uygulaması ve Google Places adres arama aracısı."""
 import base64
+import hashlib
+import time
 import hmac
 import http.server
 import json
@@ -17,7 +19,59 @@ KLASOR = os.path.dirname(os.path.abspath(__file__))
 AYAR = os.path.join(KLASOR, "ayarlar.json")
 PORT = int(os.environ.get("PORT") or os.environ.get("ROTA_PORT", 8080))
 HOST = os.environ.get("ROTA_HOST", "127.0.0.1")  # yayında: 0.0.0.0
-SIFRE = os.environ.get("ROTA_SIFRE", "")  # doluysa site şifreyle korunur
+SIFRE = os.environ.get("ROTA_SIFRE", "")  # eski ayar: tek şifre, kullanıcı adı serbest
+
+
+def parse_users(text):
+    """ROTA_KULLANICILAR="mesut:sifre1, ali:sifre2" → {"mesut": "sifre1", ...}"""
+    users = {}
+    for part in text.replace(";", ",").split(","):
+        name, sep, pw = part.strip().partition(":")
+        if sep and name.strip() and pw:
+            users[name.strip().casefold()] = pw
+    return users
+
+
+USERS = parse_users(os.environ.get("ROTA_KULLANICILAR", ""))
+SESSION_DAYS = 30
+COOKIE = "rota_oturum"
+# Oturum imzası: ROTA_GIZLI yoksa kullanıcı ayarından türetilir (sunucu uyuyup uyansa da oturum bozulmaz;
+# şifre değişince eski oturumlar geçersiz olur).
+SECRET = (os.environ.get("ROTA_GIZLI") or hashlib.sha256(("rota|" + os.environ.get("ROTA_KULLANICILAR", "") + "|" + SIFRE).encode()).hexdigest()).encode()
+FAILS = {}  # ip → [hatalı deneme sayısı, kilit bitişi]
+LOGIN_PAGE = os.path.join(KLASOR, "giris.html")
+
+
+def auth_enabled():
+    return bool(USERS or SIFRE)
+
+
+def check_login(name, pw):
+    name = (name or "").strip().casefold()
+    if USERS:
+        expected = USERS.get(name)
+        return bool(expected) and hmac.compare_digest(pw.encode(), expected.encode())
+    return bool(SIFRE) and bool(name) and hmac.compare_digest(pw.encode(), SIFRE.encode())
+
+
+def make_token(name, now=None):
+    exp = int((now or time.time()) + SESSION_DAYS * 86400)
+    body = "%s|%d" % (name, exp)
+    sig = hmac.new(SECRET, body.encode(), hashlib.sha256).hexdigest()
+    return base64.urlsafe_b64encode(("%s|%s" % (body, sig)).encode()).decode()
+
+
+def read_token(token, now=None):
+    try:
+        name, exp, sig = base64.urlsafe_b64decode(token.encode()).decode().rsplit("|", 2)
+        good = hmac.new(SECRET, ("%s|%s" % (name, exp)).encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(sig, good) or int(exp) < (now or time.time()):
+            return None
+        if USERS and name not in USERS:
+            return None  # kullanıcı silinmiş
+        return name
+    except (ValueError, UnicodeDecodeError):
+        return None
 LOCK = threading.Lock()
 
 
@@ -73,29 +127,87 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def session_user(self):
+        if not auth_enabled():
+            return "yerel"
+        for part in self.headers.get("Cookie", "").split(";"):
+            k, _, v = part.strip().partition("=")
+            if k == COOKIE and v:
+                return read_token(v)
+        return None
+
     def authorized(self):
-        if not SIFRE:
+        """Oturum yoksa: sayfa isteğine giriş ekranı, diğer isteklere 401 döner."""
+        self.user = self.session_user()
+        if self.user:
             return True
-        header = self.headers.get("Authorization", "")
-        if header.startswith("Basic "):
-            try:
-                _, _, given = base64.b64decode(header[6:]).decode("utf-8").partition(":")
-                if hmac.compare_digest(given.encode(), SIFRE.encode()):
-                    return True
-            except (ValueError, UnicodeDecodeError):
-                pass
-        self.send_response(401)
-        self.send_header("WWW-Authenticate", 'Basic realm="Rota", charset="UTF-8"')
-        self.send_header("Content-Length", "0")
-        self.end_headers()
+        path = urllib.parse.urlsplit(self.path).path
+        if self.command == "GET" and path in ("/", "/index.html"):
+            self.redirect("/giris")
+        else:
+            self.reply(401, {"error": "Oturum süresi doldu, tekrar giriş yapın.", "code": "login"})
         return False
 
+    def redirect(self, location, cookie=None):
+        self.send_response(303)
+        self.send_header("Location", location)
+        if cookie is not None:
+            self.send_header("Set-Cookie", cookie)
+        self.send_header("Content-Length", "0")
+        self.end_headers()
+
+    def cookie(self, value, max_age):
+        secure = "; Secure" if self.headers.get("X-Forwarded-Proto", "") == "https" else ""
+        return "%s=%s; Path=/; Max-Age=%d; HttpOnly; SameSite=Lax%s" % (COOKIE, value, max_age, secure)
+
+    def login_page(self):
+        with open(LOGIN_PAGE, "rb") as f:
+            body = f.read()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def client_ip(self):
+        return (self.headers.get("X-Forwarded-For", "").split(",")[0].strip() or self.client_address[0])
+
+    def login(self):
+        ip, now = self.client_ip(), time.time()
+        fails, until = FAILS.get(ip, [0, 0])
+        if until > now:
+            return self.redirect("/giris?hata=kilit")
+        try:
+            size = int(self.headers.get("Content-Length", 0))
+            form = urllib.parse.parse_qs(self.rfile.read(min(max(size, 0), 4096)).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            form = {}
+        name, pw = form.get("kullanici", [""])[0], form.get("sifre", [""])[0]
+        if check_login(name, pw):
+            FAILS.pop(ip, None)
+            key = name.strip().casefold()
+            return self.redirect("/", self.cookie(make_token(key), SESSION_DAYS * 86400))
+        fails += 1
+        FAILS[ip] = [0, now + 300] if fails >= 5 else [fails, 0]  # 5 hatalı denemede 5 dk kilit
+        return self.redirect("/giris?hata=" + ("kilit" if fails >= 5 else "1"))
+
     def do_HEAD(self):
-        if not self.authorized():
+        self.user = self.session_user()
+        if not self.user:
+            self.send_response(401)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
             return
         super().do_HEAD()
 
     def do_GET(self):
+        path = urllib.parse.urlsplit(self.path).path
+        if path == "/giris":
+            if auth_enabled() and self.session_user():
+                return self.redirect("/")
+            return self.login_page()
+        if path == "/cikis":
+            return self.redirect("/giris?durum=cikis", self.cookie("", 0))
         if not self.authorized():
             return
         path = urllib.parse.urlsplit(self.path).path
@@ -110,7 +222,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             hints = {p: key_for(p, data)[-4:] for p in PROVIDERS if key_for(p, data)}
             for _, field, _ in PROVIDERS.values():
                 data.pop(field, None)
-            return self.reply(200, {**data, "providers": configured, "hints": hints, "googleConfigured": bool(os.environ.get("GOOGLE_MAPS_API_KEY") or key), "ocrConfigured": bool(gem), "ocrHint": gem[-4:] if gem else ""})
+            return self.reply(200, {**data, "providers": configured, "hints": hints, "googleConfigured": bool(os.environ.get("GOOGLE_MAPS_API_KEY") or key), "ocrConfigured": bool(gem), "ocrHint": gem[-4:] if gem else "", "user": self.user, "authOn": auth_enabled()})
         if path == "/api/location-search":
             args = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
             provider = args.get('provider', [''])[0]
@@ -153,6 +265,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self):
+        if urllib.parse.urlsplit(self.path).path == "/giris":
+            return self.login()
         if not self.authorized():
             return
         path = urllib.parse.urlsplit(self.path).path

@@ -11,6 +11,9 @@ services:
         value: 0.0.0.0
       - key: ROTA_NOBROWSER
         value: "1"
+      # Kullanıcılar: "mesut:sifre1, ali:sifre2" (giriş ekranı). Boşsa ROTA_SIFRE ile tek şifre kullanılır.
+      - key: ROTA_KULLANICILAR
+        sync: false
       - key: ROTA_SIFRE
         sync: false
       - key: DEPO_KOORDINAT

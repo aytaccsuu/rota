@@ -2,6 +2,16 @@
 
 `başlat.bat` ile açın. Sayfa güncellendiğinde açık sekmeyi yenileyip evrakı tekrar yükleyin. Teslimat oturumu sayfa belleğindedir; yenilemek mevcut oturumu sıfırlar.
 
+## Giriş ekranı
+
+Sitede kullanıcı adı ve şifreyle giriş yapılır; oturum aynı cihazda 30 gün açık kalır, üstteki **Çıkış** ile kapatılır.
+
+- Kullanıcılar Render → Environment → `ROTA_KULLANICILAR` değişkeninde tanımlanır: `mesut:Sifre-1, ali:Sifre-2`. Kullanıcı adında büyük/küçük harf fark etmez.
+- Kullanıcı eklemek, silmek veya şifre değiştirmek için bu değişkeni düzenleyin. Silinen kullanıcının oturumu hemen geçersiz olur; şifre değişince herkesin oturumu kapanır.
+- 5 hatalı denemeden sonra o cihazdan giriş 5 dakika kilitlenir.
+- `ROTA_KULLANICILAR` boşsa eski `ROTA_SIFRE` (tek şifre, kullanıcı adı serbest) kullanılır. İkisi de boşsa (bilgisayarda `başlat.bat`) giriş istenmez.
+- Depo/ev ve servis anahtarları bütün kullanıcılar için ortaktır.
+
 ## Arayüz
 
 Sol panelde depo/ev ve evrak yükleme; ana panelde ilk teslimat, mesafe/süre özeti ve mahalle başlıklarıyla teslimat sırası bulunur. Adres kontrol merkezi ayrı bir bölümdür. Düzen telefon genişliğine uyarlanır.
