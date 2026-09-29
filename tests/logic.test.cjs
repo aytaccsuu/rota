@@ -76,6 +76,8 @@ async function main(){
   assert.equal(run(`JSON.stringify(noVariants('4-6').map(v=>v.no))`),JSON.stringify(['4-6','4']));
   assert.equal(run(`JSON.stringify(noVariants('12A').map(v=>v.no))`),JSON.stringify(['12A']),'12A ile 12 farklı bina');
   assert.equal(run(`noMatches('32','32/17')`),true,'32/17 evrakı 32 numaralı binayla eşleşmeli');
+  assert.equal(run(`noOk('No:49','49')`),true,'Yandex No:49 yazar');
+  assert.equal(run(`noOk('No:47A','49')`),false);
   assert.equal(run(`noMatches('3','32/17')`),false);
   assert.equal(run(`parseAddress('Göztepe mah. tepegöz sk. 32/17','Kadıköy').no`),'32/17');
   for(const s of ['Canpark','Canpark AVM','Canpark AVM Kat:2 Mağaza:17']){

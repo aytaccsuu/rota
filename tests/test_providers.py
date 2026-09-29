@@ -15,11 +15,12 @@ class ProviderTests(unittest.TestCase):
             data = {'response': {'GeoObjectCollection': {'featureMember': [{'GeoObject': {
                 'Point': {'pos': '29 41'}, 'metaDataProperty': {'GeocoderMetaData': {
                     'kind':'house', 'precision':precision, 'Address': {'Components': [
-                        {'kind':'street','name':'Örnek Sokak'}, {'kind':'house','name':'12A'},
+                        {'kind':'street','name':'Örnek Sokak'}, {'kind':'house','name':'No:12A'},
                         {'kind':'district','name':'Kadıköy'}]}}}}}]}}}
             result, call = self.search('yandex', data)
             self.assertEqual(result[0]['precision'], precision)
             self.assertEqual(result[0]['lat'], 41)
+            self.assertEqual(result[0]['no'], '12A')
             self.assertEqual(call.args[1]['rspn'], 1)
 
     def test_geoapify_confidence_and_shared_dataset(self):

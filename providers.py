@@ -1,5 +1,6 @@
 """Address provider adapters. Keys and upstream error bodies never reach clients."""
 import json
+import re
 import math
 import os
 import ssl
@@ -58,7 +59,7 @@ def provider_search(provider, query, key, mode='address'):
             parts = md.get('Address', {}).get('Components', [])
             by = lambda kind: next((c['name'] for c in parts if c['kind'] == kind), '')
             lon, lat = map(float, g['Point']['pos'].split())
-            out.append(candidate('Yandex', lat, lon, name=g.get('name',''), road=by('street'), no=by('house'), areas=[c['name'] for c in parts if c['kind'] != 'house'], address=md.get('text',''), precise=md.get('kind') == 'house' and md.get('precision') == 'exact', precision=md.get('precision','')))
+            out.append(candidate('Yandex', lat, lon, name=g.get('name',''), road=by('street'), no=re.sub(r'^\s*(?:no|№)\s*[:.]?\s*', '', by('house'), flags=re.I), areas=[c['name'] for c in parts if c['kind'] != 'house'], address=md.get('text',''), precise=md.get('kind') == 'house' and md.get('precision') == 'exact', precision=md.get('precision','')))
     elif provider == 'geoapify':
         data = get_json('https://api.geoapify.com/v1/geocode/search', dict(apiKey=key, text=query, lang='tr', format='json', limit=10, filter='rect:27.9,40.7,29.95,41.6'))
         for p in data['results']:

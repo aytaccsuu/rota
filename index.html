@@ -417,7 +417,9 @@ async function search(q,layers){const y=await yandexSearch(q);return [...(y||[])
 const core=s=>fold(s).replace(/\bdr\b\.?/g,'doktor').replace(/\bav\b\.?/g,'avukat').replace(/\b(sokagi|sokak|sok|sk|caddesi|cadde|cad|cd|bulvari|bulvar|blv|mahallesi|mahalle|mah)\b\.?/g,' ').replace(/[^a-z0-9]/g,'');
 function same(a,b){a=core(a);b=core(b);if(!a||!b)return false;if(a===b)return true;if(Math.min(a.length,b.length)>=5&&(a.includes(b)||b.includes(a)))return true;return lev(a,b)<=Math.max(1,Math.floor(Math.min(a.length,b.length)/5))}
 const mahOk=(c,mah)=>!!mah&&c.areas.some(x=>same(x,mah));
-const noOk=(cno,no)=>!!cno&&!!no&&fold(cno).replace(/\s/g,'')===fold(no).replace(/\s/g,'');
+// Kapı no karşılaştırması: "No:49", "no 49", "49" aynıdır (Yandex numarayı "No:49" diye yazar)
+const normNo=x=>fold(x).replace(/\s/g,'').replace(/^(no|numara)[:.]?/,'');
+const noOk=(cno,no)=>!!cno&&!!no&&!!normNo(cno)&&normNo(cno)===normNo(no);
 // Kapı no denemeleri: "4/2" önce tam haliyle kapı no; bulunamazsa 2 daire kabul edilir → "4".
 // "4-6" gibi aralıklarda ilk numara denenir. "12A" ile "12" farklı binadır; harf atılmaz.
 function noVariants(no){
@@ -552,7 +554,22 @@ async function locateMall(a){
   if(sources.size<2)a.placeError=a.mall+' AVM tek kaynakta bulundu; haritadan teyit edin.';
   return {...best,name:a.mall+' AVM',road:best.road||'',no:best.no||'',mah:best.mah||a.mah,quality:sources.size>=2?'Kapı':'Kontrol',candidates:hits};
 }
-async function locate(a){
+// Navigasyon Yandex'le yapıldığı için bulunan bina, Yandex'in aynı adres için verdiği noktaya taşınır.
+// (OSM/TomTom noktası Yandex'te komşu binaya düşebiliyor: ör. Tepegöz 49 → Yandex'te 47A.)
+async function snapToYandex(a,r){
+  const road=r?.road||a.street,no=r?.no||a.no;
+  if(!r||a.mall||!road||!no||!['Kapı','OSM','Sokak','Kontrol'].includes(r.quality))return r;
+  const q=[`${road} ${noVariants(no).at(-1).no}`,a.mah&&a.mah+' Mahallesi',a.ilce,'İstanbul'].filter(Boolean).join(', ');
+  let items=null;try{items=await yandexSearch(q)}catch(e){}
+  if(!items)return r;
+  const nos=noVariants(no).map(v=>v.no);
+  const h=items.find(c=>c.type==='house'&&c.precision==='exact'&&same(c.road,road)&&nos.some(n=>noOk(c.no,n))&&(!a.mah||mahOk(c,a.mah)||dist(c,r)<300)&&dist(c,r)<(r.quality==='Kapı'||r.quality==='OSM'?300:1500));
+  if(!h)return r;
+  return {...r,lat:h.lat,lon:h.lon,no:h.no,road:h.road||road,source:'Yandex',yandexAddress:h.address,
+    quality:r.quality==='Kontrol'&&r.conflict?'Kontrol':'Kapı'};
+}
+async function locate(a){return snapToYandex(a,await locateAll(a))}
+async function locateAll(a){
   if(a.mall||!a.parsed)return locateCore(a);
   const good=r=>r&&['Kapı','OSM','Sokak'].includes(r.quality);
   const tries=[a.street,...(a.ai?.sokak_adaylari||[]),a.parsed.street].filter((x,i,l)=>x&&l.findIndex(y=>core(y)===core(x))===i);
@@ -941,7 +958,9 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
     const k=s.orders.reduce((a,o)=>a+(o.adet||0),0),geri=s.orders.some(o=>o.geri);
     const warn=!readyStop(s)?' <span class="tag t-Mahalle">konum yaklaşık</span>':'';
     const ll=(+s.lon).toFixed(6)+','+(+s.lat).toFixed(6);
-    const ya=`<div class="yx-actions hide-print"><a class="yx" href="https://yandex.com.tr/harita/?ll=${ll}&z=18&whatshere%5Bpoint%5D=${ll}&whatshere%5Bzoom%5D=18" target="_blank" rel="noopener">⭐ Yandex’te aç / kaydet</a><a class="yx" href="yandexnavi://build_route_on_map?lat_to=${(+s.lat).toFixed(6)}&lon_to=${(+s.lon).toFixed(6)}">🧭 Git</a></div>`;
+    const m=s.match||{},adrText=m.yandexAddress||(m.road&&m.no?[m.road+' '+m.no,(m.mah||s.mah)&&String(m.mah||s.mah).replace(/\s*(mah\.?|mahallesi)$/i,'')+' Mahallesi',s.ilce,'İstanbul'].filter(Boolean).join(', '):'');
+    const yhref=adrText?`https://yandex.com.tr/harita/?ll=${ll}&z=18&text=${encodeURIComponent(adrText)}`:`https://yandex.com.tr/harita/?ll=${ll}&z=18&whatshere%5Bpoint%5D=${ll}&whatshere%5Bzoom%5D=18`;
+    const ya=`<div class="yx-actions hide-print"><a class="yx" href="${yhref}" target="_blank" rel="noopener">⭐ Yandex’te aç / kaydet</a><a class="yx" href="yandexnavi://build_route_on_map?lat_to=${(+s.lat).toFixed(6)}&lon_to=${(+s.lon).toFixed(6)}">🧭 Git</a></div>`;
     h+=`<div class="sira"><span class="n">${i+1+delivered.length}</span><div><div class="ad">${names(s)}${warn}</div><div class="adr">${esc(s.raw)}</div>${ya}<div class="small">${esc(neighborhoodLabel(s))} · Eve kalan mesafe (${exact?'karayolu':'tahmini'}): ${(homeDistances[i+1]/1000).toFixed(2)} km · Önceki noktadan: ${(legs[i].d/1000).toFixed(1)} km / ${fmtT(legs[i].t)}</div>${i===0&&!draft?'<button class="p hide-print" id="deliveredBtn">Teslim edildi · sıradaki durağa geç</button>':''}<div class="small">${[s.orders.length>1?s.orders.length+' sipariş':'',k?k+' koli':'',geri?'↩ GERİ ALIM':'',[...new Set(s.orders.map(o=>o.musteri).filter(Boolean))].join(', ')].filter(Boolean).join(' · ')}</div></div></div>`;
   });
   h+=`<div class="sira"><span class="n" style="background:#1c2430">E</span><div><div class="ad">Eve dönüş</div></div></div>`;
