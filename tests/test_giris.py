@@ -89,7 +89,9 @@ class GirisTests(unittest.TestCase):
 
     def test_forged_expired_or_removed_user_token(self):
         self.assertEqual(self.req('GET', '/ayarlar', cookie='rota_oturum=bozuk')[0], 401)
-        forged = app.make_token('mesut').replace('A', 'B', 1)
+        good = app.make_token('mesut')
+        raw = __import__('base64').urlsafe_b64decode(good).decode()
+        forged = __import__('base64').urlsafe_b64encode((raw[:-1] + ('0' if raw[-1] != '0' else '1')).encode()).decode()  # imzanın son hanesi değişti
         self.assertEqual(self.req('GET', '/ayarlar', cookie='rota_oturum=' + forged)[0], 401)
         expired = app.make_token('mesut', now=1)
         self.assertIsNone(app.read_token(expired))

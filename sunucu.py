@@ -141,12 +141,27 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.user = self.session_user()
         if self.user:
             return True
+        self.drain_body()  # gövde okunmadan yanıt verilirse bağlantı yarıda kesilir
         path = urllib.parse.urlsplit(self.path).path
         if self.command == "GET" and path in ("/", "/index.html"):
             self.redirect("/giris")
         else:
             self.reply(401, {"error": "Oturum süresi doldu, tekrar giriş yapın.", "code": "login"})
         return False
+
+    def drain_body(self):
+        try:
+            size = int(self.headers.get("Content-Length", 0) or 0)
+        except ValueError:
+            size = 0
+        left = min(max(size, 0), 16 * 1024 * 1024)
+        while left > 0:
+            chunk = self.rfile.read(min(left, 65536))
+            if not chunk:
+                break
+            left -= len(chunk)
+        if size > 16 * 1024 * 1024:
+            self.close_connection = True
 
     def redirect(self, location, cookie=None):
         self.send_response(303)
@@ -174,14 +189,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def login(self):
         ip, now = self.client_ip(), time.time()
-        fails, until = FAILS.get(ip, [0, 0])
-        if until > now:
-            return self.redirect("/giris?hata=kilit")
+        # Form her durumda okunur: okunmadan yanıt verilirse bağlantı yarıda kesilir
         try:
             size = int(self.headers.get("Content-Length", 0))
             form = urllib.parse.parse_qs(self.rfile.read(min(max(size, 0), 4096)).decode("utf-8"))
         except (ValueError, UnicodeDecodeError):
             form = {}
+        fails, until = FAILS.get(ip, [0, 0])
+        if until > now:
+            return self.redirect("/giris?hata=kilit")
         name, pw = form.get("kullanici", [""])[0], form.get("sifre", [""])[0]
         if check_login(name, pw):
             FAILS.pop(ip, None)
