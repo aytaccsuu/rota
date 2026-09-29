@@ -934,7 +934,7 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
   const unknown=routeOrder.filter(s=>neighborhoodKey(s).startsWith('unknown:')).length;
   if(unknown)h+=`<div class="small" style="color:var(--warn)">${unknown} durakta ilçe/mahalle eksik; bu adresler ayrı durak olarak planlandı.</div>`;
   h+='<div class="small">Sürüş süreleri trafiksiz yol süreleridir; yoğun saatlerde biraz uzayabilir.</div>';
-  h+=`<div class="row hide-print result-actions">${links.join('')}<button id="prBtn">🖨 Yazdır</button><button id="csvBtn">CSV indir</button></div>`;
+  h+=`<div class="row hide-print result-actions">${links.join('')}<button id="prBtn">🖨 Yazdır</button><button id="kmlBtn">🗺 Yandex için harita dosyası</button><button id="csvBtn">CSV indir</button></div>`;
   h+=`<div class="sira"><span class="n" style="background:#1a8f4c">D</span><div><div class="ad">${delivered.length?'Son teslimat konumundan devam':'Depodan çıkış'}</div></div></div>`;
   routeOrder.forEach((s,i)=>{
     if(i===0||neighborhoodKey(s)!==neighborhoodKey(routeOrder[i-1]))h+=`<div class="neighborhood">${esc(neighborhoodLabel(s))}<span>${routeOrder.filter(x=>neighborhoodKey(x)===neighborhoodKey(s)).length} durak</span></div>`;
@@ -948,12 +948,42 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
   $('result').innerHTML=h;
   if($('deliveredBtn'))$('deliveredBtn').onclick=()=>{if(!routeOrder?.length||routeOrder.some(s=>!readyStop(s)))return;delivered.push(routeOrder[0]);clearRoute();renderStops();refreshMarkers();updateState()};
   $('prBtn').onclick=()=>window.print();
+  $('kmlBtn').onclick=()=>downloadKml(seq,draft);
   $('csvBtn').onclick=()=>{
     const rows=[['Sıra','Alıcı','Sipariş No','Müşteri','Adet','Adres','Konum','Plan']];
     routeOrder.forEach((s,i)=>s.orders.forEach(o=>rows.push([i+1,o.alici,o.sip,o.musteri,o.adet,o.raw,s.quality,draft?'TASLAK':'Doğrulandı'])));
     const csv='﻿'+rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(';')).join('\r\n');
     const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=(draft?'rota-taslak-':'rota-')+new Date().toISOString().slice(0,10)+'.csv';a.click();
   };
+}
+
+// Yandex Harita Oluşturucu'ya yüklenecek KML: "01. Müşteri adı" isimli noktalar + rota çizgisi.
+// Yandex dışarıdan favori eklemeye izin vermediği için isimli liste bu dosyayla taşınır.
+function buildKml(seq,draft){
+  const x=t=>String(t??'').replace(/[<>&'"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'}[c]));
+  const pt=(name,desc,p,style)=>`<Placemark><name>${x(name)}</name><description>${x(desc)}</description><styleUrl>#${style}</styleUrl><Point><coordinates>${(+p.lon).toFixed(6)},${(+p.lat).toFixed(6)},0</coordinates></Point></Placemark>`;
+  const day=new Date().toLocaleDateString('tr-TR');
+  const marks=[pt('00. Başlangıç','Depo / başlangıç noktası',seq[0],'uc')];
+  routeOrder.forEach((s,i)=>{
+    const names=[...new Set(s.orders.map(o=>o.alici).filter(Boolean))].join(', ');
+    const desc=[s.raw,s.orders.map(o=>[o.musteri,o.sip&&'Sipariş '+o.sip,o.geri&&'GERİ ALIM'].filter(Boolean).join(' · ')).join(' | '),['Kapı','OSM','Elle','Google'].includes(s.quality)?'':'Konum yaklaşık, teyit edin'].filter(Boolean).join('\n');
+    marks.push(pt(String(i+1).padStart(2,'0')+'. '+names,desc,s,'durak'));
+  });
+  marks.push(pt(String(routeOrder.length+1).padStart(2,'0')+'. Ev','Bitiş',seq[seq.length-1],'uc'));
+  const line=(lastCoords&&lastCoords.length>1?lastCoords:seq.map(p=>[p.lat,p.lon])).map(([la,lo])=>(+lo).toFixed(6)+','+(+la).toFixed(6)+',0').join(' ');
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${x('Rota '+day+(draft?' (taslak)':''))}</name>
+<Style id="durak"><IconStyle><color>ffeb6f1f</color></IconStyle></Style><Style id="uc"><IconStyle><color>ff4c8f1a</color></IconStyle></Style>
+<Style id="cizgi"><LineStyle><color>ccf0781f</color><width>4</width></LineStyle></Style>
+${marks.join('\n')}
+<Placemark><name>Rota</name><styleUrl>#cizgi</styleUrl><LineString><coordinates>${line}</coordinates></LineString></Placemark>
+</Document></kml>`;
+}
+function downloadKml(seq,draft){
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([buildKml(seq,draft)],{type:'application/vnd.google-earth.kml+xml'}));
+  a.download='rota-'+new Date().toISOString().slice(0,10)+'.kml';a.click();
+  $('routeInfo').innerHTML='Dosya indirildi. Yandex’e aktarmak için: <a href="https://yandex.com.tr/map-constructor/" target="_blank" rel="noopener">Yandex Harita Oluşturucu</a> → <b>İçe aktar</b> → dosyayı seçin → <b>Kaydet ve devam et</b>. Harita, Yandex Haritalar’da “Haritalarım” altında isimli noktalarla görünür.';
 }
 
 // ---------- fotoğraftan okuma: yapay zekâ (Gemini, sunucu üzerinden) ----------

@@ -54,6 +54,18 @@ async function main(){
     const r3=await ai.run(`(tried=[],locate({raw:'x',street:'A Sokak',parsed:{street:'A Sk.'},ai:{sokak_adaylari:[]}}))`);
     assert.equal(r3.quality,'Mahalle','hiçbiri bulunamazsa ilk sonuç döner');
   }
+  // Yandex için KML: sıra numaralı müşteri adları, özel karakterler kaçırılmış
+  {
+    const k=app();
+    k.run(`routeOrder=[{lat:41.01,lon:29.1,raw:'Tepegöz Sk. No:32 <A&B>',quality:'Kapı',orders:[{alici:'Berna Gülsan',musteri:'IKEA',sip:'123'}]},{lat:41.02,lon:29.2,raw:'x',quality:'Mahalle',orders:[{alici:'Can Suar'}]}];lastCoords=null;`);
+    const kml=k.run(`buildKml([{lat:40.96,lon:29.21},{lat:41.01,lon:29.1},{lat:41.02,lon:29.2},{lat:41.05,lon:29.12}],false)`);
+    assert.ok(kml.includes('<name>01. Berna Gülsan</name>'));
+    assert.ok(kml.includes('<name>02. Can Suar</name>'));
+    assert.ok(kml.includes('<name>03. Ev</name>'));
+    assert.ok(kml.includes('&lt;A&amp;B&gt;'),'özel karakterler kaçırılmalı');
+    assert.ok(kml.includes('29.100000,41.010000,0'),'KML koordinatı boylam,enlem olmalı');
+    assert.ok(kml.includes('Konum yaklaşık'));
+  }
   // AVM kodlu alıcı: mağaza kodu yerine AVM adı, aynı AVM tek durak
   assert.equal(run(`mallFromCode('TUR.Ist.GS.mll.METROGARDEN.I')`),'Metrogarden');
   assert.equal(run(`mallFromCode('TUR.Ist.GS.mII.CANPARK.I')`),'Canpark','fotoğrafta mII okunsa da bulunmalı');
