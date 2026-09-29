@@ -22,7 +22,8 @@ Sol panelde depo/ev ve evrak yükleme; ana panelde ilk teslimat, mesafe/süre ö
 - Mahalle sınırı ya da "ilk durak en yakın" kuralı yoktur. Sınırdaki bir sokak komşu mahalledeki duraklara daha yakınsa onlarla birlikte gidilir. (29.09.2026 Kadıköy evrakında mahalle kuralı rotayı 98 dk'ya çıkarıyordu; elle sıra 91 dk, yeni hesap 78 dk.)
 - Hesap: depodan ve evden geriye doğru en yakın komşu başlangıçları, 2-opt ve 1–3 durak taşıma iyileştirmesi, ardından sabit tohumlu "bozup yeniden iyileştir" turları. Aynı evrak her zaman aynı sırayı verir. En kısa tur garantisi verilmez.
 - Aynı sipariş numarası iki kez okunursa (ör. fotoğrafta tekrar eden satır) tek sipariş sayılır.
-- Yol matrisi alınamazsa süreler kuş uçuşundan tahmin edilir; ekranda belirtilir. Süreler canlı trafik içermez.
+- **Canlı trafik (TomTom):** TomTom anahtarı kayıtlıysa "🚦 Canlı trafik" seçili gelir; sıralama şu anki trafikli sürelerle yapılır, her durakta tahmini varış saati ve bacak başına trafik gecikmesi gösterilir. Ücretsiz planda günde 2500 istek var; 28 duraklık bir rota yaklaşık 750 istek harcar. Aynı noktalar için sonuç 15 dakika saklanır (adres düzeltip yeniden hesaplamak kota harcamaz). Trafik alınamazsa trafiksiz yol süreleri kullanılır ve ekranda belirtilir.
+- Yol matrisi hiç alınamazsa süreler kuş uçuşundan tahmin edilir; ekranda belirtilir.
 - Teyit bekleyen adres varsa rota taslak olarak gösterilir; navigasyon konumlar doğrulanınca açılır.
 
 ## Ücretsiz AVM / apartman arama

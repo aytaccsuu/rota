@@ -14,6 +14,7 @@ import urllib.request
 import webbrowser
 from providers import PROVIDERS, SSL_CONTEXT, key_for, provider_search
 from evrak_okuma import OkumaHatasi, normalize_addresses, read_document
+import trafik
 
 KLASOR = os.path.dirname(os.path.abspath(__file__))
 AYAR = os.path.join(KLASOR, "ayarlar.json")
@@ -290,6 +291,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.ocr()
         if path == "/api/adres-duzelt":
             return self.fix_addresses()
+        if path in ("/api/trafik-matris", "/api/trafik-rota"):
+            return self.traffic(path.endswith("matris"))
         if path != "/ayarlar":
             return self.send_error(404)
         try:
@@ -336,6 +339,36 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.reply(502, {"error": str(error), "code": error.code})
         except (urllib.error.URLError, TimeoutError):
             return self.reply(502, {"error": "Gemini’ye ulaşılamadı veya zaman aşımı oluştu.", "code": "network"})
+
+    def traffic(self, is_matrix):
+        """TomTom canlı trafik: süre tablosu (sıralama için) ya da sıralı rota (varış saatleri için)."""
+        try:
+            size = int(self.headers.get("Content-Length", 0))
+            if size <= 0 or size > 256 * 1024:
+                raise ValueError()
+            pts = json.loads(self.rfile.read(size)).get("points")
+            if not isinstance(pts, list) or not 2 <= len(pts) <= (150 if is_matrix else 150):
+                raise ValueError()
+            pts = [[float(p[0]), float(p[1])] for p in pts]
+            if not all(35 <= la <= 43 and 25 <= lo <= 45 for la, lo in pts):
+                raise ValueError()
+        except (ValueError, TypeError, KeyError, IndexError, AttributeError):
+            return self.reply(400, {"error": "Geçersiz nokta listesi.", "code": "invalid_request"})
+        with LOCK:
+            key = key_for("tomtom", read_settings())
+        if not key:
+            return self.reply(503, {"error": "Trafik için TomTom anahtarı gerekli.", "code": "missing_key"})
+        try:
+            return self.reply(200, trafik.matrix(pts, key) if is_matrix else trafik.route(pts, key))
+        except urllib.error.HTTPError as error:
+            code = "auth" if error.code in (401, 403) else "quota" if error.code == 429 else "upstream"
+            msg = {"auth": "TomTom anahtarı trafik/rota hizmetine izin vermiyor.", "quota": "TomTom günlük ücretsiz kotası doldu; trafiksiz hesaplanıyor.",
+                   "upstream": "TomTom trafik servisi geçici olarak hata verdi."}[code]
+            return self.reply(502, {"error": msg, "code": code, "status": error.code})
+        except (urllib.error.URLError, TimeoutError):
+            return self.reply(502, {"error": "TomTom’a ulaşılamadı.", "code": "network"})
+        except (ValueError, KeyError, TypeError, IndexError):
+            return self.reply(502, {"error": "TomTom yanıtı anlaşılamadı.", "code": "response"})
 
     def fix_addresses(self):
         """Adres listesini Gemini ile düzeltir (yazım hataları, sokak/no ayrımı)."""

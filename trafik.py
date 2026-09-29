@@ -1,0 +1,98 @@
+"""TomTom ile canlı trafikli süre tablosu (matris) ve trafikli rota.
+
+Ücretsiz planda: senkron matris en fazla 200 hücre, günde 2500 istek (hücre sayısına göre sayılır).
+Aynı noktalar için sonuç 15 dakika saklanır; adres düzeltip yeniden hesaplamak kota harcamaz.
+"""
+import json
+import threading
+import time
+import urllib.request
+
+from providers import SSL_CONTEXT
+
+CACHE_SECONDS = 15 * 60
+MAX_CELLS = 200  # ücretsiz planda senkron matris sınırı
+_cache = {}
+_lock = threading.Lock()
+
+
+def _post(url, body):
+    req = urllib.request.Request(url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=60, context=SSL_CONTEXT) as response:
+        return json.load(response)
+
+
+def _get(url):
+    with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "RotaPlan/1.0"}), timeout=60, context=SSL_CONTEXT) as response:
+        return json.load(response)
+
+
+def _key(kind, points):
+    return kind + "|" + ";".join("%.5f,%.5f" % (p[0], p[1]) for p in points)
+
+
+def _cached(kind, points):
+    with _lock:
+        hit = _cache.get(_key(kind, points))
+        if hit and time.time() - hit[0] < CACHE_SECONDS:
+            return hit[1]
+    return None
+
+
+def _store(kind, points, value):
+    with _lock:
+        _cache[_key(kind, points)] = (time.time(), value)
+        if len(_cache) > 50:  # eski kayıtları at
+            for k in sorted(_cache, key=lambda k: _cache[k][0])[:10]:
+                _cache.pop(k, None)
+
+
+def blocks(n, max_cells=MAX_CELLS):
+    """n×n matrisi ≤ max_cells hücrelik (origin aralığı, hedef aralığı) parçalarına böler."""
+    dest = min(n, max_cells)
+    orig = max(1, max_cells // dest)
+    return [((o, min(o + orig, n)), (d, min(d + dest, n))) for o in range(0, n, orig) for d in range(0, n, dest)]
+
+
+def matrix(points, key):
+    """points: [[lat, lon], ...] → {dur, dist, delay} (saniye / metre), canlı trafik ve şimdiki kalkış saatiyle."""
+    hit = _cached("m", points)
+    if hit:
+        return {**hit, "cached": True}
+    n = len(points)
+    dur = [[0.0] * n for _ in range(n)]
+    dist = [[0.0] * n for _ in range(n)]
+    delay = [[0.0] * n for _ in range(n)]
+    pt = lambda p: {"point": {"latitude": p[0], "longitude": p[1]}}
+    for (o0, o1), (d0, d1) in blocks(n):
+        data = _post("https://api.tomtom.com/routing/matrix/2?key=" + key, {
+            "origins": [pt(p) for p in points[o0:o1]], "destinations": [pt(p) for p in points[d0:d1]],
+            "options": {"departAt": "now", "traffic": "live", "travelMode": "car", "routeType": "fastest"}})
+        for cell in data.get("data", []):
+            i, j = o0 + cell["originIndex"], d0 + cell["destinationIndex"]
+            s = cell.get("routeSummary")
+            if not s:
+                raise ValueError("matris hücresi eksik: %d→%d" % (i, j))
+            dur[i][j], dist[i][j], delay[i][j] = s["travelTimeInSeconds"], s["lengthInMeters"], s.get("trafficDelayInSeconds", 0)
+    for i in range(n):
+        dur[i][i] = dist[i][i] = delay[i][i] = 0
+    result = {"dur": dur, "dist": dist, "delay": delay, "at": time.time()}
+    _store("m", points, result)
+    return {**result, "cached": False}
+
+
+def route(points, key):
+    """Sıralı noktalar için trafikli rota: her bacağın süresi/mesafesi/gecikmesi ve çizgi."""
+    hit = _cached("r", points)
+    if hit:
+        return hit
+    locs = ":".join("%.6f,%.6f" % (p[0], p[1]) for p in points)
+    data = _get("https://api.tomtom.com/routing/1/calculateRoute/%s/json?key=%s&traffic=true&departAt=now&travelMode=car&routeType=fastest" % (locs, key))
+    r = data["routes"][0]
+    legs = [{"d": l["summary"]["lengthInMeters"], "t": l["summary"]["travelTimeInSeconds"], "delay": l["summary"].get("trafficDelayInSeconds", 0)} for l in r["legs"]]
+    line = [[p["latitude"], p["longitude"]] for l in r["legs"] for p in l.get("points", [])]
+    if len(legs) != len(points) - 1:
+        raise ValueError("bacak sayısı tutmuyor")
+    result = {"legs": legs, "line": line[::max(1, len(line) // 2000)]}
+    _store("r", points, result)
+    return result

@@ -117,7 +117,7 @@ a{color:var(--pri);text-underline-offset:3px}.app{max-width:1340px;padding:0 30p
     <h2 id="routeTitle">Teslimat planın</h2>
     <div class="bar hide-print" id="geoBar" style="display:none"><i></i></div>
     <div class="small hide-print" id="geoInfo"></div>
-    <div class="route-toolbar hide-print"><div class="row"><label for="svc" style="width:auto">Durak başına</label><input type="number" id="svc" value="5" min="0" aria-label="Durak başına bekleme süresi"><span class="small">dk bekleme</span></div><button id="routeBtn" class="p" disabled>Rotayı hesapla</button></div>
+    <div class="route-toolbar hide-print"><div class="row"><label for="svc" style="width:auto">Durak başına</label><input type="number" id="svc" value="5" min="0" aria-label="Durak başına bekleme süresi"><span class="small">dk bekleme</span></div><label class="small" id="trafficWrap" style="display:none;align-items:center;gap:6px"><input type="checkbox" id="trafficOn" checked> 🚦 Canlı trafik</label><button id="routeBtn" class="p" disabled>Rotayı hesapla</button></div>
     <div class="small hide-print" id="routeInfo"></div>
     <div class="route-rule">En kısa toplam süre <span aria-hidden="true"> · </span> Eve dönüş dahil</div>
     <div id="deliveryInfo" class="small" style="margin-top:6px"></div>
@@ -884,7 +884,19 @@ async function osrm(path){ // geçici hatalarda 3 kez dener
   return null;
 }
 const cstr=pts=>pts.map(p=>(+p.lon).toFixed(6)+','+(+p.lat).toFixed(6)).join(';');
+let trafficInfo=null;
+const useTraffic=()=>!!configuredProviders.tomtom&&$('trafficOn').checked!==false;
+async function trafficCall(kind,pts){
+  const r=await fetch('/api/trafik-'+kind,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({points:pts.map(p=>[+p.lat,+p.lon])}),signal:AbortSignal.timeout(90000)});
+  const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'trafik servisi hatası');return j;
+}
 async function getMatrix(pts){
+  // Canlı trafik (TomTom): sıralama şu anki trafikle yapılır; alınamazsa trafiksiz yol süreleri kullanılır
+  trafficInfo=null;
+  if(useTraffic()&&pts.length<=150){
+    try{const j=await trafficCall('matris',pts);trafficInfo={at:j.at};return {dur:j.dur,dist:j.dist,delay:j.delay,osrm:true,traffic:true}}
+    catch(e){trafficInfo={error:e.message}}
+  }
   if(pts.length<=100){
     const j=await osrm('table/v1/driving/'+cstr(pts)+'?annotations=duration,distance');
     const valid=m=>Array.isArray(m)&&m.length===pts.length&&m.every(row=>Array.isArray(row)&&row.length===pts.length&&row.every(x=>Number.isFinite(x)&&x>=0));
@@ -970,9 +982,12 @@ async function buildRoute(){
     const seq=path.map(i=>pts[i]);
     let legs=path.slice(0,-1).map((i,k)=>({d:M.dist[i][path[k+1]],t:M.dur[i][path[k+1]]}));
     let geom=null;
-    const j=await osrm('route/v1/driving/'+cstr(seq)+'?overview=full&geometries=geojson');
+    let j=null;
+    if(M.traffic){try{const tr=await trafficCall('rota',seq);if(tr.legs?.length===seq.length-1){legs=tr.legs.map((l,k)=>({...l,delay:Math.max(l.delay||0,M.delay?.[path[k]]?.[path[k+1]]||0)})); // TomTom rota yanıtı bacak başına gecikme vermiyor → süre tablosundan
+        geom=tr.line?.length?tr.line:null;j={traffic:true}}}catch(e){trafficInfo={...(trafficInfo||{}),error:e.message}}}
+    if(!j){j=await osrm('route/v1/driving/'+cstr(seq)+'?overview=full&geometries=geojson');
+      if(j?.routes?.[0]?.legs?.length===seq.length-1){geom=j.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]);legs=j.routes[0].legs.map(l=>({d:l.distance,t:l.duration}))}}
     if(run!==routeRun)return;
-    if(j?.routes?.[0]?.legs?.length===seq.length-1){geom=j.routes[0].geometry.coordinates.map(c=>[c[1],c[0]]);legs=j.routes[0].legs.map(l=>({d:l.distance,t:l.duration}))}
     routeOrder=path.slice(1,-1).map(i=>ok[i-1]);
     const dist=legs.reduce((a,l)=>a+l.d,0),dur=legs.reduce((a,l)=>a+l.t,0);
     lastCoords=geom||seq.map(p=>[p.lat,p.lon]);lastGeom=!!geom;
@@ -995,7 +1010,13 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
   const yx=`https://yandex.com.tr/harita/?rtt=auto&rtext=${seq.map(p=>(+p.lat).toFixed(6)+','+(+p.lon).toFixed(6)).join('~')}`;
   if(!draft)links.push(`<a href="${yx}" target="_blank" rel="noopener"><button class="p">🧭 Rotayı Yandex'te aç</button></a>`);
   const names=s=>esc(stopNames(s));
-  let h=`<div class="stat"><span>${routeOrder.length} durak</span><span>🛣 ${(dist/1000).toFixed(1)} km</span><span>⏱ sürüş ${fmtT(dur)}</span><span>toplam ≈ ${fmtT(dur+svc)}</span></div>`;
+  const delayTot=legs.reduce((a,l)=>a+(l.delay||0),0),withTraffic=legs.some(l=>'delay' in l);
+  // Tahmini varış saatleri: şimdi yola çıkılıyor, her durakta bekleme süresi eklenir
+  const svcEach=Math.max(0,+$('svc').value||0)*60,t0=Date.now(),clock=ms=>new Date(ms).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
+  let acc=0;const eta=legs.map((l,k)=>{acc+=l.t*1000;const at=t0+acc;acc+=svcEach*1000;return at});
+  let h=`<div class="stat"><span>${routeOrder.length} durak</span><span>🛣 ${(dist/1000).toFixed(1)} km</span><span>⏱ sürüş ${fmtT(dur)}</span><span>toplam ≈ ${fmtT(dur+svc)}</span>${withTraffic?`<span>🚦 trafik gecikmesi ${fmtT(delayTot)}</span>`:''}</div>`;
+  h+=withTraffic?`<div class="small">Süreler şu anki canlı trafikle (TomTom) hesaplandı; sıralama da trafiğe göre yapıldı. Şimdi çıkılırsa eve varış ≈ <b>${clock(eta.at(-1))}</b>.</div>`
+    :trafficInfo?.error?`<div class="small" style="color:var(--warn)">Canlı trafik alınamadı (${esc(trafficInfo.error)}); süreler trafiksiz.</div>`:'';
   if(draft)h+=`<div class="notice"><b>Bu bir taslaktır: ${unverified.length} bina konumu teyit edilmedi.</b><br>Sıra yaklaşık konumlara göre hesaplandı. Sokak/mahalle merkezi gerçek bina girişinden uzakta olabilir. Navigasyon ve teslimat başlatma, konumlar teyit edilince açılır.</div>`;
   if(routeOrder.length)h+=`<div class="next-stop"><small>İLK TESLİMAT</small>${delivered.length?'Bulunduğunuz yerden':'Depodan'} ilk durak: ${names(routeOrder[0])} · ${(legs[0].d/1000).toFixed(1)} km · ${fmtT(legs[0].t)}</div>`;
   if(comparison.length)h+=`<details class="small"><summary>İlk durak neden seçildi? Yakınlık karşılaştırması</summary>${comparison.map(c=>`${names(c.stop)}: ${(c.d/1000).toFixed(2)} km / ${fmtT(c.t)}`).join('<br>')}<br>${exact?'Karayolu mesafesi':'Kuş uçuşundan tahmini mesafe'} karşılaştırıldı.${draft?' Konumlar yaklaşıktır.':''}</details>`;
@@ -1015,7 +1036,7 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
     const m=s.match||{},adrText=m.yandexAddress||(m.road&&m.no?[m.road+' '+m.no,(m.mah||s.mah)&&String(m.mah||s.mah).replace(/\s*(mah\.?|mahallesi)$/i,'')+' Mahallesi',s.ilce,'İstanbul'].filter(Boolean).join(', '):'');
     const yhref=adrText?`https://yandex.com.tr/harita/?ll=${ll}&z=18&text=${encodeURIComponent(adrText)}`:`https://yandex.com.tr/harita/?ll=${ll}&z=18&whatshere%5Bpoint%5D=${ll}&whatshere%5Bzoom%5D=18`;
     const ya=`<div class="yx-actions hide-print"><a class="yx" href="${yhref}" target="_blank" rel="noopener">⭐ Yandex’te aç / kaydet</a><a class="yx" href="yandexnavi://build_route_on_map?lat_to=${(+s.lat).toFixed(6)}&lon_to=${(+s.lon).toFixed(6)}">🧭 Git</a></div>`;
-    h+=`<div class="sira"><span class="n">${i+1+delivered.length}</span><div><div class="ad">${names(s)}${warn}</div><div class="adr">${esc(s.raw)}</div>${ya}<div class="small">${esc(neighborhoodLabel(s))} · Eve kalan mesafe (${exact?'karayolu':'tahmini'}): ${(homeDistances[i+1]/1000).toFixed(2)} km · Önceki noktadan: ${(legs[i].d/1000).toFixed(1)} km / ${fmtT(legs[i].t)}</div>${i===0&&!draft?'<button class="p hide-print" id="deliveredBtn">Teslim edildi · sıradaki durağa geç</button>':''}<div class="small">${[s.orders.length>1?s.orders.length+' sipariş':'',k?k+' koli':'',geri?'↩ GERİ ALIM':'',[...new Set(s.orders.map(o=>o.musteri).filter(Boolean))].join(', ')].filter(Boolean).join(' · ')}</div></div></div>`;
+    h+=`<div class="sira"><span class="n">${i+1+delivered.length}</span><div><div class="ad">${names(s)}${warn}</div><div class="adr">${esc(s.raw)}</div>${ya}<div class="small">${esc(neighborhoodLabel(s))} · Eve kalan mesafe (${exact?'karayolu':'tahmini'}): ${(homeDistances[i+1]/1000).toFixed(2)} km · Önceki noktadan: ${(legs[i].d/1000).toFixed(1)} km / ${fmtT(legs[i].t)}${legs[i].delay>60?` (🚦 +${fmtT(legs[i].delay)})`:''} · <b>varış ≈ ${clock(eta[i])}</b></div>${i===0&&!draft?'<button class="p hide-print" id="deliveredBtn">Teslim edildi · sıradaki durağa geç</button>':''}<div class="small">${[s.orders.length>1?s.orders.length+' sipariş':'',k?k+' koli':'',geri?'↩ GERİ ALIM':'',[...new Set(s.orders.map(o=>o.musteri).filter(Boolean))].join(', ')].filter(Boolean).join(' · ')}</div></div></div>`;
   });
   h+=`<div class="sira"><span class="n" style="background:#1c2430">E</span><div><div class="ad">Eve dönüş</div></div></div>`;
   const out=stops.filter(s=>s.skip);
@@ -1203,7 +1224,7 @@ $('setBtn').onclick=()=>{const c=$('setCard');c.style.display=c.style.display===
 $('yKeyIn').value=yKey;
 $('yKeySave').onclick=async()=>{const k=$('yKeyIn').value.trim();if(!k)return;try{const r=await fetch('/ayarlar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ykey:k})});if(!r.ok)throw new Error();yKey=k;localStorage.setItem('ykey',JSON.stringify(k));location.reload()}catch(e){$('yWarn').style.display='block';$('yWarn').textContent='Anahtar kaydedilemedi. Yerel sunucuyu kontrol edin.'}};
 async function refreshGoogleStatus(){
-  try{const r=await fetch('/ayarlar');if(!r.ok)throw new Error();const a=await r.json();googleConfigured=!!a.googleConfigured;if(a.authOn){$('userBadge').textContent='👤 '+(a.user||'');$('logoutBtn').style.display='inline-block'}aiOcr=!!a.ocrConfigured;$('gemStatus').textContent=aiOcr?'✓ Gemini anahtarı kayıtlı (…'+(a.ocrHint||'')+'). Fotoğraflar yapay zekâ ile okunur.':'Gemini anahtarı yok: fotoğraflar daha az isabetli yerel okuyucuyla okunur.';$('gemKeyIn').placeholder=aiOcr?'Kayıtlı: ••••••••'+(a.ocrHint||'')+' — değiştirmek için yenisini yapıştırın':'Fotoğraf okuma için Google Gemini anahtarı';configuredProviders=a.providers||{};const hints=a.hints||{};for(const p of Object.keys(providerFields)){if(!$(p+'Key').dataset.ph)$(p+'Key').dataset.ph=$(p+'Key').placeholder;showProviderStatus(p,configuredProviders[p]?'✓ Anahtar kayıtlı (…'+(hints[p]||'')+') · Bağlantıyı test edin':'Anahtar eklenmedi');$(p+'Key').placeholder=hints[p]?'Kayıtlı: ••••••••'+hints[p]+' — değiştirmek için yenisini yapıştırın':$(p+'Key').dataset.ph||$(p+'Key').placeholder;}
+  try{const r=await fetch('/ayarlar');if(!r.ok)throw new Error();const a=await r.json();googleConfigured=!!a.googleConfigured;$('trafficWrap').style.display=(a.providers||{}).tomtom?'inline-flex':'none';if(a.authOn){$('userBadge').textContent='👤 '+(a.user||'');$('logoutBtn').style.display='inline-block'}aiOcr=!!a.ocrConfigured;$('gemStatus').textContent=aiOcr?'✓ Gemini anahtarı kayıtlı (…'+(a.ocrHint||'')+'). Fotoğraflar yapay zekâ ile okunur.':'Gemini anahtarı yok: fotoğraflar daha az isabetli yerel okuyucuyla okunur.';$('gemKeyIn').placeholder=aiOcr?'Kayıtlı: ••••••••'+(a.ocrHint||'')+' — değiştirmek için yenisini yapıştırın':'Fotoğraf okuma için Google Gemini anahtarı';configuredProviders=a.providers||{};const hints=a.hints||{};for(const p of Object.keys(providerFields)){if(!$(p+'Key').dataset.ph)$(p+'Key').dataset.ph=$(p+'Key').placeholder;showProviderStatus(p,configuredProviders[p]?'✓ Anahtar kayıtlı (…'+(hints[p]||'')+') · Bağlantıyı test edin':'Anahtar eklenmedi');$(p+'Key').placeholder=hints[p]?'Kayıtlı: ••••••••'+hints[p]+' — değiştirmek için yenisini yapıştırın':$(p+'Key').dataset.ph||$(p+'Key').placeholder;}
     $('gStatus').textContent=googleConfigured?'Google API yalnızca ücretli arama düğmesine basıldığında kullanılır. Varsayılan arama ücretsizdir.':'Google anahtarı gerekmez: varsayılan arama ücretsiz Photon/OpenStreetMap kullanır. İsterseniz ayrıca ücretli Google API ekleyebilirsiniz.';
   }catch(e){$('gStatus').textContent='Ücretsiz arama hazır. İsteğe bağlı Google API için yerel sunucu gerekir.'}
 }
