@@ -11,7 +11,7 @@ import urllib.parse
 import urllib.request
 import webbrowser
 from providers import PROVIDERS, SSL_CONTEXT, key_for, provider_search
-from evrak_okuma import OkumaHatasi, read_document
+from evrak_okuma import OkumaHatasi, normalize_addresses, read_document
 
 KLASOR = os.path.dirname(os.path.abspath(__file__))
 AYAR = os.path.join(KLASOR, "ayarlar.json")
@@ -158,6 +158,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         path = urllib.parse.urlsplit(self.path).path
         if path == "/api/ocr":
             return self.ocr()
+        if path == "/api/adres-duzelt":
+            return self.fix_addresses()
         if path != "/ayarlar":
             return self.send_error(404)
         try:
@@ -204,6 +206,29 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.reply(502, {"error": str(error), "code": error.code})
         except (urllib.error.URLError, TimeoutError):
             return self.reply(502, {"error": "Gemini’ye ulaşılamadı veya zaman aşımı oluştu.", "code": "network"})
+
+    def fix_addresses(self):
+        """Adres listesini Gemini ile düzeltir (yazım hataları, sokak/no ayrımı)."""
+        try:
+            size = int(self.headers.get("Content-Length", 0))
+            if size <= 0 or size > 512 * 1024:
+                raise ValueError()
+            items = json.loads(self.rfile.read(size)).get("items")
+            if not isinstance(items, list) or not 1 <= len(items) <= 150:
+                raise ValueError()
+            items = [{"id": str(i["id"])[:20], "adres": str(i["adres"])[:500], "ilce": str(i.get("ilce", ""))[:40]} for i in items]
+        except (ValueError, TypeError, KeyError, AttributeError):
+            return self.reply(400, {"error": "Geçersiz adres listesi.", "code": "invalid_request"})
+        with LOCK:
+            key = gemini_key(read_settings())
+        if not key:
+            return self.reply(503, {"error": "Adres düzeltme için Gemini anahtarı gerekli.", "code": "missing_key"})
+        try:
+            return self.reply(200, {"items": normalize_addresses(items, key)})
+        except OkumaHatasi as error:
+            return self.reply(502, {"error": str(error), "code": error.code})
+        except (urllib.error.URLError, TimeoutError):
+            return self.reply(502, {"error": "Gemini’ye ulaşılamadı.", "code": "network"})
 
     def end_headers(self):
         self.send_header("Cache-Control", "no-store")

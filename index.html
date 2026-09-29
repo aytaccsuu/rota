@@ -552,6 +552,19 @@ async function locateMall(a){
   return {...best,name:a.mall+' AVM',road:best.road||'',no:best.no||'',mah:best.mah||a.mah,quality:sources.size>=2?'Kapı':'Kontrol',candidates:hits};
 }
 async function locate(a){
+  if(a.mall||!a.parsed)return locateCore(a);
+  const good=r=>r&&['Kapı','OSM','Sokak'].includes(r.quality);
+  const tries=[a.street,...(a.ai?.sokak_adaylari||[]),a.parsed.street].filter((x,i,l)=>x&&l.findIndex(y=>core(y)===core(x))===i);
+  let first=null;
+  for(const street of tries){
+    const b={...a,street,no:street===a.parsed.street&&!a.ai?.kapi_no?a.parsed.no:a.no};
+    const r=await locateCore(b);
+    if(!first)first=r;
+    if(good(r)){if(street!==tries[0])a.aiFix=[...(a.aiFix||[]),'haritada bulunan: '+street];Object.assign(a,{placeCandidates:b.placeCandidates,placeError:b.placeError});return r}
+  }
+  return first;
+}
+async function locateCore(a){
   if(a.mall)return locateMall(a);
   const active=Object.keys(configuredProviders).some(p=>p!=='yandex'&&configuredProviders[p]);
   if(!active)return locateBase(a);
@@ -611,7 +624,7 @@ function renderStops(){
     const found=s.quality==='Elle'?'→ elle seçildi':m?`→ ${m.road?`<b>${esc(m.road)}${m.no?' No:'+esc(m.no):''}</b> · `:''}${esc(m.mah||'')}${s.quality==='Kontrol'?' <span style="color:var(--warn)">(mahalle tutmadı, kontrol edin)</span>':''}`:'';
     d.innerHTML=`<div class="top"><span class="small" style="min-width:62px">Kayıt ${i+1}</span><span class="who" title="${esc(s.orders.map(o=>o.alici).join(', '))}">${esc(s.orders.map(o=>o.alici).join(', '))}</span><span class="small">${s.orders.length>1?s.orders.length+' sipariş':''}${adet?(s.orders.length>1?' · ':'')+adet+' koli':''}${geri}</span><span class="tag t-${s.quality}">${s.quality}</span></div>
     <div class="raw">${esc(s.raw)}</div>
-    <div class="small">Okunan: ${esc([s.place,s.mah&&s.mah+' Mah.',s.street,s.no&&'No:'+s.no,s.ilce].filter(Boolean).join(' · ')||'—')}</div>
+    <div class="small">Okunan: ${esc([s.place,s.mah&&s.mah+' Mah.',s.street,s.no&&'No:'+s.no,s.ilce].filter(Boolean).join(' · ')||'—')}</div>${s.aiFix?.length?`<div class="small" style="color:#6f42c1">🤖 ${esc(s.aiFix.join(' · '))}</div>`:''}
     <div class="found">${found}</div>
     <div class="small">${s.match?.source?esc(s.match.source)+' · '+esc(s.match.name||'')+' · '+esc(s.match.address||''):''}${!readyStop(s)?esc(s.placeError||'Bina konumu teyit bekliyor.'):''}${delivered.includes(s)?' ✓ Teslim edildi':''}</div>
     <div class="row"><button data-a="fix">Düzelt / yeri teyit et</button><button data-a="pick" title="Haritadan seç">📍</button><label style="width:auto"><input type="checkbox" ${s.skip?'checked':''}> atla</label></div>`;
@@ -945,6 +958,23 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
 
 // ---------- fotoğraftan okuma: yapay zekâ (Gemini, sunucu üzerinden) ----------
 let aiOcr=false;
+// Yapay zekâ adresleri düzeltir (yazım hataları, sokak/kapı no ayrımı). Son söz haritanın: düzeltilen sokak bulunamazsa evraktaki yazım denenir.
+async function aiNormalize(list){
+  const todo=list.filter(s=>!s.mall&&s.raw);if(!todo.length)return;
+  $('geoInfo').textContent='Yapay zekâ adresleri kontrol ediyor…';
+  try{
+    const r=await fetch('/api/adres-duzelt',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:todo.map(s=>({id:String(s.id),adres:s.raw,ilce:s.ilce||''}))}),signal:AbortSignal.timeout(120000)});
+    const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'sunucu hatası');
+    const byId=new Map((j.items||[]).map(x=>[x.id,x]));
+    for(const s of todo){
+      const x=byId.get(String(s.id));if(!x)continue;
+      s.parsed={street:s.street,no:s.no,mah:s.mah};s.ai=x;
+      if(x.sokak)s.street=x.sokak;if(x.kapi_no)s.no=x.kapi_no;if(x.mahalle)s.mah=x.mahalle;
+      s.aiFix=x.duzeltmeler||[];
+    }
+    $('geoInfo').textContent='Yapay zekâ adres kontrolü tamam.';
+  }catch(e){$('geoInfo').textContent='Yapay zekâ adres kontrolü yapılamadı ('+e.message+'); evraktaki yazımla aranıyor.'}
+}
 async function aiReadImage(f,n,tot){
   $('fileInfo').textContent=`Fotoğraf ${n}/${tot} yapay zekâ ile okunuyor…`;
   const bar=$('ocrBar');bar.style.display='block';bar.firstChild.style.width='30%';
@@ -1045,7 +1075,9 @@ async function loadFiles(files){
   if(!orders.length){$('fileInfo').textContent='Adres bulunamadı. '+msgs.join(' · ');return}
   geoRun++;geoBusy=false;delivered=[];stops=buildStops(orders);clearRoute();
   $('fileInfo').innerHTML=esc(msgs.join(' · '))+`<br><b>${orders.length} sipariş → ${stops.length} durak.</b>`;
-  renderStops();refreshMarkers();updateState();geocodeAll();
+  renderStops();refreshMarkers();updateState();
+  if(aiOcr){const run=geoRun;await aiNormalize(stops);if(run!==geoRun)return;renderStops()}
+  geocodeAll();
 }
 
 $('drop').onclick=()=>$('file').click();

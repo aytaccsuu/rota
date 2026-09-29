@@ -41,6 +41,19 @@ async function main(){
   assert.equal(run(`parseSheet([['Alıcı','Adres'],['A','Canpark']]).length`),1,'Kısa AVM adı kaybolmamalı');
   // Fotoğrafta iki kez okunan satır (aynı sipariş no) tek durak/tek sipariş olmalı
   assert.equal(run(`(()=>{const st=buildStops([{sip:'162409262477306',alici:'NAZİF ÖCAL',ilce:'Kadıköy',raw:'Göztepe mah. Arı apartmanı no: 171 / Daire :6'},{sip:'162409262477306',alici:'NAZİF ÖCAL',ilce:'Kadıköy',raw:'Göztepe mah. Arı apartmanı no: 171 / Dalre :6'}]);return st.length+'|'+st[0].orders.length})()`),'1|1');
+  // Yapay zekâ düzeltmesi: harita doğrulamazsa sıradaki aday, en son evraktaki yazım denenir
+  {
+    const ai=app();
+    ai.run(`var tried=[];locateCore=async a=>{tried.push(a.street);return a.street==='Tünek Sokak'?{lat:41,lon:29,quality:'Kapı'}:{lat:41,lon:29,quality:'Mahalle'}};`);
+    const r=await ai.run(`locate({raw:'x',street:'Tünelc Sokak',no:'17',mah:'Göztepe',parsed:{street:'Tünelc Sok.',no:'17'},ai:{sokak_adaylari:['Tünek Sokak'],kapi_no:'17'}})`);
+    assert.equal(r.quality,'Kapı');
+    assert.deepEqual(plain(ai.run('tried')),['Tünelc Sokak','Tünek Sokak']);
+    ai.run(`tried=[];locateCore=async a=>{tried.push(a.street);return a.street==='Su yanı Sokak'?{quality:'Sokak'}:{quality:'Mahalle'}}`);
+    const r2=await ai.run(`locate({raw:'x',street:'Çetin Emeç Bulvarı',parsed:{street:'Su yanı Sokak',no:'7'},ai:{sokak_adaylari:[]}})`);
+    assert.equal(r2.quality,'Sokak','evraktaki yazım son çare olarak denenmeli');
+    const r3=await ai.run(`(tried=[],locate({raw:'x',street:'A Sokak',parsed:{street:'A Sk.'},ai:{sokak_adaylari:[]}}))`);
+    assert.equal(r3.quality,'Mahalle','hiçbiri bulunamazsa ilk sonuç döner');
+  }
   // AVM kodlu alıcı: mağaza kodu yerine AVM adı, aynı AVM tek durak
   assert.equal(run(`mallFromCode('TUR.Ist.GS.mll.METROGARDEN.I')`),'Metrogarden');
   assert.equal(run(`mallFromCode('TUR.Ist.GS.mII.CANPARK.I')`),'Canpark','fotoğrafta mII okunsa da bulunmalı');
