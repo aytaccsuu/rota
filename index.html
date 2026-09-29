@@ -303,26 +303,30 @@ function parseAddress(raw,ilceRaw){
   const fallbackMah=[...s.matchAll(/([A-Za-zÇĞİÖŞÜçğıöşü]{3,})\s+mah(?:allesi)?(?=[\s.,/]|$)/gi)].map(x=>x[1]).find(x=>!/^mah/i.test(x));
   const mah=mm[0]||fallbackMah||'';
   const rest=s.replace(/([a-zçğıöşü])([A-ZÇĞİÖŞÜ])/g,'$1 $2');
-  const toks=rest.split(/[\s,]+/).filter(Boolean);
-  let street='',no='';
-  for(let i=0;i<toks.length;i++){
-    const t=tr(toks[i]).replace(/\.$/,'');
-    if(STREET[t]&&i>0){
-      const name=[];
-      for(let j=i-1;j>=0&&name.length<4;j--){
-        const p=tr(toks[j]).replace(/[.:]$/,'');
-        if(STOPW.test(p)||/:$/.test(toks[j]))break;
-        if(/\d/.test(p)){if(j===i-1&&/^\d+\.?$/.test(toks[j]))name.unshift(toks[j].replace(/\.$/,''));break}
-        name.unshift(toks[j].replace(/\.$/,''));
-      }
-      if(!name.length)continue;
-      street=name.join(' ')+' '+STREET[t];
-      const after=toks.slice(i+1).join(' ');
-      const n=after.match(/^(?:no\s*[:.]?\s*)?(\d+[A-Za-z]?(?:[-/]\d+[A-Za-z]?)?)(?=\s|[.,]|$)/i)||after.match(/\bno\s*[:.]?\s*(\d+[A-Za-z]?(?:[-/]\d+[A-Za-z]?)?)/i);
-      if(n)no=n[1];
-      break;
+  // Virgül sokak adının sınırıdır ("Baytur Konutları, Şakacı Sokak"): virgül bilgisini koruyarak böl
+  const toks=rest.split(/\s+/).filter(Boolean),bare=t=>t.replace(/[,;]+$/,'');
+  const isNoTok=t=>/^no(?:[:.]|\d|$)/i.test(t)||/^numara/i.test(t);
+  const numIdx=toks.findIndex(isNoTok);
+  const cands=[];
+  for(let i=1;i<toks.length;i++){
+    const t=tr(bare(toks[i])).replace(/\.$/,'');
+    if(!STREET[t])continue;
+    const name=[];
+    for(let j=i-1;j>=0&&name.length<4;j--){
+      if(/[,;]$/.test(toks[j]))break;
+      const p=tr(bare(toks[j])).replace(/[.:]$/,'');
+      if(STOPW.test(p)||/:$/.test(toks[j])||STREET[p])break;
+      if(/\d/.test(p)){if(j===i-1&&/^\d+\.?$/.test(toks[j]))name.unshift(toks[j].replace(/\.$/,''));break}
+      name.unshift(bare(toks[j]).replace(/\.$/,''));
     }
+    if(!name.length)continue;
+    const after=toks.slice(i+1).map(bare).join(' ');
+    const n=after.match(/^(?:no\s*[:.]?\s*)?(\d+[A-Za-z]?(?:[-/]\d+[A-Za-z]?)?)(?=\s|[.,]|$)/i)||after.match(/\bno\s*[:.]?\s*(\d+[A-Za-z]?(?:[-/]\d+[A-Za-z]?)?)/i);
+    cands.push({i,street:name.join(' ')+' '+STREET[t],no:n?n[1]:''});
   }
+  // Birden çok yol varsa kapı numarasından hemen önce yazılan yol ("Çetin Emeç Bulvarı Su Yanı Sokak No:7" → Su Yanı Sokak)
+  const pick=(numIdx>=0?cands.filter(c=>c.i<numIdx).at(-1):null)||cands[0];
+  let street=pick?.street||'',no=pick?.no||'';
   if(!no){const n=rest.match(/\bno\s*[:.]?\s*(\d+[A-Za-z]?(?:[-/]\d+[A-Za-z]?)?)/i);if(n)no=n[1]}
   const ilce=ilceMap[fold(ilceRaw)]||matchIlce(ilceRaw||'')||ILCELER.find(x=>new RegExp('(?:^|[^a-z])'+fold(x)+'(?:$|[^a-z])').test(fold(s)))||String(ilceRaw||'').trim();
   // AVM/site/apartman adını sokaktan bağımsız koru; yalnızca isim girilmişse de ara.
@@ -415,7 +419,7 @@ async function placeSearchForStop(a){
 async function search(q,layers){const y=await yandexSearch(q);return [...(y||[]),...await photonSearch(q,layers)]}
 
 const core=s=>fold(s).replace(/\bdr\b\.?/g,'doktor').replace(/\bav\b\.?/g,'avukat').replace(/\b(sokagi|sokak|sok|sk|caddesi|cadde|cad|cd|bulvari|bulvar|blv|mahallesi|mahalle|mah)\b\.?/g,' ').replace(/[^a-z0-9]/g,'');
-function same(a,b){a=core(a);b=core(b);if(!a||!b)return false;if(a===b)return true;if(Math.min(a.length,b.length)>=5&&(a.includes(b)||b.includes(a)))return true;return lev(a,b)<=Math.max(1,Math.floor(Math.min(a.length,b.length)/5))}
+function same(a,b){a=core(a);b=core(b);if(!a||!b)return false;if(a===b)return true;if(Math.min(a.length,b.length)>=5&&(a.includes(b)||b.includes(a)))return true;const m=Math.min(a.length,b.length);return m>=6&&lev(a,b)<=Math.max(1,Math.floor(m/5))} // kısa adlarda (Cami/Çamlı) tek harf farkı farklı sokaktır
 const mahOk=(c,mah)=>!!mah&&c.areas.some(x=>same(x,mah));
 // Kapı no karşılaştırması: "No:49", "no 49", "49" aynıdır (Yandex numarayı "No:49" diye yazar)
 const normNo=x=>fold(x).replace(/\s/g,'').replace(/^(no|numara)[:.]?/,'');
@@ -424,8 +428,10 @@ const noOk=(cno,no)=>!!cno&&!!no&&!!normNo(cno)&&normNo(cno)===normNo(no);
 // "4-6" gibi aralıklarda ilk numara denenir. "12A" ile "12" farklı binadır; harf atılmaz.
 function noVariants(no){
   no=String(no||'').replace(/\s/g,'');if(!no)return [];
-  const out=[{no,daire:''}],m=no.match(/^(\d+[A-Za-z]?)([/-])(\d+[A-Za-z]?)$/);
-  if(m)out.push({no:m[1],daire:m[2]==='/'?m[3]:''});
+  const out=[{no,daire:''}],add=(n,d='')=>{if(n&&!out.some(v=>v.no===n))out.push({no:n,daire:d})};
+  const i=no.indexOf('/'),pre=i>0?no.slice(0,i):no,post=i>0?no.slice(i+1):'';
+  if(post){add(pre,/^\d+$/.test(post)?post:'');if(/^[A-Za-z]$/.test(post))add(pre+post.toUpperCase())} // 4/2 → 4 (daire 2); 465/A → 465, 465A
+  const r=pre.match(/^(\d+[A-Za-z]?)-\d+/);if(r)add(r[1],post&&/^\d+$/.test(post)?post:''); // 45-47/1 → 45
   return out;
 }
 const noMatches=(cno,no)=>noVariants(no).some(v=>noOk(cno,v.no));
@@ -461,7 +467,46 @@ async function findHouse(st,no){
   return null;
 }
 // Evrak adresi → konum. Mantık: sokak ara → mahallesi tutan sokağı seç → bina no ara
+// Sokak adı küçük farklarla yazılmış olabilir ("Cami Sokak" ↔ "Suadiye Camii Sok."): kelimelerden biri 1 harf farkla tutarsa.
+function sameLoose(x,y){
+  if(same(x,y))return true;
+  const w=t=>fold(t).replace(/(sokagi|sokak|sok|sk|caddesi|cadde|cad|cd|bulvari|bulvar|blv|cikmazi|cikmaz)\.?/g,' ').split(/[^a-z0-9]+/).filter(v=>v.length>=4);
+  const close=(p,q)=>p===q||(Math.abs(p.length-q.length)===1&&(p.startsWith(q)||q.startsWith(p)))||(p.length===q.length&&p.length>=5&&lev(p,q)===1);
+  const A=w(x),B=w(y);return A.some(p=>B.some(q=>close(p,q)));
+}
+// "16" evrakı Yandex'teki "16/1" binasıyla eşleşebilir (aynı parselin alt binası) — yalnızca tam eşleşme yoksa.
+const baseNoOk=(cno,no)=>!!cno&&!!no&&!/[/-]/.test(String(no))&&normNo(cno).split(/[/-]/)[0]===normNo(no);
+// Adresin tamamını (sokak + kapı no + mahalle) doğrudan sor; mahalle ve numara tutan kesin bina sonucu kabul edilir.
+async function directHouse(a){
+  if(!a.street||!a.no||!a.mah)return null;
+  for(const v of noVariants(a.no)){
+    const q=[`${a.street} ${v.no}`,a.mah+' Mahallesi',a.ilce,'İstanbul'].filter(Boolean).join(', ');
+    const pool=[...((await yandexSearch(q))||[]),...await extraProviderSearch(q).catch(()=>[])];
+    const ok=c=>c.type==='house'&&(!c.precision||c.precision==='exact')&&mahOk(c,a.mah)&&sameLoose(c.road,a.street)&&(!a.ilce||!c.ilce||same(c.ilce,a.ilce));
+    const rank=c=>(same(c.road,a.street)?0:1);
+    const hits=pool.filter(ok).sort((x,y)=>rank(x)-rank(y));
+    const h=hits.find(c=>noOk(c.no,v.no))||hits.find(c=>baseNoOk(c.no,v.no));
+    if(h)return {...h,quality:'Kapı',daire:v.daire,road:h.road||a.street};
+  }
+  return null;
+}
+// Sokak adı yazılmamış ama kapı no ve yer adı var ("Arı apartmanı no:171 Barbour mağazası binası"): yer adıyla ara.
+async function placeWithNumber(a){
+  if(a.street||!a.no||!a.mah)return null;
+  // Adresteki özel adları (mağaza, apartman, işletme) tek tek ara: "Barbour", "Flaş Turizm"...
+  const skip=new Set(['mah','mahallesi','apartmani','apt','apartman','binasi','bina','magazasi','magaza','sitesi','site','blok','daire','kat','istanbul',fold(a.mah),fold(a.ilce||'')]);
+  const words=[...new Set(String(a.raw).split(/[^A-Za-zÇĞİÖŞÜçğıöşü]+/).filter(w=>w.length>=4&&!skip.has(fold(w))&&!ILCELER.some(x=>fold(x)===fold(w))))].slice(0,4);
+  for(const w of words){
+    const pool=await extraProviderSearch([w,a.mah,a.ilce].filter(Boolean).join(' '),'place').catch(()=>[]);
+    // Bulunan yerin adında aranan kelime geçmeli ("Barbour" → "Barbour Göztepe"); rastgele aynı numaralı bina kabul edilmez
+    const h=pool.find(c=>(c.type==='house'||c.type==='poi')&&fold(c.name||'').includes(fold(w))&&noOk(c.no,noVariants(a.no).at(-1).no)&&mahOk(c,a.mah));
+    if(h)return {...h,quality:'Kontrol',road:h.road,no:h.no,placeHint:w};
+  }
+  return null;
+}
 async function locateStreet(a){
+  const direct=await directHouse(a);if(direct)return direct;
+  const viaPlace=await placeWithNumber(a);if(viaPlace)return viaPlace;
   if(a.street){
     const cands=await streetCandidates(a.street,a.ilce,a.mah);
     let st=cands.find(c=>mahOk(c,a.mah));
@@ -563,7 +608,8 @@ async function snapToYandex(a,r){
   let items=null;try{items=await yandexSearch(q)}catch(e){}
   if(!items)return r;
   const nos=noVariants(no).map(v=>v.no);
-  const h=items.find(c=>c.type==='house'&&c.precision==='exact'&&same(c.road,road)&&nos.some(n=>noOk(c.no,n))&&(!a.mah||mahOk(c,a.mah)||dist(c,r)<300)&&dist(c,r)<(r.quality==='Kapı'||r.quality==='OSM'?300:1500));
+  const hs=items.filter(c=>c.type==='house'&&c.precision==='exact'&&sameLoose(c.road,road)&&(!a.mah||mahOk(c,a.mah)||dist(c,r)<300)&&dist(c,r)<(r.quality==='Kapı'||r.quality==='OSM'?300:1500));
+  const h=hs.find(c=>nos.some(n=>noOk(c.no,n)))||hs.find(c=>nos.some(n=>baseNoOk(c.no,n)));
   if(!h)return r;
   return {...r,lat:h.lat,lon:h.lon,no:h.no,road:h.road||road,source:'Yandex',yandexAddress:h.address,
     quality:r.quality==='Kontrol'&&r.conflict?'Kontrol':'Kapı'};
@@ -573,6 +619,7 @@ async function locateAll(a){
   if(a.mall||!a.parsed)return locateCore(a);
   const good=r=>r&&['Kapı','OSM','Sokak'].includes(r.quality);
   const tries=[a.street,...(a.ai?.sokak_adaylari||[]),a.parsed.street].filter((x,i,l)=>x&&l.findIndex(y=>core(y)===core(x))===i);
+  if(!tries.length)return locateCore(a); // adreste sokak yok: yer adı / mahalle araması
   let first=null;
   for(const street of tries){
     const b={...a,street,no:street===a.parsed.street&&!a.ai?.kapi_no?a.parsed.no:a.no};
@@ -801,7 +848,12 @@ function buildStops(orders){
   const m=new Map();let id=0;
   // Aynı sipariş numarası (ör. fotoğrafta iki kez okunan satır) tek sipariş sayılır
   const seenSip=new Set();
-  orders=orders.filter(o=>{const k=String(o.sip||'').replace(/\D/g,'');if(k.length<6)return true;if(seenSip.has(k))return false;seenSip.add(k);return true});
+  const seenRow=new Set();
+  orders=orders.filter(o=>{
+    const k=String(o.sip||'').replace(/\D/g,''),r=fold(o.alici).replace(/[^a-z0-9]/g,'')+'|'+fold(o.raw).replace(/[^a-z0-9]/g,'');
+    // Aynı alıcı + aynı adres de tekrar sayılır (sipariş no bir kopyada yanlış okunmuş olabilir)
+    if((k.length>=6&&seenSip.has(k))||(r.length>12&&seenRow.has(r)))return false;
+    if(k.length>=6)seenSip.add(k);seenRow.add(r);return true});
   for(const o of orders){
     const p=parseAddress(o.raw,o.ilce);
     const mall=mallFromCode(o.alici)||mallFromCode(o.musteri);

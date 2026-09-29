@@ -66,6 +66,22 @@ async function main(){
     assert.ok(kml.includes('29.100000,41.010000,0'),'KML koordinatı boylam,enlem olmalı');
     assert.ok(kml.includes('Konum yaklaşık'));
   }
+  assert.equal(run(`buildStops([{sip:'162409262477306',alici:'NAZİF ÖCAL',ilce:'Kadıköy',raw:'Göztepe mah. Arı apartmanı no: 171'},{sip:'162609262477306',alici:'NAZİF ÖCAL',ilce:'Kadıköy',raw:'Göztepe mah. Arı apartmanı no: 171'}]).reduce((a,s)=>a+s.orders.length,0)`),1,'sipariş no farklı okunsa da aynı alıcı+adres tek sipariş');
+  // Ayrıştırma: virgül sınırı ve numaradan önceki yol
+  assert.equal(run(`parseAddress('Kozyatağı mah. Baytur Kozyatağı Konutları, Şakacı Sokak, No: 16, C Blok','Kadıköy').street`),'Şakacı Sokak');
+  assert.equal(run(`parseAddress('Kozyatağı mah. Baytur Kozyatağı Konutları, Şakacı Sokak, No: 16, C Blok','Kadıköy').no`),'16');
+  assert.equal(run(`parseAddress('Suadiye mah. Çetin emeç bulvarı Su yanı Sokak yalı apartmanı No:7 D:1','Kadıköy').street`),'Su yanı Sokak');
+  assert.equal(run(`parseAddress('Suadiye mah. Çetin emeç bulvarı Su yanı Sokak yalı apartmanı No:7 D:1','Kadıköy').no`),'7');
+  assert.equal(run(`parseAddress('Göztepe mah. Göztepe mahallesi fahrettinkerimgökay caddesi Göztepe apartmanı no:254 kat:3','Kadıköy').no`),'254');
+  assert.equal(run(`parseAddress('Göztepe mah. Bestekar ziya sokak Aydoğan apartmanı no8 daire 42','Kadıköy').street`),'Bestekar ziya Sokak');
+  assert.equal(run(`parseAddress('Göztepe mah. Bestekar ziya sokak Aydoğan apartmanı no8 daire 42','Kadıköy').no`),'8');
+  assert.equal(run(`parseAddress('Göztepe mah. Tepegöz Sk. Utku Apt. No:49/21 Kat:11','Kadıköy').street`),'Tepegöz Sokak');
+  assert.equal(run(`parseAddress('X mah. Alan Sokak No:5, Bağdat Caddesi yakını','Kadıköy').street`),'Alan Sokak');
+  assert.equal(run(`sameLoose('Suadiye Camii Sok.','Cami Sokak')`),true);
+  assert.equal(run(`sameLoose('Çamlı Sok.','Cami Sokak')`),false,'Çamlı ile Cami farklı');
+  assert.equal(run(`baseNoOk('16/1','16')`),true);
+  assert.equal(run(`baseNoOk('16/1','16/2')`),false);
+  assert.equal(run(`baseNoOk('161','16')`),false);
   // AVM kodlu alıcı: mağaza kodu yerine AVM adı, aynı AVM tek durak
   assert.equal(run(`mallFromCode('TUR.Ist.GS.mll.METROGARDEN.I')`),'Metrogarden');
   assert.equal(run(`mallFromCode('TUR.Ist.GS.mII.CANPARK.I')`),'Canpark','fotoğrafta mII okunsa da bulunmalı');
@@ -75,6 +91,9 @@ async function main(){
   assert.equal(run(`JSON.stringify(noVariants('4/2'))`),JSON.stringify([{no:'4/2',daire:''},{no:'4',daire:'2'}]));
   assert.equal(run(`JSON.stringify(noVariants('4-6').map(v=>v.no))`),JSON.stringify(['4-6','4']));
   assert.equal(run(`JSON.stringify(noVariants('12A').map(v=>v.no))`),JSON.stringify(['12A']),'12A ile 12 farklı bina');
+  assert.equal(run(`JSON.stringify(noVariants('45-47/1').map(v=>v.no))`),JSON.stringify(['45-47/1','45-47','45']));
+  assert.equal(run(`JSON.stringify(noVariants('465/A').map(v=>v.no))`),JSON.stringify(['465/A','465','465A']));
+  assert.equal(run(`noVariants('45-47/1').at(-1).daire`),'1');
   assert.equal(run(`noMatches('32','32/17')`),true,'32/17 evrakı 32 numaralı binayla eşleşmeli');
   assert.equal(run(`noOk('No:49','49')`),true,'Yandex No:49 yazar');
   assert.equal(run(`noOk('No:47A','49')`),false);

@@ -23,13 +23,30 @@ class EvrakOkumaTests(unittest.TestCase):
         self.assertIn("/interactions", call.call_args.args[0])
         self.assertNotIn("secret", json.dumps(call.call_args.args[1]))
 
-    def test_fallback_to_generate_content(self):
-        legacy = {"candidates": [{"content": {"parts": [{"text": json.dumps(ROWS)}]}}]}
-        err = urllib.error.HTTPError("u", 404, "not found", {}, None)
-        with patch.object(ev, "_post", side_effect=[err, legacy]) as call:
+    def test_model_chain_on_quota(self):
+        ok = {"steps": [{"content": [{"type": "text", "text": json.dumps(ROWS)}]}]}
+        quota = urllib.error.HTTPError("u", 429, "quota", {}, None)
+        with patch.object(ev, "_post", side_effect=[quota, ok]) as call:
             rows = ev.read_document("aGVsbG8=" * 20, "image/jpeg", "secret")
         self.assertEqual(rows[0]["siparis_no"], "162009265697326")
-        self.assertIn(":generateContent", call.call_args.args[0])
+        self.assertEqual([c.args[1]["model"] for c in call.call_args_list], ev.OCR_MODELS[:2], "kota dolunca sıradaki model")
+        self.assertEqual(call.call_args_list[0].args[1]["input"][1]["resolution"], "ultra_high")
+        self.assertTrue(all(not m.startswith("gemini-2.") for m in ev.OCR_MODELS))
+
+    def test_thinking_param_rejected(self):
+        ok = {"steps": [{"content": [{"type": "text", "text": json.dumps(ROWS)}]}]}
+        bad = urllib.error.HTTPError("u", 400, "bad", {}, None)
+        with patch.object(ev, "_post", side_effect=[bad, ok]) as call:
+            ev.read_document("aGVsbG8=" * 20, "image/jpeg", "k")
+        self.assertNotIn("generation_config", call.call_args_list[1].args[1])
+
+    def test_schema_ignored_fenced_list(self):
+        fenced = "```json\n" + json.dumps([{"musteri": "IKEA", "siparis_numarasi": "162609260066936", "alici": "Berna Gülsan",
+                                               "adet": "1", "ilce": "KADIKÖY", "adres": "Bostancı mah. Bahçelerarası sok no4", "not": "", "geri_alim": False}], ensure_ascii=False) + "\n```"
+        with patch.object(ev, "_post", return_value={"steps": [{"content": [{"type": "text", "text": fenced}]}]}):
+            rows = ev.read_document("aGVsbG8=" * 20, "image/jpeg", "k")
+        self.assertEqual(rows[0]["siparis_no"], "162609260066936")
+        self.assertEqual(rows[0]["alici"], "Berna Gülsan")
 
     def test_errors(self):
         for code, kind in ((403, "auth"), (429, "quota"), (500, "upstream")):
@@ -60,12 +77,12 @@ class EvrakOkumaTests(unittest.TestCase):
             def read(self): return b'{"ok": 1}'
         def fake(req, timeout, context):
             calls.append(1)
-            if len(calls) < 3:
+            if len(calls) < 2:
                 raise urllib.error.HTTPError("u", 503, "busy", {}, None)
             return Resp()
         with patch("urllib.request.urlopen", side_effect=fake), patch("time.sleep"):
             self.assertEqual(ev._post("https://x", {}, "k"), {"ok": 1})
-        self.assertEqual(len(calls), 3)
+        self.assertEqual(len(calls), 2, 'geçici hatada bir kez tekrar, sonra sıradaki model')
 
 
 if __name__ == "__main__":

@@ -9,7 +9,14 @@ import urllib.request
 
 from providers import SSL_CONTEXT
 
-MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.8-flash")
+# Ücretsiz planda her modelin ayrı (ve düşük: ör. günde 20) kotası var; biri dolunca/yoğunsa sıradakine geçilir.
+# Gemini 2.5 modelleri kullanılmaz: istenen JSON şemasını yok sayıp düz metin döndürüyorlar.
+MODELS = [m.strip() for m in os.environ.get(
+    "GEMINI_MODELS", "gemini-3.8-flash,gemini-3.7-flash,gemini-3.5-flash-lite,gemini-3.1-flash-lite").split(",") if m.strip()]
+# Fotoğraf okuma yalnız Gemini 3 modelleriyle: 2.5 modelleri görseli düşük çözünürlükte (~258 token) işliyor,
+# geniş tabloda sipariş numaralarını bozuyor. Gemini 3'te görsel "ultra_high" (2240 token) gönderilir.
+OCR_MODELS = [m for m in MODELS if not m.startswith("gemini-2.")]
+URL = "https://generativelanguage.googleapis.com/v1beta/interactions"
 
 PROMPT = """Bu fotoğraf bir kargo dağıtım evrakı (tablo). Fotoğraf yan dönmüş, eğik veya katlanmış olabilir.
 Tablodaki HER teslimat satırını oku ve şemaya göre döndür.
@@ -22,7 +29,8 @@ Kurallar:
 - "adres" sütununun tamamını al: mahalle, sokak/cadde, apartman, no, kat, daire dahil.
 - Kalemle sonradan yazılmış sıra numaralarını, imzaları ve başlık satırını alma.
 - "GERİ ALIM" yazan satırlarda geri_alim true olsun.
-- Aynı satırı iki kez yazma."""
+- Aynı satırı iki kez yazma.
+- Yanıtı yalnızca JSON olarak ver, açıklama yazma."""
 
 SCHEMA = {
     "type": "object",
@@ -59,15 +67,42 @@ def _post(url, body, key):
     """Gemini'ye istek; ücretsiz planda sık görülen geçici 500/503 hatalarında 3 kez tekrar dener."""
     import time
     import urllib.error
-    for attempt in range(4):
+    for attempt in range(2):
         req = urllib.request.Request(url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json", "x-goog-api-key": key})
         try:
-            with urllib.request.urlopen(req, timeout=120, context=SSL_CONTEXT) as response:
+            with urllib.request.urlopen(req, timeout=90, context=SSL_CONTEXT) as response:
                 return json.load(response)
         except urllib.error.HTTPError as error:
-            if error.code not in (500, 502, 503, 504) or attempt == 3:
+            if error.code not in (500, 502, 503, 504) or attempt == 1:
                 raise
-            time.sleep(3 * (attempt + 1))
+            time.sleep(2)
+
+
+def _generate(parts, schema, key, models=None):
+    """Model zincirini sırayla dener; anahtar hatası hariç her hatada sıradaki modele geçer."""
+    import urllib.error
+    last = None
+    for model in (models or MODELS):
+        body = {"model": model, "input": parts, "response_format": {"type": "text", "mime_type": "application/json", "schema": schema},
+                "generation_config": {"thinking_level": "low"}}
+        try:
+            try:
+                data = _post(URL, body, key)
+            except urllib.error.HTTPError as error:
+                if error.code != 400:
+                    raise
+                body.pop("generation_config")  # bazı modeller düşünme ayarını kabul etmiyor
+                data = _post(URL, body, key)
+            return "".join(_texts(data.get("steps") or data.get("outputs") or data))
+        except urllib.error.HTTPError as error:
+            if error.code in (401, 403):
+                raise OkumaHatasi("Gemini anahtarı reddedildi. Anahtarı kontrol edin.", "auth")
+            last = error
+        except (urllib.error.URLError, TimeoutError, OSError) as error:
+            last = error  # zaman aşımı / bağlantı: sıradaki model
+    if isinstance(last, urllib.error.HTTPError) and last.code == 429:
+        raise OkumaHatasi("Gemini ücretsiz kullanım sınırı bütün modellerde doldu. Yarın tekrar deneyin veya yerel okuyucu kullanılır.", "quota")
+    raise OkumaHatasi("Gemini şu an yanıt vermiyor (%s). Biraz sonra tekrar deneyin." % (getattr(last, "code", None) or type(last).__name__))
 
 
 def _texts(node):
@@ -83,40 +118,43 @@ def _texts(node):
             yield from _texts(v)
 
 
+def _loose_json(text, list_key):
+    """Şemayı dikkate almayan modeller için: ```json çitlerini at, dizi ya da {list_key: [...]} kabul et."""
+    t = text.strip()
+    if t.startswith("```"):
+        t = t.split("\n", 1)[1] if "\n" in t else t[3:]
+        t = t.rsplit("```", 1)[0]
+    data = json.loads(t)
+    if isinstance(data, dict):
+        data = data.get(list_key) or next((v for v in data.values() if isinstance(v, list)), None)
+    if not isinstance(data, list):
+        raise ValueError("liste yok")
+    return data
+
+
+ALIASES = {"siparis_no": ("siparis_no", "siparis_numarasi", "siparisNo", "siparis"), "geri_alim": ("geri_alim", "geriAlim")}
+
+
+def _field(r, key):
+    for k in ALIASES.get(key, (key,)):
+        if r.get(k) not in (None, ""):
+            return r[k]
+    return ""
+
+
 def read_document(image_b64, mime, key):
     """Fotoğraftaki tabloyu [{musteri, siparis_no, alici, not, adet, ilce, adres, geri_alim}] listesine çevirir."""
-    import urllib.error
+    text = _generate([{"type": "text", "text": PROMPT}, {"type": "image", "data": image_b64, "mime_type": mime, "resolution": "ultra_high"}], SCHEMA, key, OCR_MODELS)
     try:
-        data = _post("https://generativelanguage.googleapis.com/v1beta/interactions", {
-            "model": MODEL,
-            "input": [{"type": "text", "text": PROMPT}, {"type": "image", "data": image_b64, "mime_type": mime}],
-            "response_format": {"type": "text", "mime_type": "application/json", "schema": SCHEMA},
-            "generation_config": {"thinking_level": "low"},
-        }, key)
-        text = "".join(_texts(data.get("steps") or data.get("outputs") or data))
-    except urllib.error.HTTPError as error:
-        if error.code in (401, 403):
-            raise OkumaHatasi("Gemini anahtarı reddedildi. Anahtarı kontrol edin.", "auth")
-        if error.code == 429:
-            raise OkumaHatasi("Gemini ücretsiz kullanım sınırı doldu. Biraz sonra tekrar deneyin.", "quota")
-        if error.code != 404:
-            raise OkumaHatasi("Gemini geçici olarak hata verdi (HTTP %s)." % error.code)
-        # Yeni uç nokta yoksa klasik generateContent ile dene
-        data = _post("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent" % MODEL, {
-            "contents": [{"parts": [{"text": PROMPT}, {"inline_data": {"mime_type": mime, "data": image_b64}}]}],
-            "generationConfig": {"responseMimeType": "application/json", "responseSchema": SCHEMA},
-        }, key)
-        text = "".join(_texts(data.get("candidates", [])))
-    try:
-        rows = json.loads(text)["rows"]
-    except (ValueError, KeyError, TypeError):
+        rows = _loose_json(text, "rows")
+    except (ValueError, KeyError, TypeError, IndexError):
         raise OkumaHatasi("Gemini yanıtı anlaşılamadı.", "response")
     clean = []
     for r in rows:
         if not isinstance(r, dict):
             continue
-        row = {k: str(r.get(k, "") or "").strip() for k in ("musteri", "siparis_no", "alici", "not", "adet", "ilce", "adres")}
-        row["geri_alim"] = bool(r.get("geri_alim"))
+        row = {k: str(_field(r, k) or "").strip() for k in ("musteri", "siparis_no", "alici", "not", "adet", "ilce", "adres")}
+        row["geri_alim"] = _field(r, "geri_alim") in (True, "true", "True", "evet")
         if len(row["adres"]) >= 6:
             clean.append(row)
     return clean
@@ -138,6 +176,7 @@ Kurallar:
 - daire, kat: varsa.
 - bina: apartman/site/plaza/AVM adı varsa ("Utku Apt.", "Kozzy AVM").
 - duzeltmeler: yaptığın her düzeltmeyi "eski → yeni" biçiminde yaz; düzeltme yoksa boş liste.
+- Yanıtı yalnızca JSON olarak ver, açıklama yazma.
 """
 
 DUZELT_SCHEMA = {
@@ -169,25 +208,11 @@ DUZELT_SCHEMA = {
 
 def normalize_addresses(items, key):
     """[{id, adres, ilce}] → her adres için düzeltilmiş mahalle/sokak/kapı no. Sonuç haritada ayrıca doğrulanmalı."""
-    import urllib.error
     listing = "\n".join("[%s] %s (ilçe: %s)" % (i["id"], i["adres"], i.get("ilce", "")) for i in items)
+    text = _generate([{"type": "text", "text": DUZELT_PROMPT + "\nAdresler:\n" + listing}], DUZELT_SCHEMA, key)
     try:
-        data = _post("https://generativelanguage.googleapis.com/v1beta/interactions", {
-            "model": MODEL,
-            "input": [{"type": "text", "text": DUZELT_PROMPT + "\nAdresler:\n" + listing}],
-            "response_format": {"type": "text", "mime_type": "application/json", "schema": DUZELT_SCHEMA},
-            "generation_config": {"thinking_level": "low"},
-        }, key)
-        text = "".join(_texts(data.get("steps") or data.get("outputs") or data))
-    except urllib.error.HTTPError as error:
-        if error.code in (401, 403):
-            raise OkumaHatasi("Gemini anahtarı reddedildi.", "auth")
-        if error.code == 429:
-            raise OkumaHatasi("Gemini ücretsiz kullanım sınırı doldu.", "quota")
-        raise OkumaHatasi("Gemini geçici olarak hata verdi (HTTP %s)." % error.code)
-    try:
-        out = json.loads(text)["items"]
-    except (ValueError, KeyError, TypeError):
+        out = _loose_json(text, "items")
+    except (ValueError, KeyError, TypeError, IndexError):
         raise OkumaHatasi("Gemini yanıtı anlaşılamadı.", "response")
     ids = {str(i["id"]) for i in items}
     clean = []
