@@ -7,3 +7,4 @@ __pycache__/
 
 # ev/depo konumu içeren ekran görüntüleri
 *.png
+_test_*

@@ -11,6 +11,7 @@ import urllib.parse
 import urllib.request
 import webbrowser
 from providers import PROVIDERS, SSL_CONTEXT, key_for, provider_search
+from evrak_okuma import OkumaHatasi, read_document
 
 KLASOR = os.path.dirname(os.path.abspath(__file__))
 AYAR = os.path.join(KLASOR, "ayarlar.json")
@@ -27,6 +28,10 @@ def env_point(name):
         return {"lat": lat, "lon": lon}
     except ValueError:
         return None
+
+
+def gemini_key(settings):
+    return os.environ.get("GEMINI_API_KEY") or settings.get("geminiKey", "")
 
 
 def read_settings():
@@ -98,12 +103,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             with LOCK:
                 data = read_settings()
             key = data.pop("gkey", "")
+            gem = gemini_key(data)
+            data.pop("geminiKey", None)
             configured = {p: bool(key_for(p, data)) for p in PROVIDERS}
             # anahtarın kendisi değil, yalnızca son 4 karakteri: kaydın yapıldığı ekranda görülsün
             hints = {p: key_for(p, data)[-4:] for p in PROVIDERS if key_for(p, data)}
             for _, field, _ in PROVIDERS.values():
                 data.pop(field, None)
-            return self.reply(200, {**data, "providers": configured, "hints": hints, "googleConfigured": bool(os.environ.get("GOOGLE_MAPS_API_KEY") or key)})
+            return self.reply(200, {**data, "providers": configured, "hints": hints, "googleConfigured": bool(os.environ.get("GOOGLE_MAPS_API_KEY") or key), "ocrConfigured": bool(gem), "ocrHint": gem[-4:] if gem else ""})
         if path == "/api/location-search":
             args = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
             provider = args.get('provider', [''])[0]
@@ -148,7 +155,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
         if not self.authorized():
             return
-        if urllib.parse.urlsplit(self.path).path != "/ayarlar":
+        path = urllib.parse.urlsplit(self.path).path
+        if path == "/api/ocr":
+            return self.ocr()
+        if path != "/ayarlar":
             return self.send_error(404)
         try:
             size = int(self.headers.get("Content-Length", 0))
@@ -159,7 +169,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 raise ValueError()
             with LOCK:
                 old = read_settings()
-                fields = {'ykey', 'gkey'} | {spec[1] for spec in PROVIDERS.values()}
+                fields = {'ykey', 'gkey', 'geminiKey'} | {spec[1] for spec in PROVIDERS.values()}
                 if any(not isinstance(v, str) or len(v) > 4096 for k, v in new.items() if k in fields):
                     raise ValueError()
                 old.update({k: v.strip() if k in fields else v for k, v in new.items() if k in fields | {'depot', 'home'}})
@@ -171,6 +181,29 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
         except (ValueError, OSError):
             self.reply(400, {"error": "Ayar kaydedilemedi."})
+
+    def ocr(self):
+        """Evrak fotoğrafını (base64) Gemini ile okuyup satırları döndürür."""
+        try:
+            size = int(self.headers.get("Content-Length", 0))
+            if size <= 0 or size > 12 * 1024 * 1024:
+                return self.reply(400, {"error": "Fotoğraf çok büyük veya boş.", "code": "invalid_request"})
+            body = json.loads(self.rfile.read(size))
+            image, mime = body.get("image", ""), body.get("mime", "image/jpeg")
+            if not isinstance(image, str) or len(image) < 100 or mime not in ("image/jpeg", "image/png", "image/webp"):
+                raise ValueError()
+        except (ValueError, TypeError, AttributeError):
+            return self.reply(400, {"error": "Geçersiz fotoğraf.", "code": "invalid_request"})
+        with LOCK:
+            key = gemini_key(read_settings())
+        if not key:
+            return self.reply(503, {"error": "Fotoğraf okuma için Ayarlar’dan Gemini anahtarı ekleyin.", "code": "missing_key"})
+        try:
+            return self.reply(200, {"rows": read_document(image, mime, key)})
+        except OkumaHatasi as error:
+            return self.reply(502, {"error": str(error), "code": error.code})
+        except (urllib.error.URLError, TimeoutError):
+            return self.reply(502, {"error": "Gemini’ye ulaşılamadı veya zaman aşımı oluştu.", "code": "network"})
 
     def end_headers(self):
         self.send_header("Cache-Control", "no-store")

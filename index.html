@@ -89,6 +89,8 @@ a{color:var(--pri);text-underline-offset:3px}.app{max-width:1340px;padding:0 30p
     <h2>⚙ Ayarlar</h2>
     <div class="row"><label>Yandex</label><input type="password" id="yKeyIn" placeholder="Yandex JavaScript API anahtarı"><button class="p" id="yKeySave">Kaydet</button></div>
     <div class="small">Anahtar bir kez kaydedilir, tekrar sorulmaz. Harita için gerekir.</div>
+    <div class="row" style="margin-top:10px"><label>Gemini</label><input type="password" autocomplete="off" id="gemKeyIn" placeholder="Fotoğraf okuma için Google Gemini anahtarı" style="flex:1;min-width:0"><button class="p" id="gemKeySave">Kaydet</button><button id="gemKeyRemove">Kaldır</button></div>
+    <div class="small" id="gemStatus">Evrak fotoğrafları yapay zekâ ile okunur. Anahtar yoksa daha az isabetli yerel okuyucu kullanılır. Not: Gemini ücretsiz planında Google gönderilen içeriği ürün geliştirmede kullanabilir.</div>
     <details style="margin-top:10px"><summary>İsteğe bağlı ücretli Google API</summary><div class="row"><label>Google</label><input type="password" id="gKeyIn" placeholder="Google Places API (New) anahtarı" style="flex:1;min-width:0"><button class="p" id="gKeySave">Kaydet</button></div>
     <div class="small" id="gStatus">Varsayılan arama ücretsiz Photon/OpenStreetMap kullanır.</div></details>
     <div class="small" id="yWarn" role="status" style="display:none;color:var(--bad);margin-top:6px"></div><details open style="margin-top:12px"><summary>Adres servisleri ve bağlantı testleri</summary><p class="small">Kaydettiğiniz servisler adres ararken otomatik karşılaştırılır. Sorgular sağlayıcının kotasından düşer; planına göre ücret doğabilir. Anahtarlar yerel sunucuda tutulur. Google yalnızca ayrı düğmesiyle kullanılır.</p><div style="margin-top:12px"><label for="yandexKey"><b>Yandex Geocoder</b></label><div class="row"><input type="password" autocomplete="off" id="yandexKey" placeholder="Ayrı Geocoder anahtarı (boşsa harita anahtarı denenir)" style="flex:1;min-width:0"><button id="yandexSave">Kaydet</button><button id="yandexTest">Bağlantıyı test et</button><button id="yandexRemove">Kaldır</button></div><div class="small" role="status" id="yandexStatus">Anahtar kontrol ediliyor…</div></div><div style="margin-top:12px"><label for="geoapifyKey"><b>Geoapify</b></label><div class="row"><input type="password" autocomplete="off" id="geoapifyKey" placeholder="Geocoding API anahtarı" style="flex:1;min-width:0"><button id="geoapifySave">Kaydet</button><button id="geoapifyTest">Bağlantıyı test et</button><button id="geoapifyRemove">Kaldır</button></div><div class="small" role="status" id="geoapifyStatus">Anahtar kontrol ediliyor…</div></div><div style="margin-top:12px"><label for="tomtomKey"><b>TomTom</b></label><div class="row"><input type="password" autocomplete="off" id="tomtomKey" placeholder="Search API anahtarı" style="flex:1;min-width:0"><button id="tomtomSave">Kaydet</button><button id="tomtomTest">Bağlantıyı test et</button><button id="tomtomRemove">Kaldır</button></div><div class="small" role="status" id="tomtomStatus">Anahtar kontrol ediliyor…</div></div><div style="margin-top:12px"><label for="maptilerKey"><b>MapTiler</b></label><div class="row"><input type="password" autocomplete="off" id="maptilerKey" placeholder="Geocoding API anahtarı" style="flex:1;min-width:0"><button id="maptilerSave">Kaydet</button><button id="maptilerTest">Bağlantıyı test et</button><button id="maptilerRemove">Kaldır</button></div><div class="small" role="status" id="maptilerStatus">Anahtar kontrol ediliyor…</div></div><p class="small">Yandex anahtarı reddediliyorsa <a href="https://developer.tech.yandex.ru/" target="_blank" rel="noopener">Yandex geliştirici panelinde</a> Geocoder ürününü ve anahtar kısıtlarını kontrol edin. Sunucu üzerinden sorgulandığı için IP kısıtlarını da kontrol edin.</p><p class="small"><a href="https://www.geoapify.com/" target="_blank" rel="noopener">Powered by Geoapify</a> · © OpenStreetMap contributors · TomTom · MapTiler · Yandex. Her sonucun kaynağı yanında gösterilir.</p></details>
@@ -941,6 +943,24 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
   };
 }
 
+// ---------- fotoğraftan okuma: yapay zekâ (Gemini, sunucu üzerinden) ----------
+let aiOcr=false;
+async function aiReadImage(f,n,tot){
+  $('fileInfo').textContent=`Fotoğraf ${n}/${tot} yapay zekâ ile okunuyor…`;
+  const bar=$('ocrBar');bar.style.display='block';bar.firstChild.style.width='30%';
+  // Büyük fotoğrafları küçült (uzun kenar 2400 px), JPEG olarak gönder
+  const img=await createImageBitmap(f),k=Math.min(1,2400/Math.max(img.width,img.height));
+  const c=document.createElement('canvas');c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);
+  c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+  const image=c.toDataURL('image/jpeg',0.9).split(',')[1];
+  const r=await fetch('/api/ocr',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image,mime:'image/jpeg'}),signal:AbortSignal.timeout(150000)});
+  const j=await r.json().catch(()=>({}));
+  bar.firstChild.style.width='100%';
+  if(!r.ok)throw new Error(j.error||'sunucu hatası');
+  if(!Array.isArray(j.rows)||!j.rows.length)throw new Error('tabloda satır bulunamadı');
+  return j.rows.map(x=>({musteri:x.musteri,sip:x.siparis_no,alici:x.alici+(x.not?' ('+x.not.replace(/^\(|\)$/g,'')+')':''),not:x.not,adet:parseInt(x.adet)||0,ilce:x.ilce,raw:x.adres,geri:!!x.geri_alim}));
+}
+
 // ---------- fotoğraftan okuma (OCR) ----------
 let ocrWorker=null;
 async function prepImage(f){ // küçük görselleri büyüt, gri tonlama + kontrast
@@ -1009,7 +1029,11 @@ async function loadFiles(files){
   let orders=[],msgs=[];
   for(const [i,f] of files.entries()){
     try{
-      if(/^image\//.test(f.type)||/\.(jpe?g|png|webp|bmp)$/i.test(f.name)){const o=await ocrImage(f,i+1,files.length);orders.push(...o);msgs.push(`${f.name}: ${o.length} satır`)}
+      if(/^image\//.test(f.type)||/\.(jpe?g|png|webp|bmp)$/i.test(f.name)){
+        let o=null,note='';
+        if(aiOcr){try{o=await aiReadImage(f,i+1,files.length);note=' (yapay zekâ)'}catch(e){note=' (yapay zekâ okuyamadı: '+e.message+' — yerel okuyucu kullanıldı)'}}
+        if(!o)o=await ocrImage(f,i+1,files.length);
+        orders.push(...o);msgs.push(`${f.name}: ${o.length} satır${note}`)}
       else if(/\.(xlsx|xls|csv)$/i.test(f.name)){
         const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});
         const o=parseSheet(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:'',raw:false}));
@@ -1042,10 +1066,16 @@ $('setBtn').onclick=()=>{const c=$('setCard');c.style.display=c.style.display===
 $('yKeyIn').value=yKey;
 $('yKeySave').onclick=async()=>{const k=$('yKeyIn').value.trim();if(!k)return;try{const r=await fetch('/ayarlar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ykey:k})});if(!r.ok)throw new Error();yKey=k;localStorage.setItem('ykey',JSON.stringify(k));location.reload()}catch(e){$('yWarn').style.display='block';$('yWarn').textContent='Anahtar kaydedilemedi. Yerel sunucuyu kontrol edin.'}};
 async function refreshGoogleStatus(){
-  try{const r=await fetch('/ayarlar');if(!r.ok)throw new Error();const a=await r.json();googleConfigured=!!a.googleConfigured;configuredProviders=a.providers||{};const hints=a.hints||{};for(const p of Object.keys(providerFields)){if(!$(p+'Key').dataset.ph)$(p+'Key').dataset.ph=$(p+'Key').placeholder;showProviderStatus(p,configuredProviders[p]?'✓ Anahtar kayıtlı (…'+(hints[p]||'')+') · Bağlantıyı test edin':'Anahtar eklenmedi');$(p+'Key').placeholder=hints[p]?'Kayıtlı: ••••••••'+hints[p]+' — değiştirmek için yenisini yapıştırın':$(p+'Key').dataset.ph||$(p+'Key').placeholder;}
+  try{const r=await fetch('/ayarlar');if(!r.ok)throw new Error();const a=await r.json();googleConfigured=!!a.googleConfigured;aiOcr=!!a.ocrConfigured;$('gemStatus').textContent=aiOcr?'✓ Gemini anahtarı kayıtlı (…'+(a.ocrHint||'')+'). Fotoğraflar yapay zekâ ile okunur.':'Gemini anahtarı yok: fotoğraflar daha az isabetli yerel okuyucuyla okunur.';$('gemKeyIn').placeholder=aiOcr?'Kayıtlı: ••••••••'+(a.ocrHint||'')+' — değiştirmek için yenisini yapıştırın':'Fotoğraf okuma için Google Gemini anahtarı';configuredProviders=a.providers||{};const hints=a.hints||{};for(const p of Object.keys(providerFields)){if(!$(p+'Key').dataset.ph)$(p+'Key').dataset.ph=$(p+'Key').placeholder;showProviderStatus(p,configuredProviders[p]?'✓ Anahtar kayıtlı (…'+(hints[p]||'')+') · Bağlantıyı test edin':'Anahtar eklenmedi');$(p+'Key').placeholder=hints[p]?'Kayıtlı: ••••••••'+hints[p]+' — değiştirmek için yenisini yapıştırın':$(p+'Key').dataset.ph||$(p+'Key').placeholder;}
     $('gStatus').textContent=googleConfigured?'Google API yalnızca ücretli arama düğmesine basıldığında kullanılır. Varsayılan arama ücretsizdir.':'Google anahtarı gerekmez: varsayılan arama ücretsiz Photon/OpenStreetMap kullanır. İsterseniz ayrıca ücretli Google API ekleyebilirsiniz.';
   }catch(e){$('gStatus').textContent='Ücretsiz arama hazır. İsteğe bağlı Google API için yerel sunucu gerekir.'}
 }
+async function saveGemini(v){
+  try{const r=await fetch('/ayarlar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({geminiKey:v})});if(!r.ok)throw new Error();$('gemKeyIn').value='';await refreshGoogleStatus()}
+  catch(e){$('gemStatus').textContent='Kaydedilemedi. Yerel sunucuyu kontrol edin.'}
+}
+$('gemKeySave').onclick=()=>{const v=$('gemKeyIn').value.trim();if(v)saveGemini(v)};
+$('gemKeyRemove').onclick=()=>saveGemini('');
 $('gKeySave').onclick=async()=>{
   const gkey=$('gKeyIn').value.trim();if(!gkey)return;
   try{const r=await fetch('/ayarlar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({gkey})});if(!r.ok)throw new Error();$('gKeyIn').value='';await refreshGoogleStatus()}
