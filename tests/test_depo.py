@@ -171,6 +171,64 @@ class PlanEndpointTests(unittest.TestCase):
         self.assertEqual(self.req('GET', '/api/evrak/%d' % eid, cookie=mesut)[0], 404)
 
 
+    def login(self, name, pw):
+        c = http.client.HTTPConnection('127.0.0.1', self.port, timeout=5)
+        c.request('POST', '/giris', body='kullanici=%s&sifre=%s' % (name, pw), headers={'Content-Type': 'application/x-www-form-urlencoded'})
+        r = c.getresponse(); r.read(); c.close()
+        cookie = (r.getheader('Set-Cookie') or '').split(';')[0]
+        return cookie if cookie.startswith('rota_oturum=') and len(cookie) > 15 else None
+
+    def test_yonetici_kullanici_yonetimi(self):
+        mesut = 'rota_oturum=' + app.make_token('mesut')  # ilk kullanıcı → yönetici
+        ali = 'rota_oturum=' + app.make_token('ali')
+        self.assertTrue(self.req('GET', '/ayarlar', cookie=mesut)[1]['isAdmin'])
+        self.assertFalse(self.req('GET', '/ayarlar', cookie=ali)[1]['isAdmin'])
+        self.assertEqual(self.req('GET', '/api/kullanicilar', cookie=ali)[0], 403)
+        self.assertEqual(self.req('POST', '/api/kullanici', {'ad': 'veli', 'sifre': 'Gizli-123'}, ali)[0], 403)
+        self.assertEqual(self.req('POST', '/api/fiyat', {'fiyat': {}}, ali)[0], 403, 'fiyatı yalnızca yönetici değiştirir')
+        self.assertEqual(self.req('POST', '/ayarlar', {'tomtomKey': 'x'}, ali)[0], 403, 'anahtarları yalnızca yönetici değiştirir')
+        # ekle → giriş yapabilir
+        status, data = self.req('POST', '/api/kullanici', {'ad': 'Veli', 'sifre': 'Gizli-123'}, mesut)
+        self.assertEqual(status, 200)
+        self.assertIn({'ad': 'veli', 'sabit': False, 'yonetici': False}, [{k: r[k] for k in ('ad', 'sabit', 'yonetici')} for r in data['kullanicilar']])
+        self.assertIsNone(self.login('veli', 'yanlis-sifre'))
+        veli = self.login('veli', 'Gizli-123')
+        self.assertTrue(veli)
+        self.assertEqual(self.req('GET', '/api/plan', cookie=veli)[0], 200)
+        self.assertEqual(self.req('POST', '/api/kullanici', {'ad': 'ali', 'sifre': 'Gizli-123'}, mesut)[0], 400, 'sabit kullanıcı değiştirilemez')
+        self.assertEqual(self.req('POST', '/api/kullanici', {'ad': 'vel', 'sifre': '123'}, mesut)[0], 400, 'kısa şifre')
+        self.assertEqual(self.req('POST', '/api/kullanici', {'ad': 'ayşe', 'sifre': 'Gizli-123'}, mesut)[0], 200)
+        self.assertEqual(self.req('POST', '/api/kullanici', {'ad': 'ayçe', 'sifre': 'Gizli-123'}, mesut)[0], 400, 'kayıt anahtarı çakışan ad (ikisi de ay_e)')
+        # depo/ev kişiye özel
+        self.req('POST', '/ayarlar', {'home': {'lat': 41.1, 'lon': 29.1}}, veli)
+        self.assertEqual(self.req('GET', '/ayarlar', cookie=veli)[1]['home'], {'lat': 41.1, 'lon': 29.1})
+        self.assertNotEqual(self.req('GET', '/ayarlar', cookie=ali)[1].get('home'), {'lat': 41.1, 'lon': 29.1}, 'başkasının evi görünmez')
+        # şifre değişince eski oturum düşer; silinince giriş yapılamaz
+        self.req('POST', '/api/rut', {'tarih': '2026-10-01', 'rut': {'durum': 'calisti'}}, veli)
+        self.assertEqual(self.req('POST', '/api/kullanici', {'ad': 'veli', 'sifre': 'Yeni-4567'}, mesut)[0], 200)
+        self.assertEqual(self.req('GET', '/api/plan', cookie=veli)[0], 401)
+        veli = self.login('veli', 'Yeni-4567')
+        self.assertEqual(self.req('POST', '/api/kullanici-sil', {'ad': 'veli', 'veriler': True}, mesut)[0], 200)
+        self.assertEqual(self.req('GET', '/api/plan', cookie=veli)[0], 401)
+        self.assertIsNone(self.login('veli', 'Yeni-4567'))
+        app.USERS['veli'] = 'x'
+        try:
+            self.assertEqual(self.req('GET', '/api/rutlar?ay=2026-10', cookie='rota_oturum=' + app.make_token('veli'))[1]['rutlar'], [], 'verileri de silindi')
+        finally:
+            del app.USERS['veli']
+
+
+class YoneticiTests(unittest.TestCase):
+    def test_aytac_yonetici(self):
+        with patch.dict(os.environ, {'ROTA_YONETICI': ''}), patch.object(app, 'USERS', {'mesut': 'a', 'aytac': 'b'}):
+            self.assertEqual(app.admins(), {'aytac'})
+            self.assertTrue(app.is_admin('aytac'))
+            self.assertFalse(app.is_admin('mesut'))
+        with patch.dict(os.environ, {'ROTA_YONETICI': ''}), patch.object(app, 'USERS', {'mesut': 'a', 'ali': 'b'}):
+            self.assertEqual(app.admins(), {'mesut'}, 'aytac yoksa ilk kullanıcı')
+        with patch.dict(os.environ, {'ROTA_YONETICI': 'ali'}), patch.object(app, 'USERS', {'aytac': 'a', 'ali': 'b'}):
+            self.assertEqual(app.admins(), {'ali'})
+
 
 if __name__ == '__main__':
     unittest.main()

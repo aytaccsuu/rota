@@ -16,6 +16,9 @@ services:
         sync: false
       - key: ROTA_SIFRE
         sync: false
+      # Yönetici (kullanıcı ekler/siler, anahtar ve fiyat ayarı). Boşsa "aytac" hesabı yöneticidir.
+      - key: ROTA_YONETICI
+        sync: false
       - key: DEPO_KOORDINAT
         sync: false
       - key: EV_KOORDINAT

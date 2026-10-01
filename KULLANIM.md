@@ -82,3 +82,11 @@ Görsel kontrol için `python tests/preview_ui.py` komutu kişisel veri içermey
 - **📊 Özet:** Ayın her günü bir satır (durum, müşteri, bölge, rut, rut ücreti, ek km, hammaliye, KDV, toplam, yakıt) ve toplamlar. Bir satıra dokununca o gün açılır. **📄 PDF** yalnızca aylık tabloyu içerir; yazdır penceresinde “PDF olarak kaydet” seçilir. **CSV** de indirilebilir.
 - **Fiyat tablosu** Ayarlar → “💰 Fiyat tablosu” bölümündedir (bölge baz nokta/₺, kapasite üstü nokta ücreti, ek km ücreti, KDV). Hammaliye ve ek km KDV matrahına dahildir.
 - **Rotayı silmek:** Rota sayfasında sonuç düğmelerinin sonundaki **Rotayı sil** ya da Hesap → Gün'deki **Sil** düğmesi; o günün rota sırası, müşteri listesi, hakediş kaydı ve evrak görselleri kalıcı olarak silinir (onay sorulur). Silinen gün bugünkü plansa Rota sayfası da temizlenir.
+
+## Kullanıcılar ve yönetici
+
+- Her kullanıcı yalnızca kendi planını, günlük kayıtlarını (hakediş), evraklarını, yakıtlarını ve **depo/ev konumunu** görür. Aynı telefonda farklı kullanıcıyla girilse de bilgiler karışmaz.
+- **Yönetici `aytac` hesabıdır** (Render'da `ROTA_YONETICI` ile değiştirilebilir). Yalnızca yönetici: Ayarlar → **Kullanıcılar** bölümünden kullanıcı ekler, şifresini değiştirir, siler (isterse verileriyle birlikte); API anahtarlarını ve fiyat tablosunu değiştirir. Diğer kullanıcılar fiyat tablosunu yalnızca görür.
+- `ROTA_KULLANICILAR` içindeki hesaplar "Render ayarı" olarak görünür ve yalnızca Render'dan değiştirilir. Arayüzden eklenen kullanıcılar veritabanında (şifreler PBKDF2 ile özetlenmiş olarak) saklanır.
+- Şifresi değiştirilen ya da silinen kullanıcının açık oturumları kapanır.
+

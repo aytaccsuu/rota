@@ -97,6 +97,11 @@ a{color:var(--pri);text-underline-offset:3px}.app{max-width:1340px;padding:0 30p
 .danger{color:var(--bad);border-color:#ecc9c9}button.danger:hover:not(:disabled){background:#fbeeee;border-color:var(--bad)}
 .yform{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:end}.yform .fl{margin:0}.yform .period{width:100%}.yform input{height:42px}.tiles .tnot{display:block;font-size:10px;color:var(--mute);font-weight:400}
 @media(max-width:620px){.yform{grid-template-columns:1fr}.yform .tbtn{width:100%}}
+html:not(.yonetici) .yonetici-only{display:none!important}
+.kul{border:1px solid var(--line);border-radius:12px;margin:8px 0;overflow:hidden}.kul-r{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)}.kul-r:last-child{border-bottom:0}.kul-r b{font-size:14px}.kul-r .acts{margin-left:auto;display:flex;gap:6px}.kul-r .acts button{padding:6px 10px;font-size:12px}
+.rozet{font-size:10px;font-weight:700;letter-spacing:.3px;border-radius:20px;padding:2px 8px;background:#e5f1eb;color:var(--pri)}.rozet.gri{background:#eef1f0;color:var(--mute)}
+.kul-sifre{display:flex;gap:6px;width:100%}.kul-sifre input{flex:1}
+.kul-ekle{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-top:8px}@media(max-width:520px){.kul-ekle{grid-template-columns:1fr}}
 .htool{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 14px}.htool .acts{margin-left:auto;display:flex;gap:8px}
 .period{position:relative;display:inline-flex;align-items:stretch;height:42px;border:1px solid var(--line);border-radius:10px;background:#fff}
 .period .pnav{border:0;border-radius:0;padding:0 11px;background:none;color:var(--mute);display:flex;align-items:center}.period .pnav:first-child{border-radius:9px 0 0 9px}.period .pnav:last-child{border-radius:0 9px 9px 0}.period .pnav:hover:not(:disabled){background:#edf5f1;color:var(--ink)}
@@ -122,14 +127,19 @@ input[type=date],input[type=month],select{min-width:0;padding:9px 10px;border:1p
 
   <div class="card hide-print" id="setCard" style="display:none">
     <h2><i class="ic" data-ic="settings"></i> Ayarlar</h2>
+    <div class="yonetici-only">
     <div class="row"><label>Yandex</label><input type="password" id="yKeyIn" placeholder="Yandex JavaScript API anahtarı"><button class="p" id="yKeySave">Kaydet</button></div>
     <div class="small">Anahtar bir kez kaydedilir, tekrar sorulmaz. Harita için gerekir.</div>
     <div class="row" style="margin-top:10px"><label>Gemini</label><input type="password" autocomplete="off" id="gemKeyIn" placeholder="Fotoğraf okuma için Google Gemini anahtarı" style="flex:1;min-width:0"><button class="p" id="gemKeySave">Kaydet</button><button id="gemKeyRemove">Kaldır</button></div>
     <div class="small" id="gemStatus">Evrak fotoğrafları yapay zekâ ile okunur. Anahtar yoksa daha az isabetli yerel okuyucu kullanılır. Not: Gemini ücretsiz planında Google gönderilen içeriği ürün geliştirmede kullanabilir.</div>
     <details style="margin-top:10px"><summary>İsteğe bağlı ücretli Google API</summary><div class="row"><label>Google</label><input type="password" id="gKeyIn" placeholder="Google Places API (New) anahtarı" style="flex:1;min-width:0"><button class="p" id="gKeySave">Kaydet</button></div>
     <div class="small" id="gStatus">Varsayılan arama ücretsiz Photon/OpenStreetMap kullanır.</div></details>
+    </div>
+    <details class="yonetici-only" id="kulDetay" style="margin-top:10px"><summary><i class="ic" data-ic="user"></i> Kullanıcılar</summary><div id="kullaniciYonetim"></div></details>
     <details style="margin-top:10px"><summary><i class="ic" data-ic="wallet"></i> Fiyat tablosu (hakediş)</summary><div id="fiyatEditor"></div></details>
+    <div class="yonetici-only">
     <div class="small" id="yWarn" role="status" style="display:none;color:var(--bad);margin-top:6px"></div><details open style="margin-top:12px"><summary>Adres servisleri ve bağlantı testleri</summary><p class="small">Kaydettiğiniz servisler adres ararken otomatik karşılaştırılır. Sorgular sağlayıcının kotasından düşer; planına göre ücret doğabilir. Anahtarlar yerel sunucuda tutulur. Google yalnızca ayrı düğmesiyle kullanılır.</p><div style="margin-top:12px"><label for="yandexKey"><b>Yandex Geocoder</b></label><div class="row"><input type="password" autocomplete="off" id="yandexKey" placeholder="Ayrı Geocoder anahtarı (boşsa harita anahtarı denenir)" style="flex:1;min-width:0"><button id="yandexSave">Kaydet</button><button id="yandexTest">Bağlantıyı test et</button><button id="yandexRemove">Kaldır</button></div><div class="small" role="status" id="yandexStatus">Anahtar kontrol ediliyor…</div></div><div style="margin-top:12px"><label for="geoapifyKey"><b>Geoapify</b></label><div class="row"><input type="password" autocomplete="off" id="geoapifyKey" placeholder="Geocoding API anahtarı" style="flex:1;min-width:0"><button id="geoapifySave">Kaydet</button><button id="geoapifyTest">Bağlantıyı test et</button><button id="geoapifyRemove">Kaldır</button></div><div class="small" role="status" id="geoapifyStatus">Anahtar kontrol ediliyor…</div></div><div style="margin-top:12px"><label for="tomtomKey"><b>TomTom</b></label><div class="row"><input type="password" autocomplete="off" id="tomtomKey" placeholder="Search API anahtarı" style="flex:1;min-width:0"><button id="tomtomSave">Kaydet</button><button id="tomtomTest">Bağlantıyı test et</button><button id="tomtomRemove">Kaldır</button></div><div class="small" role="status" id="tomtomStatus">Anahtar kontrol ediliyor…</div></div><div style="margin-top:12px"><label for="maptilerKey"><b>MapTiler</b></label><div class="row"><input type="password" autocomplete="off" id="maptilerKey" placeholder="Geocoding API anahtarı" style="flex:1;min-width:0"><button id="maptilerSave">Kaydet</button><button id="maptilerTest">Bağlantıyı test et</button><button id="maptilerRemove">Kaldır</button></div><div class="small" role="status" id="maptilerStatus">Anahtar kontrol ediliyor…</div></div><p class="small">Yandex anahtarı reddediliyorsa <a href="https://developer.tech.yandex.ru/" target="_blank" rel="noopener">Yandex geliştirici panelinde</a> Geocoder ürününü ve anahtar kısıtlarını kontrol edin. Sunucu üzerinden sorgulandığı için IP kısıtlarını da kontrol edin.</p><p class="small"><a href="https://www.geoapify.com/" target="_blank" rel="noopener">Powered by Geoapify</a> · © OpenStreetMap contributors · TomTom · MapTiler · Yandex. Her sonucun kaynağı yanında gösterilir.</p></details>
+    </div>
   </div>
 
   <div id="rotaPage">
@@ -222,10 +232,14 @@ const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 
 // ---------- kalıcı ayarlar (sunucu.py → ayarlar.json) ----------
 const SYNC=['ykey','depot','home'],srv=location.protocol.startsWith('http');
+let OTURUM={user:'',admin:true,authOn:false};
 if(srv)try{const x=new XMLHttpRequest();x.open('GET','/ayarlar?'+Date.now(),false);x.send();if(x.status===200){const a=JSON.parse(x.responseText),miss={};
-  for(const k of SYNC){if(a[k]!=null)localStorage.setItem(k,JSON.stringify(a[k]));else{const v=localStorage.getItem(k);if(v)miss[k]=JSON.parse(v)}}
+  OTURUM={user:a.user||'',admin:a.isAdmin!==false,authOn:!!a.authOn};
+  // girişli kullanımda depo/ev kişiye özel: sunucuda yoksa bu cihazda kalmış (başka kullanıcının) değer kullanılmaz
+  for(const k of SYNC){if(a[k]!=null)localStorage.setItem(k,JSON.stringify(a[k]));else if(OTURUM.authOn&&k!=='ykey')localStorage.removeItem(k);else if(k!=='ykey'||OTURUM.admin){const v=localStorage.getItem(k);if(v)miss[k]=JSON.parse(v)}}
   if(Object.keys(miss).length)fetch('/ayarlar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(miss)}).catch(()=>{}); // tarayıcıda kalmış eski ayarları dosyaya taşı
 }}catch(e){}
+document.documentElement?.classList.toggle('yonetici',OTURUM.admin);
 const store={get(k){try{return JSON.parse(localStorage.getItem(k))}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}
   if(srv&&SYNC.includes(k))fetch('/ayarlar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({[k]:v})}).catch(()=>{})}};
 
@@ -1247,12 +1261,42 @@ function renderFiyatEditor(){
   for(const b of ['anadolu','avrupa1','avrupa2'])h+=`<tr><td><b>${BOLGE_ADI[b]}</b></td>${[0,1].map(i=>`<td><input type="number" min="1" id="fn_${b}_${i}" value="${fiyat[b][i].nokta}"> <input type="number" min="0" id="ft_${b}_${i}" value="${fiyat[b][i].tl}"></td>`).join('')}</tr>`;
   h+=`</table><div class="frow"><label>Kapasite üstü nokta</label><input type="number" min="0" id="fEkstra" value="${fiyat.ekstraNokta}"> ₺</div><div class="frow"><label>Ek km ücreti</label><input type="number" min="0" step="0.5" id="fKm" value="${fiyat.kmUcret||0}"> ₺/km</div><div class="frow"><label>KDV</label><input type="number" min="0" max="100" id="fKdv" value="${fiyat.kdv}"> %</div><div class="row"><button class="p" id="fKaydet">Fiyatları kaydet</button><span class="small" id="fDurum"></span></div>`;
   el.innerHTML=h;
+  if(!OTURUM.admin){el.querySelectorAll('input').forEach(i=>i.disabled=true);$('fKaydet').hidden=true;$('fDurum').textContent='Fiyatları yönetici belirler.'}
   $('fKaydet').onclick=async()=>{
     const f=JSON.parse(JSON.stringify(fiyat));
     for(const b of ['anadolu','avrupa1','avrupa2'])for(const i of [0,1]){f[b][i]={nokta:+$('fn_'+b+'_'+i).value||f[b][i].nokta,tl:+$('ft_'+b+'_'+i).value||0}}
     f.ekstraNokta=+$('fEkstra').value||0;f.kmUcret=+$('fKm').value||0;f.kdv=+$('fKdv').value||0;
     try{await apiJSON('/api/fiyat',{fiyat:f});fiyat=f;$('fDurum').textContent='✓ Kaydedildi';if(hesapSayfasiAcik())renderHesap()}catch(e){$('fDurum').textContent='Kaydedilemedi: '+e.message}
   };
+}
+
+// ---------- kullanıcı yönetimi (yalnızca yönetici) ----------
+async function renderKullanicilar(liste){
+  const el=$('kullaniciYonetim');if(!el)return;
+  if(!OTURUM.authOn){el.innerHTML='<div class="small">Giriş kapalı (yerel kullanım). Kullanıcılar yayındaki sitede yönetilir.</div>';return}
+  if(!liste){el.innerHTML='<div class="small">Yükleniyor…</div>';try{liste=(await apiJSON('/api/kullanicilar')).kullanicilar}catch(e){el.innerHTML='<div class="small">Okunamadı: '+esc(e.message)+'</div>';return}}
+  el.innerHTML=`<div class="small" style="margin:6px 0">Her kullanıcı yalnızca kendi rotalarını, hakedişini, evraklarını, yakıtını ve depo/ev konumunu görür.</div>
+    <div class="kul">${liste.map(u=>`<div class="kul-r" data-ad="${esc(u.ad)}"><b>${esc(u.ad)}</b>${u.yonetici?'<span class="rozet">YÖNETİCİ</span>':''}${u.sabit?'<span class="rozet gri">RENDER AYARI</span>':`<span class="small">${u.olusturma?'eklendi '+esc(u.olusturma):''}</span>`}
+      ${u.sabit?'':`<div class="acts"><button data-a="sifre"><i class="ic" data-ic="edit"></i> Şifre</button><button class="danger" data-a="sil"><i class="ic" data-ic="trash"></i> Sil</button></div>`}</div>`).join('')}</div>
+    <div class="kul-ekle"><input type="text" id="kAd" autocomplete="off" autocapitalize="none" placeholder="Kullanıcı adı"><input type="password" id="kSifre" autocomplete="new-password" placeholder="Şifre (en az 6 karakter)"><button class="p" id="kEkle"><i class="ic" data-ic="user"></i> Kullanıcı ekle</button></div>
+    <div class="small" id="kMsg"></div>`;
+  const msg=t=>$('kMsg').textContent=t;
+  const gonder=async(url,body,ok)=>{try{const j=await apiJSON(url,body);renderKullanicilar(j.kullanicilar);setTimeout(()=>$('kMsg')&&msg(ok),0)}catch(e){msg(e.message)}};
+  $('kEkle').onclick=()=>{const ad=$('kAd').value.trim(),sifre=$('kSifre').value;if(!ad||!sifre)return msg('Kullanıcı adı ve şifre gerekli.');if(liste.some(u=>u.ad===ad.toLocaleLowerCase('tr')))return msg('Bu kullanıcı zaten var; şifresini değiştirmek için “Şifre” düğmesini kullanın.');gonder('/api/kullanici',{ad,sifre},'✓ '+ad+' eklendi. Bu ad ve şifreyle giriş yapabilir.')};
+  el.querySelectorAll('.kul-r').forEach(r=>{
+    const ad=r.dataset.ad,b=a=>r.querySelector(`[data-a="${a}"]`);if(!b('sil'))return;
+    b('sil').onclick=()=>{
+      if(!confirm(`“${ad}” kullanıcısı silinsin mi? Bir daha giriş yapamaz.`))return;
+      const veri=confirm(`“${ad}” kullanıcısının rotaları, hakediş kayıtları, evrakları ve yakıtları da silinsin mi?\n\nTamam: verileri de sil\nİptal: verileri sakla (aynı adla yeniden eklenirse geri gelir)`);
+      gonder('/api/kullanici-sil',{ad,veriler:veri},`✓ ${ad} silindi${veri?' (verileriyle birlikte)':''}.`);
+    };
+    b('sifre').onclick=()=>{
+      if(r.querySelector('.kul-sifre'))return;
+      r.insertAdjacentHTML('beforeend',`<div class="kul-sifre"><input type="password" autocomplete="new-password" placeholder="Yeni şifre (en az 6 karakter)"><button class="p">Kaydet</button></div>`);
+      const i=r.querySelector('.kul-sifre input');i.focus();
+      r.querySelector('.kul-sifre button').onclick=()=>{if(i.value)gonder('/api/kullanici',{ad,sifre:i.value},`✓ ${ad} şifresi değişti; açık oturumları kapandı.`)};
+    };
+  });
 }
 
 // ---------- sayfa geçişi: 1) Rota  2) Hesap ----------
@@ -1496,7 +1540,7 @@ async function evrakSakla(f){
 // ---------- plan kaydı: duraklar, konumlar, sıra, teslim edilenler (veritabanı + bu cihaz) ----------
 // Sayfa yenilense, yeniden giriş yapılsa ya da başka cihazdan girilse plan kaldığı yerden açılır.
 let lastRoute=null,planTimer=null,planRestoring=false;
-const PLAN_LOCAL='rota_plan';
+const PLAN_LOCAL='rota_plan'+(OTURUM.user?':'+OTURUM.user:'');
 function planData(){
   const strip=(k,v)=>(k==='placeCandidates'||k==='candidates'||k==='placeError')?undefined:v;
   const ids=list=>(list||[]).map(s=>s.id);
@@ -1685,6 +1729,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){stopPick();closePic
 
 // ayarlar: anahtar bir kez kaydedilir, sonra gizli kalır
 $('setBtn').onclick=()=>{const c=$('setCard');c.style.display=c.style.display==='none'?'block':'none'};
+$('kulDetay').addEventListener('toggle',()=>{if($('kulDetay').open)renderKullanicilar()});
 $('yKeyIn').value=yKey;
 $('yKeySave').onclick=async()=>{const k=$('yKeyIn').value.trim();if(!k)return;try{const r=await fetch('/ayarlar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ykey:k})});if(!r.ok)throw new Error();yKey=k;localStorage.setItem('ykey',JSON.stringify(k));location.reload()}catch(e){$('yWarn').style.display='block';$('yWarn').textContent='Anahtar kaydedilemedi. Yerel sunucuyu kontrol edin.'}};
 async function refreshGoogleStatus(){

@@ -55,6 +55,12 @@ SCHEMA = [
         olusturma  TIMESTAMPTZ NOT NULL DEFAULT now()
     )""",
     "CREATE INDEX IF NOT EXISTS yakitlar_kullanici_tarih ON yakitlar (kullanici, tarih)",
+    # Yöneticinin eklediği kullanıcılar (ROTA_KULLANICILAR'dakiler ayrıca geçerlidir); şifre PBKDF2 özeti
+    """CREATE TABLE IF NOT EXISTS kullanicilar (
+        ad         TEXT PRIMARY KEY,
+        sifre      TEXT NOT NULL,
+        olusturma  TIMESTAMPTZ NOT NULL DEFAULT now()
+    )""",
 ]
 
 _ready = False
@@ -313,3 +319,45 @@ def load_evrak(user, evrak_id):
     if not item or not os.path.exists(path):
         return None
     return item["mime"], open(path, "rb").read()
+
+
+# ---------- kullanıcılar (yönetici ekler/siler) ----------
+def list_users():
+    """{ad: {"sifre": özet, "olusturma": "YYYY-AA-GG"}}"""
+    if _url():
+        return {r[0]: {"sifre": r[1], "olusturma": r[2].strftime("%Y-%m-%d")} for r in _fetchall("SELECT ad, sifre, olusturma FROM kullanicilar ORDER BY ad", ())}
+    path = _file("_kullanicilar.json")
+    return json.load(open(path, encoding="utf-8")) if os.path.exists(path) else {}
+
+
+def save_user(ad, sifre_ozeti):
+    """Kullanıcıyı ekler ya da şifresini değiştirir."""
+    if _url():
+        _run("""INSERT INTO kullanicilar (ad, sifre) VALUES (%s, %s)
+                ON CONFLICT (ad) DO UPDATE SET sifre = EXCLUDED.sifre""", (ad, sifre_ozeti))
+        return
+    import datetime
+    users = list_users()
+    users[ad] = {"sifre": sifre_ozeti, "olusturma": users.get(ad, {}).get("olusturma") or datetime.date.today().isoformat()}
+    with open(_file("_kullanicilar.json"), "w", encoding="utf-8") as f:
+        json.dump(users, f, ensure_ascii=False)
+
+
+def delete_user(ad, verileriyle=False):
+    """Kullanıcının girişini kaldırır; verileriyle=True ise planını, rutlarını, evraklarını, yakıtlarını ve depo/ev ayarını da siler."""
+    u = _safe(ad)
+    if _url():
+        _run("DELETE FROM kullanicilar WHERE ad = %s", (ad,))
+        if verileriyle:
+            for table in ("planlar", "rutlar", "evraklar", "yakitlar"):
+                _run("DELETE FROM %s WHERE kullanici = %%s" % table, (u,))
+            _run("DELETE FROM ayarlar WHERE anahtar = %s", ("noktalar:" + u,))
+        return
+    users = list_users()
+    users.pop(ad, None)
+    with open(_file("_kullanicilar.json"), "w", encoding="utf-8") as f:
+        json.dump(users, f, ensure_ascii=False)
+    if verileriyle:
+        for name in os.listdir(PLAN_DIR):
+            if name in (u + ".json", "_rutlar_%s.json" % u, "_yakit_%s.json" % u, "_evrak_%s.json" % u, "_ayar_noktalar_%s.json" % u) or re.fullmatch(r"_evrak_%s_\d+\.bin" % re.escape(u), name):
+                os.remove(os.path.join(PLAN_DIR, name))

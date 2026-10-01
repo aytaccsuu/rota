@@ -45,33 +45,92 @@ FAILS = {}  # ip → [hatalı deneme sayısı, kilit bitişi]
 LOGIN_PAGE = os.path.join(KLASOR, "giris.html")
 
 
+# Yönetici: ROTA_YONETICI (virgülle birden fazla) tanımlı değilse ROTA_KULLANICILAR'daki "aytac" hesabı;
+# o da yoksa listedeki ilk kullanıcı. Yönetici; kullanıcı ekler/siler, API anahtarlarını ve fiyat tablosunu değiştirir.
+VARSAYILAN_YONETICI = ("aytac", "aytaç")
+
+
+def admins():
+    env = {n.strip().casefold() for n in os.environ.get("ROTA_YONETICI", "").split(",") if n.strip()}
+    return env or {n for n in VARSAYILAN_YONETICI if n in USERS} or set(list(USERS)[:1])
+USER_NAME = re.compile(r"[a-zçğıöşü][a-z0-9çğıöşü._-]{1,31}")
+_db_users = {"t": 0, "v": {}}
+
+
 def auth_enabled():
     return bool(USERS or SIFRE)
+
+
+def db_users(fresh=False):
+    """Yöneticinin eklediği kullanıcılar (30 sn önbellek); veritabanına ulaşılamazsa son bilinen liste."""
+    if fresh or time.time() - _db_users["t"] > 30:
+        try:
+            _db_users["v"], _db_users["t"] = depo.list_users(), time.time()
+        except (OSError, ValueError):
+            pass
+    return _db_users["v"]
+
+
+def is_admin(name):
+    return not USERS or (name or "") in admins()  # tek şifreli eski kurulumda herkes yönetici
+
+
+def hash_password(pw, salt=None):
+    salt = salt or os.urandom(16).hex()
+    digest = hashlib.pbkdf2_hmac("sha256", pw.encode(), salt.encode(), 200000).hex()
+    return "pbkdf2$200000$%s$%s" % (salt, digest)
+
+
+def verify_password(pw, stored):
+    try:
+        _, rounds, salt, digest = stored.split("$")
+        good = hashlib.pbkdf2_hmac("sha256", pw.encode(), salt.encode(), int(rounds)).hex()
+        return hmac.compare_digest(good, digest)
+    except (ValueError, AttributeError):
+        return False
+
+
+def user_version(name):
+    """Oturum sürümü: yönetici şifreyi değiştirince eski oturumlar geçersiz olur. None → kullanıcı yok."""
+    if name in USERS:
+        return ""
+    item = db_users().get(name)
+    return item["sifre"][-8:] if item else None
 
 
 def check_login(name, pw):
     name = (name or "").strip().casefold()
     if USERS:
         expected = USERS.get(name)
-        return bool(expected) and hmac.compare_digest(pw.encode(), expected.encode())
+        if expected:
+            return hmac.compare_digest(pw.encode(), expected.encode())
+        item = db_users(fresh=True).get(name)
+        return bool(item) and verify_password(pw, item["sifre"])
     return bool(SIFRE) and bool(name) and hmac.compare_digest(pw.encode(), SIFRE.encode())
 
 
 def make_token(name, now=None):
     exp = int((now or time.time()) + SESSION_DAYS * 86400)
     body = "%s|%d" % (name, exp)
+    version = user_version(name) if USERS else ""
+    if version:
+        body += "|" + version
     sig = hmac.new(SECRET, body.encode(), hashlib.sha256).hexdigest()
     return base64.urlsafe_b64encode(("%s|%s" % (body, sig)).encode()).decode()
 
 
 def read_token(token, now=None):
     try:
-        name, exp, sig = base64.urlsafe_b64decode(token.encode()).decode().rsplit("|", 2)
-        good = hmac.new(SECRET, ("%s|%s" % (name, exp)).encode(), hashlib.sha256).hexdigest()
-        if not hmac.compare_digest(sig, good) or int(exp) < (now or time.time()):
+        body, sig = base64.urlsafe_b64decode(token.encode()).decode().rsplit("|", 1)
+        good = hmac.new(SECRET, body.encode(), hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(sig, good):
             return None
-        if USERS and name not in USERS:
-            return None  # kullanıcı silinmiş
+        parts = body.split("|")
+        name, exp, version = (parts + [""])[:3] if len(parts) <= 3 else ("|".join(parts[:-2]), parts[-2], parts[-1])
+        if int(exp) < (now or time.time()):
+            return None
+        if USERS and user_version(name) != version:
+            return None  # kullanıcı silinmiş ya da şifresi değişmiş
         return name
     except (ValueError, UnicodeDecodeError):
         return None
@@ -241,7 +300,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             hints = {p: key_for(p, data)[-4:] for p in PROVIDERS if key_for(p, data)}
             for _, field, _ in PROVIDERS.values():
                 data.pop(field, None)
-            return self.reply(200, {**data, "providers": configured, "hints": hints, "googleConfigured": bool(os.environ.get("GOOGLE_MAPS_API_KEY") or key), "ocrConfigured": bool(gem), "ocrHint": gem[-4:] if gem else "", "user": self.user, "authOn": auth_enabled()})
+            data.update(self.user_points(data))
+            return self.reply(200, {**data, "isAdmin": is_admin(self.user), "providers": configured, "hints": hints, "googleConfigured": bool(os.environ.get("GOOGLE_MAPS_API_KEY") or key), "ocrConfigured": bool(gem), "ocrHint": gem[-4:] if gem else "", "user": self.user, "authOn": auth_enabled()})
+        if path == "/api/kullanicilar":
+            if not is_admin(self.user):
+                return self.reply(403, {"error": "Bu işlem yalnızca yönetici içindir.", "code": "forbidden"})
+            try:
+                return self.reply(200, {"kullanicilar": self.user_list()})
+            except (OSError, ValueError):
+                return self.reply(502, {"error": "Kullanıcılar okunamadı (veritabanı).", "code": "storage"})
         if path == "/api/plan":
             try:
                 return self.reply(200, {"plan": depo.load(self.user), "backend": depo.backend()})
@@ -327,6 +394,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.fix_addresses()
         if path == "/api/plan":
             return self.save_plan()
+        if path in ("/api/kullanici", "/api/kullanici-sil"):
+            return self.manage_user(path.endswith("sil"))
+        if path == "/api/fiyat" and not is_admin(self.user):
+            self.drain_body()
+            return self.reply(403, {"error": "Fiyat tablosunu yalnızca yönetici değiştirebilir.", "code": "forbidden"})
         if path in ("/api/fiyat", "/api/rut"):
             return self.save_record(path)
         if path == "/api/evrak":
@@ -344,9 +416,22 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             new = json.loads(self.rfile.read(size))
             if not isinstance(new, dict):
                 raise ValueError()
+            fields = {'ykey', 'gkey', 'geminiKey'} | {spec[1] for spec in PROVIDERS.values()}
+            if any(k in fields for k in new) and not is_admin(self.user):
+                return self.reply(403, {"error": "API anahtarlarını yalnızca yönetici değiştirebilir.", "code": "forbidden"})
+            points = {k: new.pop(k) for k in ("depot", "home") if k in new}
+            if points and auth_enabled():
+                for v in points.values():
+                    if v is not None and not (isinstance(v, dict) and -90 <= float(v.get("lat")) <= 90 and -180 <= float(v.get("lon")) <= 180):
+                        raise ValueError()
+                key = "noktalar:" + depo._safe(self.user)
+                saved = json.loads(depo.get_setting(key) or "{}")
+                saved.update({k: ({"lat": float(v["lat"]), "lon": float(v["lon"])} if v else None) for k, v in points.items()})
+                depo.set_setting(key, json.dumps(saved))
+            elif points:
+                new.update(points)
             with LOCK:
                 old = read_settings()
-                fields = {'ykey', 'gkey', 'geminiKey'} | {spec[1] for spec in PROVIDERS.values()}
                 if any(not isinstance(v, str) or len(v) > 4096 for k, v in new.items() if k in fields):
                     raise ValueError()
                 old.update({k: v.strip() if k in fields else v for k, v in new.items() if k in fields | {'depot', 'home'}})
@@ -356,8 +441,60 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 os.replace(temporary, AYAR)
             self.send_response(204)
             self.end_headers()
-        except (ValueError, OSError):
+        except (ValueError, OSError, TypeError):
             self.reply(400, {"error": "Ayar kaydedilemedi."})
+
+    def user_points(self, shared):
+        """Depo ve ev kullanıcıya özeldir. Kaydı yoksa: depo ortak varsayılandan, ev yalnızca yöneticiye varsayılandan gelir."""
+        if not auth_enabled():
+            return {}
+        try:
+            own = json.loads(depo.get_setting("noktalar:" + depo._safe(self.user)) or "{}")
+        except (OSError, ValueError):
+            own = {}
+        return {"depot": own.get("depot") or shared.get("depot"),
+                "home": own.get("home") or (shared.get("home") if is_admin(self.user) else None)}
+
+    def user_list(self):
+        rows = [{"ad": n, "sabit": True, "yonetici": n in admins()} for n in USERS]
+        rows += [{"ad": n, "sabit": False, "yonetici": n in admins(), "olusturma": v.get("olusturma")}
+                 for n, v in db_users(fresh=True).items() if n not in USERS]
+        return rows
+
+    def manage_user(self, delete):
+        """Yönetici: POST /api/kullanici {ad, sifre} ekler/şifre değiştirir; /api/kullanici-sil {ad, veriler} siler."""
+        if not is_admin(self.user) or not USERS:
+            self.drain_body()
+            return self.reply(403, {"error": "Bu işlem yalnızca yönetici içindir.", "code": "forbidden"})
+        try:
+            size = int(self.headers.get("Content-Length", 0))
+            if size <= 0 or size > 4096:
+                raise ValueError()
+            body = json.loads(self.rfile.read(size))
+            name = str(body.get("ad", "")).strip().casefold()
+            if not USER_NAME.fullmatch(name):
+                return self.reply(400, {"error": "Kullanıcı adı 2–32 karakter olmalı; harfle başlamalı, yalnızca harf, rakam, nokta, - ve _ içermeli.", "code": "invalid_name"})
+            if name in USERS:
+                return self.reply(400, {"error": "Bu kullanıcı Render ayarında (ROTA_KULLANICILAR) tanımlı; oradan değiştirilir.", "code": "fixed_user"})
+            existing = db_users(fresh=True)
+            if delete:
+                if name not in existing:
+                    return self.reply(404, {"error": "Kullanıcı bulunamadı.", "code": "not_found"})
+                depo.delete_user(name, bool(body.get("veriler")))
+            else:
+                pw = str(body.get("sifre", ""))
+                if len(pw) < 6 or len(pw) > 128:
+                    return self.reply(400, {"error": "Şifre en az 6 karakter olmalı.", "code": "weak_password"})
+                # verileri ayrı tutmak için kayıt anahtarı (Türkçe harfler sadeleşir) başka kullanıcıyla çakışmamalı
+                if name not in existing and any(depo._safe(n) == depo._safe(name) for n in list(USERS) + list(existing)):
+                    return self.reply(400, {"error": "Bu ad mevcut bir kullanıcıya çok benziyor; farklı bir ad seçin.", "code": "name_clash"})
+                depo.save_user(name, hash_password(pw))
+            db_users(fresh=True)
+        except (ValueError, TypeError, AttributeError):
+            return self.reply(400, {"error": "Geçersiz istek.", "code": "invalid_request"})
+        except OSError:
+            return self.reply(502, {"error": "Kaydedilemedi (veritabanı).", "code": "storage"})
+        return self.reply(200, {"kullanicilar": self.user_list()})
 
     def ocr(self):
         """Evrak fotoğrafını (base64) Gemini ile okuyup satırları döndürür."""
