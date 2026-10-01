@@ -79,12 +79,26 @@ a{color:var(--pri);text-underline-offset:3px}.app{max-width:1340px;padding:0 30p
 @media print{body{background:white}.topbar,.hero,.setup-column,.route-toolbar,.route-rule{display:none!important}.workspace{display:block}.app{max-width:none;padding:0}#resCard{padding:0}.stat>span{border:1px solid #ccc}.next-stop{color:#000;background:#fff;border:1px solid #ccc}.sira{break-inside:avoid}.card{box-shadow:none}.route-column{width:100%}}
 .yx-actions{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 2px}.yx{display:inline-block;padding:8px 12px;border:1px solid var(--line);border-radius:9px;font-size:14px;font-weight:600;color:inherit;text-decoration:none;background:#fff}.yx:active{background:#edf5f1}
 .copy{border:1px solid var(--line);background:#fff;border-radius:8px;padding:2px 7px;font-size:13px;line-height:1.4;cursor:pointer;vertical-align:middle}.copy:active{background:#e5f1eb}
+.tabs{display:flex;gap:6px;margin:4px 0 12px}.tabs button{flex:1}.tabs button.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px}.grid2 label{display:flex;flex-direction:column;gap:3px;font-size:12px;font-weight:600;color:var(--mute)}.grid2 input,.grid2 select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:9px;font:inherit;font-size:15px;color:var(--ink);background:#fbfcfb}
+.hes{margin:12px 0;border:1px solid var(--line);border-radius:12px;overflow:hidden}.hes>div{display:flex;justify-content:space-between;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line);font-size:13px}.hes>div:last-child{border-bottom:0}.hes .top{background:#e5f1eb;font-size:15px}.hes .top b{color:var(--pri)}
+.ftab{width:100%;border-collapse:collapse;margin:6px 0}.ftab td,.ftab th{padding:5px 4px;border-bottom:1px solid var(--line);font-size:12px;text-align:left}.ftab input{width:64px;padding:6px;border:1px solid var(--line);border-radius:7px}.frow{display:flex;align-items:center;gap:8px;margin:6px 0;font-size:13px}.frow label{width:150px}.frow input{width:90px;padding:6px;border:1px solid var(--line);border-radius:7px}
+.otab-wrap{overflow-x:auto;margin:8px 0}.otab{width:100%;border-collapse:collapse;font-size:12px}.otab th,.otab td{padding:6px 7px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}.otab th:nth-child(-n+2),.otab td:nth-child(-n+2){text-align:left}.otab th{background:#f1f4f3;position:sticky;top:0}.otab tr[data-t]{cursor:pointer}.otab tr[data-t]:hover{background:#f5faf7}.otab .bos td{color:#b4bfbb}.otab .tot td{font-weight:700;background:#e5f1eb}.otab .ok{color:var(--ok);font-weight:700}.otab .no{color:var(--bad)}.otab .dim{color:#b4bfbb}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;margin:10px 0}.tiles div{border:1px solid var(--line);border-radius:12px;padding:10px;font-size:11px;color:var(--mute)}.tiles b{display:block;font-size:17px;color:var(--ink)}
+.evraklar{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}.evraklar img{width:110px;height:80px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+@media(max-width:430px){.grid2{grid-template-columns:1fr}}
+.pagenav{display:flex;gap:6px;background:#e9efec;border-radius:12px;padding:4px}.pagenav button{border:0;background:none;padding:9px 16px;border-radius:9px;font-weight:700;color:var(--mute)}.pagenav button.on{background:#fff;color:var(--ink);box-shadow:0 1px 4px #19322e1a}
+#hesapPage{max-width:1100px;margin:18px auto}
+.seg{display:flex;gap:6px;margin:10px 0}.seg button{flex:1;padding:11px}.seg button.on{background:var(--pri);color:#fff;border-color:var(--pri)}
+.fl{display:flex;flex-direction:column;gap:3px;font-size:12px;font-weight:600;color:var(--mute);margin:8px 0}.fl input,.fl select{padding:9px 10px;border:1px solid var(--line);border-radius:9px;font:inherit;font-size:15px}
+.mlist-h{margin:14px 0 6px}.mlist{border:1px solid var(--line);border-radius:12px;max-height:420px;overflow:auto}.mlist label{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer}.mlist label:last-child{border-bottom:0}.mlist input{width:20px;height:20px;margin-top:2px;flex:none}.mlist label.off{background:#fbeeee}.mlist label.off b{text-decoration:line-through;color:var(--bad)}
+.bos-gun{padding:22px;text-align:center;border:1px dashed var(--line);border-radius:12px;margin:10px 0;color:var(--mute)}
+@media(max-width:720px){.topbar{flex-wrap:wrap}.pagenav{order:3;width:100%}.pagenav button{flex:1}}
 </style>
 </head>
 <body>
 <div class="app">
-  <header class="topbar"><div class="brand"><div class="brand-icon"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="6" cy="6" r="2.5" stroke="currentColor" stroke-width="1.7"/><circle cx="18" cy="18" r="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M8.5 6H16a4 4 0 0 1 0 8H8a4 4 0 0 0 0 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div><div><h1>Rota Planı</h1><small>GÜNLÜK DAĞITIM ASİSTANI</small></div></div><div class="top-actions"><span class="local-badge" id="userBadge">Yerel çalışma alanı</span><button id="setBtn" class="hide-print">Ayarlar</button><a id="logoutBtn" class="hide-print" href="/cikis" style="display:none;padding:9px 13px;border:1px solid var(--line);border-radius:9px;font-weight:600;text-decoration:none;color:var(--ink)">Çıkış</a></div></header>
-  <section class="hero"><div><div class="eyebrow">DAHA AZ YOL. DAHA DÜZENLİ DAĞITIM.</div><h2>Bugünün rotası, doğru sırada.</h2><p>Evrak karışık olabilir. Teslimat sırasını yakınlık ve mahallelere göre yeniden oluşturuyoruz.</p></div><div class="flow"><b>Depo</b><span>→</span><b>Teslimatlar</b><span>→</span><b>Ev</b></div></section>
+  <header class="topbar"><div class="brand"><div class="brand-icon"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="6" cy="6" r="2.5" stroke="currentColor" stroke-width="1.7"/><circle cx="18" cy="18" r="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M8.5 6H16a4 4 0 0 1 0 8H8a4 4 0 0 0 0 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div><div><h1>Rota Planı</h1><small>GÜNLÜK DAĞITIM ASİSTANI</small></div></div><nav class="pagenav hide-print"><button data-p="rota" class="on">🗺 Rota</button><button data-p="hesap">💰 Hesap</button></nav><div class="top-actions"><span class="local-badge" id="userBadge">Yerel çalışma alanı</span><button id="setBtn" class="hide-print">Ayarlar</button><a id="logoutBtn" class="hide-print" href="/cikis" style="display:none;padding:9px 13px;border:1px solid var(--line);border-radius:9px;font-weight:600;text-decoration:none;color:var(--ink)">Çıkış</a></div></header>
   <div class="card" id="fileWarn" style="display:none;border-color:var(--bad);color:var(--bad)">Sayfa doğrudan dosyadan açılmış. Lütfen klasördeki <b>başlat.bat</b> ile açın; aksi halde ayarlar kaydedilmez ve adres arama çalışmaz.</div>
 
   <div class="card hide-print" id="setCard" style="display:none">
@@ -95,9 +109,11 @@ a{color:var(--pri);text-underline-offset:3px}.app{max-width:1340px;padding:0 30p
     <div class="small" id="gemStatus">Evrak fotoğrafları yapay zekâ ile okunur. Anahtar yoksa daha az isabetli yerel okuyucu kullanılır. Not: Gemini ücretsiz planında Google gönderilen içeriği ürün geliştirmede kullanabilir.</div>
     <details style="margin-top:10px"><summary>İsteğe bağlı ücretli Google API</summary><div class="row"><label>Google</label><input type="password" id="gKeyIn" placeholder="Google Places API (New) anahtarı" style="flex:1;min-width:0"><button class="p" id="gKeySave">Kaydet</button></div>
     <div class="small" id="gStatus">Varsayılan arama ücretsiz Photon/OpenStreetMap kullanır.</div></details>
+    <details style="margin-top:10px"><summary>💰 Fiyat tablosu (hakediş)</summary><div id="fiyatEditor"></div></details>
     <div class="small" id="yWarn" role="status" style="display:none;color:var(--bad);margin-top:6px"></div><details open style="margin-top:12px"><summary>Adres servisleri ve bağlantı testleri</summary><p class="small">Kaydettiğiniz servisler adres ararken otomatik karşılaştırılır. Sorgular sağlayıcının kotasından düşer; planına göre ücret doğabilir. Anahtarlar yerel sunucuda tutulur. Google yalnızca ayrı düğmesiyle kullanılır.</p><div style="margin-top:12px"><label for="yandexKey"><b>Yandex Geocoder</b></label><div class="row"><input type="password" autocomplete="off" id="yandexKey" placeholder="Ayrı Geocoder anahtarı (boşsa harita anahtarı denenir)" style="flex:1;min-width:0"><button id="yandexSave">Kaydet</button><button id="yandexTest">Bağlantıyı test et</button><button id="yandexRemove">Kaldır</button></div><div class="small" role="status" id="yandexStatus">Anahtar kontrol ediliyor…</div></div><div style="margin-top:12px"><label for="geoapifyKey"><b>Geoapify</b></label><div class="row"><input type="password" autocomplete="off" id="geoapifyKey" placeholder="Geocoding API anahtarı" style="flex:1;min-width:0"><button id="geoapifySave">Kaydet</button><button id="geoapifyTest">Bağlantıyı test et</button><button id="geoapifyRemove">Kaldır</button></div><div class="small" role="status" id="geoapifyStatus">Anahtar kontrol ediliyor…</div></div><div style="margin-top:12px"><label for="tomtomKey"><b>TomTom</b></label><div class="row"><input type="password" autocomplete="off" id="tomtomKey" placeholder="Search API anahtarı" style="flex:1;min-width:0"><button id="tomtomSave">Kaydet</button><button id="tomtomTest">Bağlantıyı test et</button><button id="tomtomRemove">Kaldır</button></div><div class="small" role="status" id="tomtomStatus">Anahtar kontrol ediliyor…</div></div><div style="margin-top:12px"><label for="maptilerKey"><b>MapTiler</b></label><div class="row"><input type="password" autocomplete="off" id="maptilerKey" placeholder="Geocoding API anahtarı" style="flex:1;min-width:0"><button id="maptilerSave">Kaydet</button><button id="maptilerTest">Bağlantıyı test et</button><button id="maptilerRemove">Kaldır</button></div><div class="small" role="status" id="maptilerStatus">Anahtar kontrol ediliyor…</div></div><p class="small">Yandex anahtarı reddediliyorsa <a href="https://developer.tech.yandex.ru/" target="_blank" rel="noopener">Yandex geliştirici panelinde</a> Geocoder ürününü ve anahtar kısıtlarını kontrol edin. Sunucu üzerinden sorgulandığı için IP kısıtlarını da kontrol edin.</p><p class="small"><a href="https://www.geoapify.com/" target="_blank" rel="noopener">Powered by Geoapify</a> · © OpenStreetMap contributors · TomTom · MapTiler · Yandex. Her sonucun kaynağı yanında gösterilir.</p></details>
   </div>
 
+  <div id="rotaPage">
   <div class="workspace"><aside class="setup-column">
   <div class="card hide-print">
     <h2><span>1</span>Başlangıç ve bitiş</h2><p class="card-caption">Bir kez kaydet, her gün kullan.</p>
@@ -112,7 +128,6 @@ a{color:var(--pri);text-underline-offset:3px}.app{max-width:1340px;padding:0 30p
     <div class="small" id="fileInfo" style="margin-top:6px"></div>
   </div>
 
-  <div class="side-note"><b>Evrak sırası rota sırası değildir.</b><p>Depodan çık, toplam sürüş süresi en kısa sırayla dağıt, son duraktan eve dön.</p></div>
   </aside><main class="route-column">
   <div class="card" id="resCard">
     <h2 id="routeTitle">Teslimat planın</h2>
@@ -123,6 +138,8 @@ a{color:var(--pri);text-underline-offset:3px}.app{max-width:1340px;padding:0 30p
     <div class="route-rule">En kısa toplam süre <span aria-hidden="true"> · </span> Eve dönüş dahil</div>
     <div id="deliveryInfo" class="small" style="margin-top:6px"></div>
     <div class="small hide-print" id="planStatus" style="margin:4px 0"></div><div id="result"></div>
+  </div>
+
   </div>
 
   <details class="card hide-print" id="stopsCard" style="display:none">
@@ -137,6 +154,14 @@ a{color:var(--pri);text-underline-offset:3px}.app{max-width:1340px;padding:0 30p
     <div style="position:relative;margin-top:8px"><div class="hint" id="hint"></div><div id="map"></div></div>
   </details>
 </main></div>
+  </div>
+
+  <section id="hesapPage" hidden>
+    <div class="card">
+      <div class="tabs"><button data-t="ozet" class="on">📊 Özet</button><button data-t="gun">📝 Gün</button><button data-t="yakit">⛽ Yakıt</button></div>
+      <div id="hesap_ozet"></div><div id="hesap_gun" hidden></div><div id="hesap_yakit" hidden></div>
+    </div>
+  </section>
 </div>
 
 <div class="modal" id="pk"><div class="box">
@@ -1004,6 +1029,7 @@ async function buildRoute(){
   }finally{if(run===routeRun){routeBusy=false;updateState()}}
 }
 function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=[]){
+  gunuRotadanGuncelle();
   lastRoute={seq:seq.map(p=>({lat:+p.lat,lon:+p.lon})),legs,dist,dur,exact,homeDistances,roadLegs,trafficInfo,lastCoords:(lastCoords||[]).filter((_,i,a)=>i%Math.max(1,Math.ceil(a.length/600))===0)};
   savePlan();
   const unverified=routeOrder.filter(s=>!readyStop(s)),draft=unverified.length>0;
@@ -1017,7 +1043,7 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
   const delayTot=legs.reduce((a,l)=>a+(l.delay||0),0),withTraffic=legs.some(l=>'delay' in l);
   // Tahmini varış saatleri: şimdi yola çıkılıyor, her durakta bekleme süresi eklenir
   const svcEach=Math.max(0,+$('svc').value||0)*60,t0=Date.now(),clock=ms=>new Date(ms).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
-  let acc=0;const eta=legs.map((l,k)=>{acc+=l.t*1000;const at=t0+acc;acc+=svcEach*1000;return at});
+  let acc=0;const eta=legs.map((l,k)=>{acc+=l.t*1000;const at=t0+acc;acc+=svcEach*1000;return at});lastRoute.eta=eta;
   let h=`<div class="stat"><span>${routeOrder.length} durak</span><span>🛣 ${(dist/1000).toFixed(1)} km</span><span>⏱ sürüş ${fmtT(dur)}</span><span>toplam ≈ ${fmtT(dur+svc)}</span>${withTraffic?`<span>🚦 trafik gecikmesi ${fmtT(delayTot)}</span>`:''}</div>`;
   h+=withTraffic?`<div class="small">Süreler şu anki canlı trafikle (TomTom) hesaplandı; sıralama da trafiğe göre yapıldı. Şimdi çıkılırsa eve varış ≈ <b>${clock(eta.at(-1))}</b>.</div>`
     :trafficInfo?.error?`<div class="small" style="color:var(--warn)">Canlı trafik alınamadı (${esc(trafficInfo.error)}); süreler trafiksiz.</div>`:'';
@@ -1097,6 +1123,268 @@ async function copyText(text,btn){
   }
   if(btn){const old=btn.textContent;btn.textContent=ok?'✓':'✗';setTimeout(()=>btn.textContent=old,1200)}
 }
+
+// ---------- hakediş (RutPro fiyat kuralları), yakıt ve aylık özet ----------
+// Gün kaydı yüklenen evraktan otomatik oluşur; elle yalnızca düzeltme yapılır
+// (teslim edilemeyen/eksik müşteri işareti kaldırılır, hammaliye, ek km, işe gidilmedi).
+const ILCE_BOLGE={adalar:'anadolu',atasehir:'anadolu',beykoz:'anadolu',cekmekoy:'anadolu',kadikoy:'anadolu',kartal:'anadolu',maltepe:'anadolu',pendik:'anadolu',sancaktepe:'anadolu',sultanbeyli:'anadolu',sile:'anadolu',tuzla:'anadolu',umraniye:'anadolu',uskudar:'anadolu',
+  arnavutkoy:'avrupa1',bayrampasa:'avrupa1',besiktas:'avrupa1',beylikduzu:'avrupa1',beyoglu:'avrupa1',buyukcekmece:'avrupa1',catalca:'avrupa1',eyupsultan:'avrupa1',fatih:'avrupa1',gaziosmanpasa:'avrupa1',kagithane:'avrupa1',sariyer:'avrupa1',sisli:'avrupa1',zeytinburnu:'avrupa1',
+  avcilar:'avrupa2',bagcilar:'avrupa2',bahcelievler:'avrupa2',bakirkoy:'avrupa2',basaksehir:'avrupa2',esenler:'avrupa2',esenyurt:'avrupa2',gungoren:'avrupa2',kucukcekmece:'avrupa2',silivri:'avrupa2',sultangazi:'avrupa2'};
+const BOLGE_ADI={anadolu:'Anadolu',avrupa1:'Avrupa 1. Bölge',avrupa2:'Avrupa 2. Bölge'},BOLGE_KISA={anadolu:'And.',avrupa1:'Avr.1',avrupa2:'Avr.2'};
+const DEF_FIYAT={anadolu:[{nokta:20,tl:5000},{nokta:18,tl:5000}],avrupa1:[{nokta:18,tl:5800},{nokta:16,tl:5800}],avrupa2:[{nokta:18,tl:6100},{nokta:16,tl:6100}],ekstraNokta:150,kdv:20,kmUcret:0};
+const NEDENLER=['İzin','Hafta tatili','Resmi tatil','Hastalık','Araç arızası','İş yok','Diğer'];
+const GUN_ADI=['Paz','Pzt','Sal','Çar','Per','Cum','Cmt'];
+let fiyat=JSON.parse(JSON.stringify(DEF_FIYAT)),planDate='',planEvraklar=[],ayCache={},gunSecili='',ozetAy='';
+const todayISO=()=>new Date().toLocaleDateString('sv-SE');
+const tl=n=>Math.round(n||0).toLocaleString('tr-TR')+' ₺';
+const trTarih=t=>{const [y,m,d]=t.split('-').map(Number);return `${String(d).padStart(2,'0')}.${String(m).padStart(2,'0')}.${y} ${GUN_ADI[new Date(y,m-1,d).getDay()]}`};
+const ilceBolge=i=>ILCE_BOLGE[fold(i).replace(/[^a-z]/g,'')]||null;
+// En çok ilçesi olan bölge (eşitlikte Anadolu → Avrupa 1 → Avrupa 2; RutPro ile aynı)
+function bolgeBul(ilceler){
+  const say={anadolu:0,avrupa1:0,avrupa2:0};ilceler.forEach(i=>{const b=ilceBolge(i);if(b)say[b]++});
+  let best=null,max=0;for(const b of ['anadolu','avrupa1','avrupa2'])if(say[b]>max){max=say[b];best=b}
+  return best;
+}
+// RutPro ucretHesapla ile aynı kurallar + ek km ve hammaliye (KDV matrahına dahil)
+function ucretHesapla({bolge,ilceSayisi,nokta,rutTip,hammaliye=0,ekKm=0},F=fiyat){
+  const row=F[bolge]?.[ilceSayisi>=2?1:0];
+  if(!row||!(nokta>=1))return null;
+  const bazNokta=+row.nokta,bazTl=+row.tl,yarimEsik=bazNokta+Math.ceil(bazNokta/2),tamIkiEsik=bazNokta*2;
+  const oto=nokta>=tamIkiEsik?'2':nokta>=yarimEsik?'1.5':'1',tip=rutTip||oto,kat=parseFloat(tip)||1;
+  const rutUcret=Math.floor(kat)*bazTl+(kat%1?bazTl*0.5:0);
+  const ekstra=Math.max(0,nokta-bazNokta*kat),ekstraTl=ekstra*(+F.ekstraNokta||0);
+  const ekKmTl=(+ekKm||0)*(+F.kmUcret||0),ham=+hammaliye||0;
+  const net=rutUcret+ekstraTl+ekKmTl+ham,kdvOran=(F.kdv??20)/100,kdv=net*kdvOran;
+  return {bolge,nokta,bazNokta,bazTl,yarimEsik,tamIkiEsik,otoTip:oto,rutTip:tip,rutKat:kat,rutUcret,ekstra,ekstraTl,ekKm:+ekKm||0,ekKmTl,hammaliye:ham,net,kdvOran:F.kdv??20,kdv,toplam:net+kdv};
+}
+const musteriKey=m=>fold(m.ad)+'|'+fold(m.adres);
+// Plandan günün müşteri listesi (rota sırasıyla) ve otomatik bilgiler
+function planMusteriler(){
+  // yalnızca bu plandaki duraklar, her biri bir kez (teslim edilenler → kalan sıra → atlananlar)
+  const inPlan=new Set(stops),seen=new Set();
+  const list=(routeOrder?.length?[...delivered,...routeOrder,...stops.filter(s=>s.skip),...stops]:stops).filter(s=>inPlan.has(s)&&!seen.has(s)&&seen.add(s));
+  const legs=lastRoute?.legs||[],eta=lastRoute?.eta||[],ro=routeOrder||[];
+  return list.map(s=>{
+    const i=ro.indexOf(s),l=i>=0?legs[i]:null;
+    return {ad:stopNames(s),adres:s.raw,ilce:ILCELER.find(x=>fold(x)===fold(s.ilce))||s.ilce||'',mah:s.match?.mah||s.mah||'',siparis:s.orders.length,
+      sip:s.orders.map(o=>o.sip).filter(Boolean),koli:s.orders.reduce((a,o)=>a+(o.adet||0),0),firma:[...new Set(s.orders.map(o=>o.musteri).filter(Boolean))].join(', '),
+      teslim:delivered.includes(s),atlandi:!!s.skip,km:l?+(l.d/1000).toFixed(1):null,dk:l?Math.round(l.t/60):null,varis:i>=0&&eta[i]?new Date(eta[i]).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}):null,lat:s.lat,lon:s.lon};
+  });
+}
+// Günün hesabı: teslim edilen (işareti kaldırılmamış) müşteriler sayılır
+function gunHesap(k){
+  if(!k||k.durum==='gidilmedi')return null;
+  const sira=k.rota?.sira||[],haric=new Set(k.haric||[]),teslim=sira.filter(m=>!haric.has(musteriKey(m)));
+  const ilceler=[...new Set(teslim.map(m=>m.ilce).filter(Boolean))];
+  const bolge=bolgeBul(ilceler)||k.rota?.bolge||'anadolu';
+  return ucretHesapla({bolge,ilceSayisi:ilceler.length||1,nokta:teslim.length,hammaliye:k.hammaliye,ekKm:k.ekKm});
+}
+async function apiJSON(url,body){
+  const r=await fetch(url,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(r.status===204)return {};const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'sunucu hatası');return j;
+}
+async function ayYukle(ay,force){
+  if(!force&&ayCache[ay])return ayCache[ay];
+  const [r,y]=await Promise.all([apiJSON('/api/rutlar?ay='+ay),apiJSON('/api/yakitlar?ay='+ay)]);
+  return ayCache[ay]={rutlar:r.rutlar||[],yakitlar:y.yakitlar||[]};
+}
+const gunKaydi=async t=>(await ayYukle(t.slice(0,7))).rutlar.find(r=>r.tarih===t)||null;
+async function gunYaz(t,k){
+  k.hesap=gunHesap(k);
+  await apiJSON('/api/rut',{tarih:t,rut:k});
+  const c=ayCache[t.slice(0,7)];if(c)c.rutlar=c.rutlar.filter(x=>x.tarih!==t).concat([{...k,tarih:t}]);
+  return k;
+}
+// Evrak yüklenip rota değiştikçe o günün kaydı otomatik güncellenir; elle yapılan düzeltmeler korunur
+let rotaGunTimer=null;
+function gunuRotadanGuncelle(){if(!planDate||!stops.length)return;clearTimeout(rotaGunTimer);rotaGunTimer=setTimeout(otoKaydet,1500)}
+async function otoKaydet(){
+  const t=planDate;if(!t||!stops.length)return;
+  const eski=(await gunKaydi(t).catch(()=>null))||{};
+  const sira=planMusteriler(),keys=new Set(sira.map(musteriKey));
+  const skipped=stops.filter(s=>s.skip).map(s=>fold(stopNames(s))+'|'+fold(s.raw));
+  const k={durum:eski.durum||'calisti',neden:eski.neden||null,hammaliye:eski.hammaliye||0,ekKm:eski.ekKm||0,notu:eski.notu||'',
+    haric:[...new Set([...(eski.haric||[]).filter(x=>keys.has(x)),...skipped])],
+    rota:{sira,km:lastRoute?+((lastRoute.dist||0)/1000).toFixed(1):null,sure:lastRoute?Math.round((lastRoute.dur||0)/60):null,
+      gecikme:lastRoute?Math.round((lastRoute.legs||[]).reduce((a,l)=>a+(l.delay||0),0)/60):null,eve:lastRoute?.eta?.length?new Date(lastRoute.eta.at(-1)).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}):null,
+      yandex:lastRoute?.seq?.length?'https://yandex.com.tr/harita/?rtt=auto&rtext='+lastRoute.seq.map(p=>p.lat.toFixed(6)+','+p.lon.toFixed(6)).join('~'):null,olusturma:new Date().toISOString()},evraklar:planEvraklar};
+  try{await gunYaz(t,k);if(hesapSayfasiAcik())renderHesap()}catch(e){console.warn('gün kaydı',e)}
+}
+
+// ---------- fiyat tablosu (Ayarlar) ----------
+async function fiyatYukle(){try{const j=await apiJSON('/api/fiyat');if(j.fiyat)fiyat={...JSON.parse(JSON.stringify(DEF_FIYAT)),...j.fiyat}}catch(e){}renderFiyatEditor()}
+function renderFiyatEditor(){
+  const el=$('fiyatEditor');if(!el)return;
+  let h='<div class="small" style="margin:6px 0">Bölge ilçelerden otomatik bulunur. Baz nokta aşılınca 1,5 rut (baz + baz/2) ve 2 rut (baz × 2) uygulanır; kapasite üstü her nokta için ek ücret alınır. Bütün kullanıcılar aynı tabloyu kullanır.</div><table class="ftab"><tr><th></th><th>Tek ilçe<br><span class="small">nokta · ₺</span></th><th>2+ ilçe<br><span class="small">nokta · ₺</span></th></tr>';
+  for(const b of ['anadolu','avrupa1','avrupa2'])h+=`<tr><td><b>${BOLGE_ADI[b]}</b></td>${[0,1].map(i=>`<td><input type="number" min="1" id="fn_${b}_${i}" value="${fiyat[b][i].nokta}"> <input type="number" min="0" id="ft_${b}_${i}" value="${fiyat[b][i].tl}"></td>`).join('')}</tr>`;
+  h+=`</table><div class="frow"><label>Kapasite üstü nokta</label><input type="number" min="0" id="fEkstra" value="${fiyat.ekstraNokta}"> ₺</div><div class="frow"><label>Ek km ücreti</label><input type="number" min="0" step="0.5" id="fKm" value="${fiyat.kmUcret||0}"> ₺/km</div><div class="frow"><label>KDV</label><input type="number" min="0" max="100" id="fKdv" value="${fiyat.kdv}"> %</div><div class="row"><button class="p" id="fKaydet">Fiyatları kaydet</button><span class="small" id="fDurum"></span></div>`;
+  el.innerHTML=h;
+  $('fKaydet').onclick=async()=>{
+    const f=JSON.parse(JSON.stringify(fiyat));
+    for(const b of ['anadolu','avrupa1','avrupa2'])for(const i of [0,1]){f[b][i]={nokta:+$('fn_'+b+'_'+i).value||f[b][i].nokta,tl:+$('ft_'+b+'_'+i).value||0}}
+    f.ekstraNokta=+$('fEkstra').value||0;f.kmUcret=+$('fKm').value||0;f.kdv=+$('fKdv').value||0;
+    try{await apiJSON('/api/fiyat',{fiyat:f});fiyat=f;$('fDurum').textContent='✓ Kaydedildi';if(hesapSayfasiAcik())renderHesap()}catch(e){$('fDurum').textContent='Kaydedilemedi: '+e.message}
+  };
+}
+
+// ---------- sayfa geçişi: 1) Rota  2) Hesap ----------
+const hesapSayfasiAcik=()=>!$('hesapPage').hidden;
+function sayfaAc(p){
+  $('rotaPage').hidden=p!=='rota';$('hesapPage').hidden=p!=='hesap';
+  document.querySelectorAll('.pagenav button').forEach(b=>b.classList.toggle('on',b.dataset.p===p));
+  try{localStorage.setItem('rota_sayfa',p)}catch(e){}
+  if(p==='hesap')renderHesap();
+  window.scrollTo(0,0);
+}
+function hesapSekme(t){
+  for(const k of ['ozet','gun','yakit']){$('hesap_'+k).hidden=k!==t;document.querySelector(`#hesapPage .tabs [data-t="${k}"]`).classList.toggle('on',k===t)}
+  renderHesap();
+}
+function renderHesap(){
+  if(!$('hesap_ozet').hidden)renderOzet();else if(!$('hesap_gun').hidden)renderGun();else renderYakit();
+}
+
+// ---------- geçmiş gün: rota detayı ve PDF ----------
+const musteriDetay=m=>[m.mah,m.sip?.length?'Sip: '+m.sip.join(', '):'',m.koli?m.koli+' koli':'',m.firma,m.km!=null?String(m.km).replace('.',',')+' km / '+m.dk+' dk':'',m.varis?'varış ≈ '+m.varis:'',m.teslim?'teslim edildi':'',m.atlandi?'atlandı':''].filter(Boolean).join(' · ');
+function rotaOzetHTML(r){
+  if(!r)return '';
+  return `<div class="tiles">${r.sira?.length?`<div><b>${r.sira.length}</b>durak</div>`:''}${r.km!=null?`<div><b>${String(r.km).replace('.',',')} km</b>yol</div>`:''}${r.sure!=null?`<div><b>${fmtT(r.sure*60)}</b>sürüş</div>`:''}${r.gecikme?`<div><b>${fmtT(r.gecikme*60)}</b>trafik gecikmesi</div>`:''}${r.eve?`<div><b>${r.eve}</b>eve varış (tahmini)</div>`:''}</div>`;
+}
+function evrakHTML(ev){return (ev||[]).length?`<div class="evraklar">${ev.map(e=>(e.mime||'').startsWith('image/')||!e.mime?`<a href="/api/evrak/${e.id}" target="_blank" rel="noopener"><img loading="lazy" src="/api/evrak/${e.id}" alt="${esc(e.ad)}"></a>`:`<a href="/api/evrak/${e.id}" target="_blank" rel="noopener">${esc(e.ad)}</a>`).join('')}</div>`:''}
+// PDF için bir gün: rota sırası + hakediş + evrak görselleri
+function gunPdfHTML(t,r){
+  const h=gunHesap(r),haric=new Set(r.haric||[]),sira=r.rota?.sira||[];
+  if(r.durum==='gidilmedi')return `<section class="gun"><h3>${trTarih(t)}</h3><p>✗ İşe gidilmedi${r.neden?' — '+esc(r.neden):''}</p></section>`;
+  return `<section class="gun"><h3>${trTarih(t)}</h3>${rotaOzetHTML(r.rota)}
+    ${h?`<p><b>Hakediş:</b> ${h.nokta} müşteri · ${BOLGE_ADI[h.bolge]} · ${String(h.rutTip).replace('.',',')} rut ${tl(h.rutUcret)}${h.ekstra?` · kapasite üstü +${tl(h.ekstraTl)}`:''}${h.ekKm?` · ek km ${h.ekKm} +${tl(h.ekKmTl)}`:''}${h.hammaliye?` · hammaliye +${tl(h.hammaliye)}`:''} · KDV’siz ${tl(h.net)} · KDV ${tl(h.kdv)} · <b>Toplam ${tl(h.toplam)}</b></p>`:''}
+    ${r.notu?`<p>Not: ${esc(r.notu)}</p>`:''}
+    ${sira.length?`<table><tr><th>#</th><th>Müşteri</th><th>Adres</th><th>Ayrıntı</th></tr>${sira.map((m,i)=>`<tr class="${haric.has(musteriKey(m))?'off':''}"><td>${i+1}</td><td>${esc(m.ad)}${haric.has(musteriKey(m))?' (teslim edilmedi)':''}</td><td>${esc(m.adres)}</td><td>${esc(musteriDetay(m))}</td></tr>`).join('')}</table>`:''}
+    ${(r.evraklar||[]).length?`<div class="evr">${r.evraklar.filter(e=>(e.mime||'image/').startsWith('image/')).map(e=>`<img src="${location.origin}/api/evrak/${e.id}">`).join('')}</div>`:''}</section>`;
+}
+function pdfAc(baslik,govde){
+  const w=window.open('','_blank');if(!w){alert('Açılır pencere engellendi; tarayıcıda izin verin.');return}
+  w.document.write(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(baslik)}</title><style>body{font:12px Segoe UI,Arial,sans-serif;margin:18px;color:#19322e}h2{margin:0 0 10px}h3{margin:18px 0 6px;border-bottom:2px solid #1a8f4c;padding-bottom:4px}table{border-collapse:collapse;width:100%;margin:6px 0}th,td{border:1px solid #ccc;padding:4px 6px;text-align:left;vertical-align:top}th{background:#f1f4f3}.otab td,.otab th{text-align:right}.otab td:nth-child(-n+2),.otab th:nth-child(-n+2){text-align:left}.tot td{font-weight:700;background:#f1f4f3}.bos td{color:#aaa}tr.off td{color:#b33;text-decoration:line-through}.tiles{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0}.tiles div{border:1px solid #ccc;border-radius:6px;padding:5px 9px;font-size:11px;color:#555}.tiles b{display:block;font-size:14px;color:#19322e}.small{display:none}.evr img{width:100%;max-width:700px;display:block;margin:8px 0;border:1px solid #ccc;break-inside:avoid}.gun{break-before:page}section.gun:first-of-type{break-before:auto}.ipucu{background:#fff7d6;padding:8px;border-radius:6px;margin-bottom:10px}@media print{.ipucu{display:none}}</style></head><body><div class="ipucu">PDF olarak kaydetmek için yazdır penceresinde hedef olarak <b>“PDF olarak kaydet”</b> seçin.</div><h2>${esc(baslik)}</h2>${govde}</body></html>`);
+  w.document.close();
+  const imgs=[...w.document.images];Promise.all(imgs.map(i=>i.complete?1:new Promise(r=>{i.onload=i.onerror=r}))).then(()=>{w.focus();w.print()});
+}
+
+// ---------- Gün düzenleme ----------
+let gunTimer=null;
+async function renderGun(){
+  const el=$('hesap_gun');
+  const t=gunSecili||planDate||todayISO();gunSecili=t;
+  el.innerHTML='<div class="small">Yükleniyor…</div>';
+  let k=null;try{k=await gunKaydi(t)}catch(e){el.innerHTML='<div class="small">Okunamadı: '+esc(e.message)+'</div>';return}
+  if(gunSecili!==t)return;
+  const ust=`<div class="row"><input type="date" id="gTarih" value="${t}"><span class="small">${trTarih(t)}</span>${k?'<button id="gPdf">📄 PDF</button>':''}</div>`;
+  if(!k){
+    el.innerHTML=ust+`<div class="bos-gun">Bu gün için evrak yüklenmemiş.<br><span class="small">Gün, Rota sayfasından evrak yüklenince kendiliğinden oluşur.</span></div>
+      <div class="row"><select id="gNeden">${NEDENLER.map(n=>`<option>${n}</option>`).join('')}</select><button id="gGidilmedi">✗ İşe gidilmedi olarak işaretle</button></div>`;
+    $('gTarih').onchange=e=>{gunSecili=e.target.value;renderGun()};
+    $('gGidilmedi').onclick=async()=>{try{await gunYaz(t,{durum:'gidilmedi',neden:$('gNeden').value,haric:[],hammaliye:0,ekKm:0,notu:'',rota:null,evraklar:[]});renderGun()}catch(e){alert('Kaydedilemedi: '+e.message)}};
+    return;
+  }
+  const gid=k.durum==='gidilmedi',sira=k.rota?.sira||[],haric=new Set(k.haric||[]);
+  el.innerHTML=ust+`<div class="seg"><button data-d="calisti" class="${gid?'':'on'}">✓ Çalıştı</button><button data-d="gidilmedi" class="${gid?'on':''}">✗ İşe gidilmedi</button></div>
+    ${gid?`<label class="fl">Neden<select id="gNeden">${NEDENLER.map(n=>`<option ${n===k.neden?'selected':''}>${n}</option>`).join('')}</select></label>`:`
+    <div class="grid2"><label>Hammaliye (₺)<input type="number" min="0" id="gHam" value="${k.hammaliye||''}" placeholder="0"></label><label>Ek km<input type="number" min="0" id="gKm" value="${k.ekKm||''}" placeholder="0"></label></div>
+    <div id="gHesap"></div>
+    ${k.rota?`<div class="mlist-h"><b>🗺 Rota</b>${k.rota.olusturma?` <span class="small">${new Date(k.rota.olusturma).toLocaleString('tr-TR',{dateStyle:'short',timeStyle:'short'})} itibarıyla</span>`:''}</div>${rotaOzetHTML(k.rota)}${k.rota.yandex?`<div class="row"><a href="${k.rota.yandex}" target="_blank" rel="noopener"><button>🧭 Bu rotayı Yandex’te aç</button></a></div>`:''}`:''}
+    ${sira.length?`<div class="mlist-h"><b>Müşteriler</b> <span class="small">Teslim edilemeyen veya evrakta olup alınmayan müşterinin işaretini kaldırın.</span></div>
+    <div class="mlist">${sira.map((m,i)=>`<label class="${haric.has(musteriKey(m))?'off':''}"><input type="checkbox" data-k="${esc(musteriKey(m))}" ${haric.has(musteriKey(m))?'':'checked'}><span><b>${i+1}. ${esc(m.ad)}</b><br><span class="small">${esc(m.adres)}</span>${musteriDetay(m)?`<br><span class="small">${esc(musteriDetay(m))}</span>`:''}</span></label>`).join('')}</div>`:''}`}
+    <label class="fl">Not<input type="text" id="gNot" value="${esc(k.notu||'')}" placeholder="isteğe bağlı"></label>
+    <div class="small" id="gMsg">Değişiklikler otomatik kaydedilir.</div><div id="gEk"></div>`;
+  const read=()=>({...k,haric:[...el.querySelectorAll('.mlist input[type=checkbox]')].filter(c=>!c.checked).map(c=>c.dataset.k),
+    hammaliye:+($('gHam')?.value||0),ekKm:+($('gKm')?.value||0),neden:$('gNeden')?.value||k.neden||null,notu:$('gNot').value.trim()});
+  const show=()=>{
+    if(gid)return;const h=gunHesap(read());
+    $('gHesap').innerHTML=!h?'<div class="small" style="color:var(--warn)">Teslim edilen müşteri yok.</div>':
+      `<div class="hes"><div><span><b>${h.nokta} müşteri</b> · ${BOLGE_ADI[h.bolge]} · baz ${h.bazNokta} nokta / ${tl(h.bazTl)}</span></div>
+       <div><span>${String(h.rutTip).replace('.',',')} rut · eşikler: 1,5 rut ≥${h.yarimEsik}, 2 rut ≥${h.tamIkiEsik}</span><b>${tl(h.rutUcret)}</b></div>
+       ${h.ekstra?`<div><span>Kapasite üstü ${h.ekstra} × ${tl(fiyat.ekstraNokta)}</span><b>+${tl(h.ekstraTl)}</b></div>`:''}
+       ${h.ekKm?`<div><span>Ek km ${h.ekKm} × ${tl(fiyat.kmUcret)}${fiyat.kmUcret?'':' (Ayarlar’da km ücreti yok)'}</span><b>+${tl(h.ekKmTl)}</b></div>`:''}
+       ${h.hammaliye?`<div><span>Hammaliye</span><b>+${tl(h.hammaliye)}</b></div>`:''}
+       <div><span>KDV’siz</span><b>${tl(h.net)}</b></div><div><span>KDV (%${h.kdvOran})</span><b>+${tl(h.kdv)}</b></div>
+       <div class="top"><span>Toplam hakediş</span><b>${tl(h.toplam)}</b></div></div>`;
+  };
+  const save=()=>{clearTimeout(gunTimer);gunTimer=setTimeout(async()=>{try{k=await gunYaz(t,read());$('gMsg').textContent='✓ Kaydedildi '+new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})}catch(e){$('gMsg').textContent='Kaydedilemedi: '+e.message}},700)};
+  show();
+  $('gTarih').onchange=e=>{gunSecili=e.target.value;renderGun()};
+  el.querySelectorAll('.seg button').forEach(b=>b.onclick=async()=>{k={...read(),durum:b.dataset.d,neden:b.dataset.d==='gidilmedi'?(k.neden||NEDENLER[0]):null};try{k=await gunYaz(t,k)}catch(e){}renderGun()});
+  el.querySelectorAll('input,select').forEach(x=>{if(x.id==='gTarih')return;const f=()=>{if(x.type==='checkbox')x.closest('label').classList.toggle('off',!x.checked);show();save()};x.addEventListener('input',f);x.addEventListener('change',f)});
+  const ev=k.evraklar||[];
+  $('gEk').innerHTML=ev.length?`<div class="small" style="margin-top:10px">📄 Yüklenen evraklar</div>${evrakHTML(ev)}`:'';
+  $('gPdf').onclick=()=>pdfAc('Gün raporu · '+trTarih(t),gunPdfHTML(t,read()));
+}
+
+// ---------- Yakıt: tarih ve tutar ----------
+async function renderYakit(){
+  const el=$('hesap_yakit'),ay=ozetAy||todayISO().slice(0,7);
+  el.innerHTML=`<div class="grid2"><label>Tarih<input type="date" id="yTarih" value="${todayISO()}"></label><label>Tutar (₺)<input type="number" min="0" step="0.01" id="yTutar" inputmode="decimal" placeholder="ör. 2500"></label></div>
+    <div class="row"><button class="p" id="yEkle">⛽ Yakıt ekle</button><span class="small" id="yMsg"></span></div>
+    <div class="row" style="margin-top:10px"><label style="width:auto">Ay</label><input type="month" id="yAy" value="${ay}"></div><div id="yListe" class="small">Yükleniyor…</div>`;
+  $('yAy').onchange=e=>{ozetAy=e.target.value;renderYakit()};
+  $('yEkle').onclick=async()=>{
+    const item={tarih:$('yTarih').value,tutar:$('yTutar').value};
+    if(!item.tarih||!(+item.tutar>0)){$('yMsg').textContent='Tarih ve tutar gerekli.';return}
+    try{await apiJSON('/api/yakit',item);delete ayCache[item.tarih.slice(0,7)];ozetAy=item.tarih.slice(0,7);renderYakit()}catch(e){$('yMsg').textContent='Kaydedilemedi: '+e.message}
+  };
+  try{
+    const {yakitlar}=await ayYukle(ay,true),top=yakitlar.reduce((a,y)=>a+y.tutar,0);
+    $('yListe').innerHTML=yakitlar.length?`<table class="otab"><tr><th>Tarih</th><th>Tutar</th><th></th></tr>${yakitlar.map(y=>`<tr><td>${trTarih(y.tarih)}</td><td>${tl(y.tutar)}</td><td><button class="copy" data-sil="${y.id}" title="Sil">✕</button></td></tr>`).join('')}<tr class="tot"><td>Toplam</td><td>${tl(top)}</td><td></td></tr></table>`:'Bu ay yakıt kaydı yok.';
+    $('yListe').querySelectorAll('[data-sil]').forEach(b=>b.onclick=async()=>{if(!confirm('Bu yakıt kaydı silinsin mi?'))return;await apiJSON('/api/yakit-sil',{id:+b.dataset.sil});renderYakit()});
+  }catch(e){$('yListe').textContent='Okunamadı: '+e.message}
+}
+
+// ---------- Özet: ayın her günü bir satır ----------
+async function renderOzet(){
+  const el=$('hesap_ozet'),ay=ozetAy||(gunSecili||todayISO()).slice(0,7);ozetAy=ay;
+  el.innerHTML=`<div class="row"><label style="width:auto">Ay</label><input type="month" id="oAy" value="${ay}"><button id="oYaz">📄 PDF</button><button id="oCsv">CSV</button></div><div id="oTablo" class="small">Yükleniyor…</div>`;
+  $('oAy').onchange=e=>{ozetAy=e.target.value;renderOzet()};
+  let data;try{data=await ayYukle(ay,true)}catch(e){$('oTablo').textContent='Okunamadı: '+e.message;return}
+  const [Y,M]=ay.split('-').map(Number),gunSay=new Date(Y,M,0).getDate();
+  const byDay=Object.fromEntries(data.rutlar.map(r=>[r.tarih,r])),yakit={};data.yakitlar.forEach(y=>yakit[y.tarih]=(yakit[y.tarih]||0)+y.tutar);
+  const rows=[],T={nokta:0,rut:0,ekKm:0,ekKmTl:0,ham:0,net:0,kdv:0,top:0,yakit:0,calisti:0,gidilmedi:0};
+  for(let d=1;d<=gunSay;d++){
+    const t=`${ay}-${String(d).padStart(2,'0')}`,r=byDay[t],h=r?gunHesap(r):null,yk=yakit[t]||0;
+    if(r?.durum==='gidilmedi')T.gidilmedi++;else if(r)T.calisti++;
+    if(h){T.nokta+=h.nokta;T.rut+=h.rutUcret+h.ekstraTl;T.ekKm+=h.ekKm;T.ekKmTl+=h.ekKmTl;T.ham+=h.hammaliye;T.net+=h.net;T.kdv+=h.kdv;T.top+=h.toplam}
+    T.yakit+=yk;rows.push({t,d,r,h,yk});
+  }
+  const n=x=>x?Math.round(x).toLocaleString('tr-TR'):'',AY_ADI=['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+  const durum=r=>!r?'<span class="dim">—</span>':r.durum==='gidilmedi'?`<span class="no">✗ ${esc(r.neden||'Gidilmedi')}</span>`:'<span class="ok">✓</span>';
+  $('oTablo').innerHTML=`<div class="tiles"><div><b>${T.calisti}</b>çalışılan gün</div><div><b>${T.gidilmedi}</b>gidilmeyen gün</div><div><b>${tl(T.top)}</b>hakediş (KDV dahil)</div><div><b>${tl(T.yakit)}</b>yakıt</div><div><b>${tl(T.top-T.yakit)}</b>hakediş − yakıt</div></div>
+  <div class="otab-wrap"><table class="otab" id="ozetTablo"><tr><th>Gün</th><th>Durum</th><th>Müşteri</th><th>Bölge</th><th>Rut</th><th>Rut ücreti</th><th>Ek km</th><th>Hammaliye</th><th>KDV’siz</th><th>KDV</th><th>Toplam</th><th>Yakıt</th></tr>
+  ${rows.map(({t,d,r,h,yk})=>`<tr data-t="${t}" class="${!r?'bos':''}"><td>${String(d).padStart(2,'0')} ${GUN_ADI[new Date(Y,M-1,d).getDay()]}</td><td>${durum(r)}</td><td>${h?h.nokta:''}</td><td>${h?BOLGE_KISA[h.bolge]:''}</td><td>${h?String(h.rutTip).replace('.',','):''}</td><td>${n(h&&h.rutUcret+h.ekstraTl)}</td><td>${h&&h.ekKm?h.ekKm+' km / '+n(h.ekKmTl):''}</td><td>${n(h?.hammaliye)}</td><td>${n(h?.net)}</td><td>${n(h?.kdv)}</td><td><b>${n(h?.toplam)}</b></td><td>${n(yk)}</td></tr>`).join('')}
+  <tr class="tot"><td>Toplam</td><td>${T.calisti} ✓ / ${T.gidilmedi} ✗</td><td>${T.nokta||''}</td><td></td><td></td><td>${n(T.rut)}</td><td>${T.ekKm?T.ekKm+' km / '+n(T.ekKmTl):''}</td><td>${n(T.ham)}</td><td>${n(T.net)}</td><td>${n(T.kdv)}</td><td><b>${n(T.top)}</b></td><td>${n(T.yakit)}</td></tr></table></div>
+  <div class="small">Bir güne dokunun: o günün rotası, müşterileri ve yüklenen evrakı açılır; eksik müşteri, hammaliye, ek km düzenlenebilir. 📄 PDF: tablo + her günün rotası ve evrakı.</div>`;
+  $('oTablo').querySelectorAll('tr[data-t]').forEach(tr=>tr.onclick=()=>{gunSecili=tr.dataset.t;hesapSekme('gun')});
+  $('oCsv').onclick=()=>{
+    const head=['Tarih','Durum','Neden','Müşteri','Bölge','Rut','Rut ücreti','Ek km','Ek km ₺','Hammaliye','KDV’siz','KDV','Toplam','Yakıt','Not'];
+    const lines=rows.map(({t,r,h,yk})=>[trTarih(t),r?(r.durum==='gidilmedi'?'Gidilmedi':'Çalıştı'):'',r?.neden||'',h?h.nokta:'',h?BOLGE_ADI[h.bolge]:'',h?String(h.rutTip).replace('.',','):'',h?Math.round(h.rutUcret+h.ekstraTl):'',h?.ekKm||'',h?Math.round(h.ekKmTl):'',h?Math.round(h.hammaliye):'',h?Math.round(h.net):'',h?Math.round(h.kdv):'',h?Math.round(h.toplam):'',yk?Math.round(yk):'',r?.notu||'']);
+    lines.push(['TOPLAM',T.calisti+' çalışılan / '+T.gidilmedi+' gidilmeyen','',T.nokta,'','',Math.round(T.rut),T.ekKm,Math.round(T.ekKmTl),Math.round(T.ham),Math.round(T.net),Math.round(T.kdv),Math.round(T.top),Math.round(T.yakit),'']);
+    const csv='﻿'+[head,...lines].map(l=>l.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(';')).join('\r\n');
+    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='ozet-'+ay+'.csv';a.click();
+  };
+  $('oYaz').onclick=()=>pdfAc('Aylık özet · '+AY_ADI[M-1]+' '+Y,$('oTablo').innerHTML+rows.filter(x=>x.r).map(x=>gunPdfHTML(x.t,x.r)).join(''));
+}
+// evrak dosyasını sıkıştırıp sakla (geçmişte görmek için)
+async function evrakSakla(f){
+  try{
+    let mime=f.type,data;
+    if(/^image\//.test(f.type)){
+      const img=await createImageBitmap(f),k=Math.min(1,1800/Math.max(img.width,img.height));
+      const c=document.createElement('canvas');c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+      data=c.toDataURL('image/jpeg',0.72).split(',')[1];mime='image/jpeg';
+    }else{
+      const buf=new Uint8Array(await f.arrayBuffer());let s='';for(let i=0;i<buf.length;i+=32768)s+=String.fromCharCode(...buf.subarray(i,i+32768));data=btoa(s);
+      mime=/\.csv$/i.test(f.name)?'text/csv':/\.xls$/i.test(f.name)?'application/vnd.ms-excel':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    }
+    const j=await apiJSON('/api/evrak',{tarih:planDate,ad:f.name,mime,data});
+    planEvraklar.push({id:j.id,ad:f.name,mime});savePlan();gunuRotadanGuncelle();
+  }catch(e){console.warn('evrak saklanamadı',e)}
+}
+
 // ---------- plan kaydı: duraklar, konumlar, sıra, teslim edilenler (veritabanı + bu cihaz) ----------
 // Sayfa yenilense, yeniden giriş yapılsa ya da başka cihazdan girilse plan kaldığı yerden açılır.
 let lastRoute=null,planTimer=null,planRestoring=false;
@@ -1105,7 +1393,7 @@ function planData(){
   const strip=(k,v)=>(k==='placeCandidates'||k==='candidates'||k==='placeError')?undefined:v;
   const ids=list=>(list||[]).map(s=>s.id);
   return JSON.parse(JSON.stringify({v:1,savedAt:Date.now(),fileInfo:$('fileInfo').innerHTML,svc:$('svc').value,
-    stops,delivered:ids(delivered),route:lastRoute&&routeOrder?{...lastRoute,order:ids(routeOrder)}:null},strip));
+    planDate,evraklar:planEvraklar,stops,delivered:ids(delivered),route:lastRoute&&routeOrder?{...lastRoute,order:ids(routeOrder)}:null},strip));
 }
 function savePlan(now){
   if(planRestoring)return;
@@ -1131,7 +1419,7 @@ async function restorePlan(){
   if(!plan||stops.length)return;
   planRestoring=true;
   try{
-    stops=plan.stops;const byId=new Map(stops.map(s=>[s.id,s]));
+    stops=plan.stops;const byId=new Map(stops.map(s=>[s.id,s]));planDate=plan.planDate||new Date(plan.savedAt).toLocaleDateString('sv-SE');planEvraklar=plan.evraklar||[];
     delivered=(plan.delivered||[]).map(id=>byId.get(id)).filter(Boolean);
     if(plan.svc)$('svc').value=plan.svc;
     const when=new Date(plan.savedAt).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
@@ -1267,6 +1555,7 @@ async function loadFiles(files){
   $('ocrBar').style.display='none';
   if(!orders.length){$('fileInfo').textContent='Adres bulunamadı. '+msgs.join(' · ');return}
   geoRun++;geoBusy=false;delivered=[];lastRoute=null;stops=buildStops(orders);clearRoute();
+  planDate=todayISO();planEvraklar=[];gunSecili=planDate;files.forEach(f=>evrakSakla(f));
   $('fileInfo').innerHTML=esc(msgs.join(' · '))+`<br><b>${orders.length} sipariş → ${stops.length} durak.</b>`;
   renderStops();refreshMarkers();updateState();
   if(aiOcr){const run=geoRun;await aiNormalize(stops);if(run!==geoRun)return;renderStops()}
@@ -1328,7 +1617,13 @@ if(location.protocol==='file:')$('fileWarn').style.display='block';
 renderPts();updateState();initMap();
 refreshGoogleStatus();
 renderEmpty();
-restorePlan();
+function uygulamaBaslat(){
+  document.querySelectorAll('.pagenav button').forEach(b=>b.onclick=()=>sayfaAc(b.dataset.p));
+  document.querySelectorAll('#hesapPage .tabs button').forEach(b=>b.onclick=()=>hesapSekme(b.dataset.t));
+  let ilk='rota';try{ilk=localStorage.getItem('rota_sayfa')==='hesap'?'hesap':'rota'}catch(e){}
+  fiyatYukle().then(()=>restorePlan()).then(()=>sayfaAc(ilk));
+}
+uygulamaBaslat();
 </script>
 </body>
 </html>

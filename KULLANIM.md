@@ -71,3 +71,13 @@ python -m unittest discover -s tests -p "test_*.py" -v
 Testler en yakın başlangıç, aynı mahallede 10 müşteri, farklı ilçelerde aynı mahalle adı, eve dönüş maliyeti, 250 deterministik rota senaryosu, teslimata devam ve eski ağ yanıtı korumasını kapsar. Canpark'ın canlı Photon yanıtı `tests/photon-canpark.json` örneğiyle yer eşleştirmesinde sınanır. `tests/avm-ornek.csv` kişisel veri içermeyen içe aktarma örneğidir.
 
 Görsel kontrol için `python tests/preview_ui.py` komutu kişisel veri içermeyen örneklerle 8082 portunda geçici önizleme açar. Örnek rotadaki yol maliyetleri test içindir.
+
+## Hesap sayfası (hakediş, geçmiş, yakıt)
+
+Üstteki **🗺 Rota / 💰 Hesap** düğmeleriyle iki sayfa arasında geçilir.
+
+- **Gün kaydı kendiliğinden oluşur:** Rota sayfasında evrak yüklenip rota hesaplanınca o günün kaydı veritabanına yazılır: rota sırası, her müşterinin adresi, mahallesi, sipariş no, koli, önceki duraktan km/dk, tahmini varış, toplam km/süre, Yandex rota bağlantısı ve yüklenen evrak görselleri.
+- **📝 Gün:** Tarih seçilerek geçmiş bir günün rotası, müşterileri ve evrakı görülür. Yalnızca düzeltme yapılır: teslim edilemeyen/alınmayan müşterinin işareti kaldırılır (müşteri sayısı ve hakediş düşer), hammaliye ve ek km girilir, gün “İşe gidilmedi” yapılabilir. Değişiklikler otomatik kaydedilir. **📄 PDF** o günün raporunu açar.
+- **⛽ Yakıt:** Yalnızca tarih ve tutar (₺).
+- **📊 Özet:** Ayın her günü bir satır (durum, müşteri, bölge, rut, rut ücreti, ek km, hammaliye, KDV, toplam, yakıt) ve toplamlar. Bir satıra dokununca o gün açılır. **📄 PDF** tabloyu ve her günün rotası ile evrak görsellerini içerir; yazdır penceresinde “PDF olarak kaydet” seçilir. **CSV** de indirilebilir.
+- **Fiyat tablosu** Ayarlar → “💰 Fiyat tablosu” bölümündedir (bölge baz nokta/₺, kapasite üstü nokta ücreti, ek km ücreti, KDV). Hammaliye ve ek km KDV matrahına dahildir.

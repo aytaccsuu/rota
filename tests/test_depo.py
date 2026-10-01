@@ -82,7 +82,7 @@ class PostgresTests(unittest.TestCase):
         self.assertEqual(depo.load('Mesut'), '{"v": 1}')
         depo.save('mesut', '{"v": 2}')
         depo.save('mesut', None)
-        creates = [q for q, _ in self.sql if q.startswith('CREATE TABLE')]
+        creates = [q for q, _ in self.sql if q.startswith('CREATE ')]
         self.assertEqual(len(creates), len(depo.SCHEMA), 'tablo oluşturma yalnızca ilk bağlantıda')
         self.assertTrue(any('ON CONFLICT (kullanici) DO UPDATE' in q and p == ('mesut', '{"v": 2}') for q, p in self.sql))
         self.assertTrue(any(q.startswith('DELETE FROM planlar') for q, _ in self.sql))
@@ -128,6 +128,44 @@ class PlanEndpointTests(unittest.TestCase):
         self.assertEqual(self.req('POST', '/api/plan', {'plan': 'metin'}, mesut)[0], 400)
         self.assertEqual(self.req('POST', '/api/plan', {'plan': None}, mesut)[0], 204)
         self.assertIsNone(self.req('GET', '/api/plan', cookie=mesut)[1]['plan'])
+
+
+    def test_fiyat_rut_yakit_evrak(self):
+        import base64
+        mesut = 'rota_oturum=' + app.make_token('mesut')
+        ali = 'rota_oturum=' + app.make_token('ali')
+        f = {'anadolu': [{'nokta': 20, 'tl': 5000}, {'nokta': 18, 'tl': 5000}], 'avrupa1': [{'nokta': 18, 'tl': 5800}, {'nokta': 16, 'tl': 5800}],
+             'avrupa2': [{'nokta': 18, 'tl': 6100}, {'nokta': 16, 'tl': 6100}], 'ekstraNokta': 150, 'kdv': 20, 'kmUcret': 12}
+        self.assertEqual(self.req('POST', '/api/fiyat', {'fiyat': f}, mesut)[0], 204)
+        self.assertEqual(self.req('GET', '/api/fiyat', cookie=ali)[1]['fiyat']['kmUcret'], 12, 'fiyat tablosu ortak')
+        self.assertEqual(self.req('POST', '/api/fiyat', {'fiyat': {'anadolu': []}}, mesut)[0], 400)
+        # günlük kayıt: aynı gün tekrar yazılınca güncellenir
+        self.assertEqual(self.req('POST', '/api/rut', {'tarih': '2026-10-01', 'rut': {'durum': 'calisti', 'hammaliye': 100}}, mesut)[0], 204)
+        self.assertEqual(self.req('POST', '/api/rut', {'tarih': '2026-10-01', 'rut': {'durum': 'calisti', 'hammaliye': 250}}, mesut)[0], 204)
+        self.assertEqual(self.req('POST', '/api/rut', {'tarih': '2026-10-02', 'rut': {'durum': 'gidilmedi', 'neden': 'İzin'}}, mesut)[0], 204)
+        rutlar = self.req('GET', '/api/rutlar?ay=2026-10', cookie=mesut)[1]['rutlar']
+        self.assertEqual([(r['tarih'], r.get('hammaliye'), r['durum']) for r in rutlar], [('2026-10-01', 250, 'calisti'), ('2026-10-02', None, 'gidilmedi')])
+        self.assertEqual(self.req('GET', '/api/rutlar?ay=2026-10', cookie=ali)[1]['rutlar'], [], 'başkasının kaydı görünmez')
+        self.assertEqual(self.req('POST', '/api/rut', {'tarih': '01.10.2026', 'rut': {}}, mesut)[0], 400)
+        # yakıt: ekle, güncelle, sil
+        yid = self.req('POST', '/api/yakit', {'tarih': '2026-10-01', 'tutar': 2500, 'litre': 55.5, 'km': 120000}, mesut)[1]['id']
+        self.req('POST', '/api/yakit', {'id': yid, 'tarih': '2026-10-01', 'tutar': 2600}, mesut)
+        self.req('POST', '/api/yakit', {'tarih': '2026-10-03', 'tutar': 1000}, mesut)
+        y = self.req('GET', '/api/yakitlar?ay=2026-10', cookie=mesut)[1]['yakitlar']
+        self.assertEqual([x['tutar'] for x in y], [2600, 1000])
+        self.assertEqual(self.req('POST', '/api/yakit', {'tarih': '2026-10-01', 'tutar': -5}, mesut)[0], 400)
+        self.req('POST', '/api/yakit-sil', {'id': yid}, ali)  # başkası silemez
+        self.assertEqual(len(self.req('GET', '/api/yakitlar?ay=2026-10', cookie=mesut)[1]['yakitlar']), 2)
+        self.req('POST', '/api/yakit-sil', {'id': yid}, mesut)
+        self.assertEqual(len(self.req('GET', '/api/yakitlar?ay=2026-10', cookie=mesut)[1]['yakitlar']), 1)
+        # evrak: yükle ve sadece sahibi görsün
+        eid = self.req('POST', '/api/evrak', {'tarih': '2026-10-01', 'ad': 'e.jpg', 'mime': 'image/jpeg', 'data': base64.b64encode(b'JPEGDATA').decode()}, mesut)[1]['id']
+        c = http.client.HTTPConnection('127.0.0.1', self.port, timeout=5)
+        c.request('GET', '/api/evrak/%d' % eid, headers={'Cookie': mesut}); r = c.getresponse(); body = r.read(); c.close()
+        self.assertEqual((r.status, r.getheader('Content-Type'), body), (200, 'image/jpeg', b'JPEGDATA'))
+        self.assertEqual(self.req('GET', '/api/evrak/%d' % eid, cookie=ali)[0], 404)
+        self.assertEqual(self.req('POST', '/api/evrak', {'tarih': '2026-10-01', 'ad': 'x', 'mime': 'text/html', 'data': 'aGk='}, mesut)[0], 400)
+
 
 
 if __name__ == '__main__':

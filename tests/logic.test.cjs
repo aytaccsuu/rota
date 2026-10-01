@@ -7,9 +7,9 @@ function app() {
   const elements = new Map();
   function element() { return {style:{},children:[],value:'5',innerHTML:'',textContent:'',firstChild:{style:{}},
     addEventListener(){}, appendChild(x){this.children.push(x)}, querySelector(){return element()}, querySelectorAll(){return []},focus(){},classList:{add(){},remove(){}}}; }
-  const context = vm.createContext({document:{getElementById(id){if(!elements.has(id))elements.set(id,element());return elements.get(id)},addEventListener(){},createElement:element},
+  const context = vm.createContext({document:{getElementById(id){if(!elements.has(id))elements.set(id,element());return elements.get(id)},addEventListener(){},createElement:element,querySelectorAll(){return []},querySelector(){return element()},body:element()},
     location:{protocol:'file:'},localStorage:{getItem(){return null},setItem(){}},window:{},setTimeout(){return 1},clearTimeout(){},fetch:async()=>({ok:true,json:async()=>({})}),AbortSignal,console});
-  vm.runInContext(source.replace('renderPts();updateState();initMap();\nrefreshGoogleStatus();',''),context);
+  vm.runInContext(source.replace(/renderPts\(\);updateState\(\);initMap\(\);\r?\nrefreshGoogleStatus\(\);/,'').replace(/uygulamaBaslat\(\);\r?\n/,''),context);
   return {run:code=>vm.runInContext(code,context),elements};
 }
 const {run,elements}=app();
@@ -89,6 +89,32 @@ async function main(){
     const d=plain(pl.run('planData()'));
     assert.equal(d.v,1);assert.deepEqual(d.delivered,[2]);assert.deepEqual(d.route.order,[1]);
     assert.ok(!('placeCandidates' in d.stops[0])&&!('candidates' in d.stops[0].match),'büyük aday listeleri kaydedilmez');
+  }
+  // Hakediş: RutPro ucretHesapla ile aynı sonuçlar (Anadolu tek ilçe: 20 nokta / 5000 ₺, +150 ₺/nokta, %20 KDV)
+  {
+    const H=(nokta,ex={})=>plain(run(`ucretHesapla(${JSON.stringify({bolge:'anadolu',ilceSayisi:1,nokta,...ex})})`));
+    for(const [nokta,tip,net,top] of [[18,'1',5000,6000],[25,'1',5750,6900],[29,'1',6350,7620],[30,'1.5',7500,9000],[32,'1.5',7800,9360],[45,'2',10750,12900]]){
+      const h=H(nokta);assert.equal(h.rutTip,tip,nokta+' nokta rut tipi');assert.equal(h.net,net,nokta+' nokta KDVsiz');assert.equal(Math.round(h.toplam),top,nokta+' nokta toplam');
+    }
+    assert.equal(H(30,{rutTip:'1'}).net,5000+10*150,'elle 1 rut seçilirse kapasite üstü eklenir');
+    assert.equal(plain(run(`ucretHesapla({bolge:'anadolu',ilceSayisi:2,nokta:18})`)).rutTip,'1','2+ ilçede baz 18');
+    assert.equal(plain(run(`ucretHesapla({bolge:'anadolu',ilceSayisi:2,nokta:27})`)).rutTip,'1.5','2+ ilçe: 18+9=27 → 1,5 rut');
+    run(`fiyat={...fiyat,kmUcret:10}`);
+    const ek=H(18,{hammaliye:300,ekKm:20});assert.equal(ek.net,5000+200+300,'ek km ve hammaliye KDV matrahına eklenir');assert.equal(Math.round(ek.toplam),6600);
+    assert.equal(run(`ucretHesapla({bolge:'anadolu',ilceSayisi:1,nokta:0})`),null);
+    assert.equal(run(`bolgeBul(['Kadıköy','Ümraniye','Şişli'])`),'anadolu');
+    assert.equal(run(`bolgeBul(['KADIKÖY','Beşiktaş'])`),'anadolu','eşitlikte Anadolu');
+    assert.equal(run(`bolgeBul(['Bakırköy','Bağcılar','Kadıköy'])`),'avrupa2');
+  }
+  // Gün düzenleme: işareti kaldırılan (teslim edilemeyen) müşteri sayılmaz; gidilmeyen günde hakediş yok
+  {
+    run(`fiyat=JSON.parse(JSON.stringify(DEF_FIYAT))`);
+    run(`var sira=Array.from({length:31},(_,i)=>({ad:'Müşteri '+i,adres:'Adres '+i,ilce:'Kadıköy'}))`);
+    assert.equal(plain(run(`gunHesap({durum:'calisti',rota:{sira}})`)).rutTip,'1.5','31 müşteri → 1,5 rut');
+    const az=plain(run(`gunHesap({durum:'calisti',rota:{sira},haric:[musteriKey(sira[0]),musteriKey(sira[1])]})`));
+    assert.equal(az.nokta,29);assert.equal(az.rutTip,'1','2 müşteri çıkarılınca 29 → 1 rut');assert.equal(az.net,5000+9*150);
+    assert.equal(run(`gunHesap({durum:'gidilmedi',neden:'İzin',rota:{sira}})`),null);
+    assert.equal(plain(run(`gunHesap({durum:'calisti',hammaliye:200,rota:{sira:sira.slice(0,10)}})`)).net,5200);
   }
   // AVM kodlu alıcı: mağaza kodu yerine AVM adı, aynı AVM tek durak
   assert.equal(run(`mallFromCode('TUR.Ist.GS.mll.METROGARDEN.I')`),'Metrogarden');

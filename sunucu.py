@@ -6,6 +6,7 @@ import hmac
 import http.server
 import json
 import os
+import re
 import socketserver
 import threading
 import urllib.error
@@ -246,6 +247,33 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return self.reply(200, {"plan": depo.load(self.user), "backend": depo.backend()})
             except (OSError, ValueError):
                 return self.reply(502, {"error": "Kayıtlı plan okunamadı (veritabanı).", "code": "storage"})
+        if path.startswith("/api/evrak/"):
+            try:
+                item = depo.load_evrak(self.user, int(path.rsplit("/", 1)[1]))
+            except (OSError, ValueError):
+                item = None
+            if not item:
+                return self.reply(404, {"error": "Evrak bulunamadı.", "code": "not_found"})
+            self.send_response(200)
+            self.send_header("Content-Type", item[0])
+            self.send_header("Content-Length", str(len(item[1])))
+            self.end_headers()
+            return self.wfile.write(item[1])
+        if path == "/api/fiyat":
+            try:
+                return self.reply(200, {"fiyat": json.loads(depo.get_setting("fiyat") or "null")})
+            except (OSError, ValueError):
+                return self.reply(502, {"error": "Fiyat tablosu okunamadı (veritabanı).", "code": "storage"})
+        if path in ("/api/rutlar", "/api/yakitlar"):
+            ay = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query).get("ay", [""])[0]
+            if not re.fullmatch(r"\d{4}-\d{2}", ay):
+                return self.reply(400, {"error": "Ay YYYY-AA biçiminde olmalı.", "code": "invalid_request"})
+            try:
+                if path == "/api/rutlar":
+                    return self.reply(200, {"rutlar": depo.list_rutlar(self.user, ay)})
+                return self.reply(200, {"yakitlar": depo.list_yakitlar(self.user, ay)})
+            except (OSError, ValueError):
+                return self.reply(502, {"error": "Kayıtlar okunamadı (veritabanı).", "code": "storage"})
         if path == "/api/location-search":
             args = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
             provider = args.get('provider', [''])[0]
@@ -299,6 +327,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.fix_addresses()
         if path == "/api/plan":
             return self.save_plan()
+        if path in ("/api/fiyat", "/api/rut"):
+            return self.save_record(path)
+        if path == "/api/evrak":
+            return self.save_evrak()
+        if path in ("/api/yakit", "/api/yakit-sil"):
+            return self.save_fuel(path.endswith("sil"))
         if path in ("/api/trafik-matris", "/api/trafik-rota"):
             return self.traffic(path.endswith("matris"))
         if path != "/ayarlar":
@@ -347,6 +381,85 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.reply(502, {"error": str(error), "code": error.code})
         except (urllib.error.URLError, TimeoutError):
             return self.reply(502, {"error": "Gemini’ye ulaşılamadı veya zaman aşımı oluştu.", "code": "network"})
+
+    def save_fuel(self, delete):
+        """POST /api/yakit {id?, tarih, litre, tutar, km, notu} → {id};  POST /api/yakit-sil {id}."""
+        try:
+            size = int(self.headers.get("Content-Length", 0))
+            if size <= 0 or size > 16 * 1024:
+                raise ValueError()
+            body = json.loads(self.rfile.read(size))
+            if delete:
+                depo.delete_yakit(self.user, int(body["id"]))
+                self.send_response(204)
+                self.end_headers()
+                return
+            num = lambda v, lo, hi: None if v in (None, "") else (float(v) if lo <= float(v) <= hi else (_ for _ in ()).throw(ValueError()))
+            item = {"tarih": str(body["tarih"]), "litre": num(body.get("litre"), 0, 5000), "tutar": num(body["tutar"], 0, 1000000),
+                    "km": None if body.get("km") in (None, "") else int(num(body.get("km"), 0, 10000000)), "notu": str(body.get("notu") or "")[:200]}
+            if body.get("id"):
+                item["id"] = int(body["id"])
+            if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", item["tarih"]) or item["tutar"] is None:
+                raise ValueError()
+        except (ValueError, TypeError, KeyError, AttributeError):
+            return self.reply(400, {"error": "Geçersiz yakıt kaydı.", "code": "invalid_request"})
+        except OSError:
+            return self.reply(502, {"error": "Silinemedi (veritabanı).", "code": "storage"})
+        try:
+            return self.reply(200, {"id": depo.save_yakit(self.user, item)})
+        except OSError:
+            return self.reply(502, {"error": "Yakıt kaydedilemedi (veritabanı).", "code": "storage"})
+
+    def save_evrak(self):
+        """POST /api/evrak {tarih, ad, mime, data(base64)} → {id}. Fotoğraf sayfada sıkıştırılıp gönderilir."""
+        try:
+            size = int(self.headers.get("Content-Length", 0))
+            if size <= 0 or size > 6 * 1024 * 1024:
+                raise ValueError()
+            body = json.loads(self.rfile.read(size))
+            tarih, ad, mime = str(body["tarih"]), str(body.get("ad", "evrak"))[:200], str(body["mime"])
+            if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", tarih) or mime not in ("image/jpeg", "image/png", "image/webp", "text/csv",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "application/vnd.ms-excel"):
+                raise ValueError()
+            data = base64.b64decode(body["data"], validate=True)
+            if not 0 < len(data) <= 4 * 1024 * 1024:
+                raise ValueError()
+        except (ValueError, TypeError, KeyError, AttributeError):
+            return self.reply(400, {"error": "Geçersiz evrak.", "code": "invalid_request"})
+        try:
+            return self.reply(200, {"id": depo.save_evrak(self.user, tarih, ad, mime, data)})
+        except OSError:
+            return self.reply(502, {"error": "Evrak kaydedilemedi (veritabanı).", "code": "storage"})
+
+    def save_record(self, path):
+        """POST /api/fiyat {fiyat:{...}} ortak fiyat tablosu; POST /api/rut {tarih, rut:{...}|null} günlük kayıt."""
+        try:
+            size = int(self.headers.get("Content-Length", 0))
+            if size <= 0 or size > 256 * 1024:
+                raise ValueError()
+            body = json.loads(self.rfile.read(size))
+            if path == "/api/fiyat":
+                fiyat = body.get("fiyat")
+                if not isinstance(fiyat, dict) or not all(isinstance(fiyat.get(b), list) and len(fiyat[b]) == 2 for b in ("anadolu", "avrupa1", "avrupa2")):
+                    raise ValueError()
+                for b in ("anadolu", "avrupa1", "avrupa2"):
+                    for row in fiyat[b]:
+                        if not (0 < float(row["nokta"]) <= 1000 and 0 <= float(row["tl"]) <= 1000000):
+                            raise ValueError()
+                if not (0 <= float(fiyat.get("ekstraNokta", 150)) <= 100000 and 0 <= float(fiyat.get("kdv", 20)) <= 100):
+                    raise ValueError()
+                depo.set_setting("fiyat", json.dumps(fiyat, ensure_ascii=False))
+            else:
+                tarih, rut = str(body.get("tarih", "")), body.get("rut")
+                if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", tarih) or (rut is not None and not isinstance(rut, dict)):
+                    raise ValueError()
+                depo.save_rut(self.user, tarih, None if rut is None else json.dumps(rut, ensure_ascii=False))
+        except (ValueError, TypeError, KeyError, AttributeError):
+            return self.reply(400, {"error": "Geçersiz kayıt.", "code": "invalid_request"})
+        except OSError:
+            return self.reply(502, {"error": "Kaydedilemedi (veritabanı).", "code": "storage"})
+        self.send_response(204)
+        self.end_headers()
 
     def save_plan(self):
         """Kullanıcının planını kaydeder; {"plan": null} planı siler."""
