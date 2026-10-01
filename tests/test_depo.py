@@ -220,6 +220,9 @@ class PlanEndpointTests(unittest.TestCase):
         self.assertEqual(self.req('POST', '/api/yonetim/aktar', imp, ali)[0], 403)
         self.assertEqual(self.req('POST', '/api/yonetim/aktar', imp, mesut)[1], {'kullanici': 'baran', 'rut': 1, 'yakit': 1})
         self.assertEqual(self.req('POST', '/api/yonetim/aktar', imp, mesut)[1]['yakit'], 0)
+        self.assertEqual(self.req('GET', '/api/yonetim/ozet?ay=2026-09', cookie=ali)[0], 403)
+        oz = self.req('GET', '/api/yonetim/ozet?ay=2026-09', cookie=mesut)[1]['kullanicilar']
+        self.assertEqual([u['ad'] for u in oz][:2], ['mesut', 'ali'])
         app.USERS['baran'] = 'x'
         try:
             baran = 'rota_oturum=' + app.make_token('baran')

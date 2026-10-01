@@ -305,6 +305,17 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if not admin:
                 hints = {}  # anahtar ipuçları yalnızca yöneticiye (Yandex harita anahtarı tarayıcıda harita için zorunlu)
             return self.reply(200, {**data, "isAdmin": admin, "providers": configured, "hints": hints, "googleConfigured": bool(os.environ.get("GOOGLE_MAPS_API_KEY") or key), "ocrConfigured": bool(gem), "ocrHint": gem[-4:] if gem and admin else "", "user": self.user, "authOn": auth_enabled()})
+        if path == "/api/yonetim/ozet":
+            if not is_admin(self.user):
+                return self.reply(403, {"error": "Bu işlem yalnızca yönetici içindir.", "code": "forbidden"})
+            ay = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query).get("ay", [""])[0]
+            if not re.fullmatch(r"\d{4}-\d{2}", ay):
+                return self.reply(400, {"error": "Ay YYYY-AA biçiminde olmalı.", "code": "invalid_request"})
+            try:
+                rows = [{"ad": u["ad"], "rutlar": depo.list_rutlar(u["ad"], ay), "yakitlar": depo.list_yakitlar(u["ad"], ay)} for u in self.user_list()]
+                return self.reply(200, {"ay": ay, "kullanicilar": rows})
+            except (OSError, ValueError):
+                return self.reply(502, {"error": "Kayıtlar okunamadı (veritabanı).", "code": "storage"})
         if path == "/api/kullanicilar":
             if not is_admin(self.user):
                 return self.reply(403, {"error": "Bu işlem yalnızca yönetici içindir.", "code": "forbidden"})
