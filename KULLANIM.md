@@ -86,7 +86,7 @@ Görsel kontrol için `python tests/preview_ui.py` komutu kişisel veri içermey
 ## Kullanıcılar ve yönetici
 
 - Her kullanıcı yalnızca kendi planını, günlük kayıtlarını (hakediş), evraklarını, yakıtlarını ve **depo/ev konumunu** görür. Aynı telefonda farklı kullanıcıyla girilse de bilgiler karışmaz.
-- **Yönetici `aytac` hesabıdır** (Render'da `ROTA_YONETICI` ile değiştirilebilir). Yalnızca yönetici: Ayarlar → **Kullanıcılar** bölümünden kullanıcı ekler, şifresini değiştirir, siler (isterse verileriyle birlikte); API anahtarlarını ve fiyat tablosunu değiştirir. Diğer kullanıcılar fiyat tablosunu yalnızca görür.
+- **Yönetici `aytac` hesabıdır** (Render'da `ROTA_YONETICI` ile değiştirilebilir). Yalnızca yönetici: üst menüdeki **Yönetim** sayfasından kullanıcı ekler, şifresini değiştirir, siler (isterse verileriyle birlikte); API anahtarlarını ve fiyat tablosunu değiştirir. Diğer kullanıcılar fiyat tablosunu yalnızca görür.
 - `ROTA_KULLANICILAR` içindeki hesaplar "Render ayarı" olarak görünür ve yalnızca Render'dan değiştirilir. Arayüzden eklenen kullanıcılar veritabanında (şifreler PBKDF2 ile özetlenmiş olarak) saklanır.
 - Şifresi değiştirilen ya da silinen kullanıcının açık oturumları kapanır.
 

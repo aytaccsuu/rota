@@ -88,12 +88,12 @@ a{color:var(--pri);text-underline-offset:3px}.app{max-width:1340px;padding:0 30p
 .evraklar{display:flex;gap:8px;flex-wrap:wrap;margin-top:6px}.evraklar img{width:110px;height:80px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
 @media(max-width:430px){.grid2{grid-template-columns:1fr}}
 .pagenav{display:flex;gap:6px;background:#e9efec;border-radius:12px;padding:4px}.pagenav button{border:0;background:none;padding:9px 16px;border-radius:9px;font-weight:700;color:var(--mute)}.pagenav button.on{background:#fff;color:var(--ink);box-shadow:0 1px 4px #19322e1a}
-#hesapPage{max-width:1100px;margin:18px auto}
+#hesapPage,#yonetimPage{max-width:1100px;margin:18px auto}
 .seg{display:flex;gap:6px;margin:10px 0}.seg button{flex:1;padding:11px}.seg button.on{background:var(--pri);color:#fff;border-color:var(--pri)}
 .fl{display:flex;flex-direction:column;gap:3px;font-size:12px;font-weight:600;color:var(--mute);margin:8px 0}.fl input,.fl select{padding:9px 10px;border:1px solid var(--line);border-radius:9px;font:inherit;font-size:15px}
 .mlist-h{margin:14px 0 6px}.mlist{border:1px solid var(--line);border-radius:12px;max-height:420px;overflow:auto}.mlist label{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer}.mlist label:last-child{border-bottom:0}.mlist input{width:20px;height:20px;margin-top:2px;flex:none}.mlist label.off{background:#fbeeee}.mlist label.off b{text-decoration:line-through;color:var(--bad)}
 .bos-gun{padding:22px;text-align:center;border:1px dashed var(--line);border-radius:12px;margin:10px 0;color:var(--mute)}
-@media(max-width:720px){.topbar{flex-wrap:wrap}.pagenav{order:3;width:100%}.pagenav button{flex:1}}
+.brand small{white-space:nowrap}@media(max-width:900px){.topbar{flex-wrap:wrap}.pagenav{order:3;width:100%}.pagenav button{flex:1}}
 .danger{color:var(--bad);border-color:#ecc9c9}button.danger:hover:not(:disabled){background:#fbeeee;border-color:var(--bad)}
 .yform{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:end}.yform .fl{margin:0}.yform .period{width:100%}.yform input{height:42px}.tiles .tnot{display:block;font-size:10px;color:var(--mute);font-weight:400}
 @media(max-width:620px){.yform{grid-template-columns:1fr}.yform .tbtn{width:100%}}
@@ -122,7 +122,7 @@ input[type=date],input[type=month],select{min-width:0;padding:9px 10px;border:1p
 </head>
 <body>
 <div class="app">
-  <header class="topbar"><div class="brand"><div class="brand-icon"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="6" cy="6" r="2.5" stroke="currentColor" stroke-width="1.7"/><circle cx="18" cy="18" r="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M8.5 6H16a4 4 0 0 1 0 8H8a4 4 0 0 0 0 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div><div><h1>Rota Planı</h1><small>GÜNLÜK DAĞITIM ASİSTANI</small></div></div><nav class="pagenav hide-print"><button data-p="rota" class="on"><i class="ic" data-ic="map"></i> Rota</button><button data-p="hesap"><i class="ic" data-ic="wallet"></i> Hesap</button></nav><div class="top-actions"><span class="local-badge" id="userBadge">Yerel çalışma alanı</span><button id="setBtn" class="hide-print">Ayarlar</button><a id="logoutBtn" class="hide-print" href="/cikis" style="display:none;padding:9px 13px;border:1px solid var(--line);border-radius:9px;font-weight:600;text-decoration:none;color:var(--ink)">Çıkış</a></div></header>
+  <header class="topbar"><div class="brand"><div class="brand-icon"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="6" cy="6" r="2.5" stroke="currentColor" stroke-width="1.7"/><circle cx="18" cy="18" r="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M8.5 6H16a4 4 0 0 1 0 8H8a4 4 0 0 0 0 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div><div><h1>Rota Planı</h1><small>GÜNLÜK DAĞITIM ASİSTANI</small></div></div><nav class="pagenav hide-print"><button data-p="rota" class="on"><i class="ic" data-ic="map"></i> Rota</button><button data-p="hesap"><i class="ic" data-ic="wallet"></i> Hesap</button><button data-p="yonetim" class="yonetici-only"><i class="ic" data-ic="user"></i> Yönetim</button></nav><div class="top-actions"><span class="local-badge" id="userBadge">Yerel çalışma alanı</span><button id="setBtn" class="hide-print">Ayarlar</button><a id="logoutBtn" class="hide-print" href="/cikis" style="display:none;padding:9px 13px;border:1px solid var(--line);border-radius:9px;font-weight:600;text-decoration:none;color:var(--ink)">Çıkış</a></div></header>
   <div class="card" id="fileWarn" style="display:none;border-color:var(--bad);color:var(--bad)">Sayfa doğrudan dosyadan açılmış. Lütfen klasördeki <b>başlat.bat</b> ile açın; aksi halde ayarlar kaydedilmez ve adres arama çalışmaz.</div>
 
   <div class="card hide-print" id="setCard" style="display:none">
@@ -135,7 +135,6 @@ input[type=date],input[type=month],select{min-width:0;padding:9px 10px;border:1p
     <details style="margin-top:10px"><summary>İsteğe bağlı ücretli Google API</summary><div class="row"><label>Google</label><input type="password" id="gKeyIn" placeholder="Google Places API (New) anahtarı" style="flex:1;min-width:0"><button class="p" id="gKeySave">Kaydet</button></div>
     <div class="small" id="gStatus">Varsayılan arama ücretsiz Photon/OpenStreetMap kullanır.</div></details>
     </div>
-    <details class="yonetici-only" id="kulDetay" style="margin-top:10px"><summary><i class="ic" data-ic="user"></i> Kullanıcılar</summary><div id="kullaniciYonetim"></div></details>
     <details style="margin-top:10px"><summary><i class="ic" data-ic="wallet"></i> Fiyat tablosu (hakediş)</summary><div id="fiyatEditor"></div></details>
     <div class="yonetici-only">
     <div class="small" id="yWarn" role="status" style="display:none;color:var(--bad);margin-top:6px"></div><details open style="margin-top:12px"><summary>Adres servisleri ve bağlantı testleri</summary><p class="small">Kaydettiğiniz servisler adres ararken otomatik karşılaştırılır. Sorgular sağlayıcının kotasından düşer; planına göre ücret doğabilir. Anahtarlar yerel sunucuda tutulur. Google yalnızca ayrı düğmesiyle kullanılır.</p><div style="margin-top:12px"><label for="yandexKey"><b>Yandex Geocoder</b></label><div class="row"><input type="password" autocomplete="off" id="yandexKey" placeholder="Ayrı Geocoder anahtarı (boşsa harita anahtarı denenir)" style="flex:1;min-width:0"><button id="yandexSave">Kaydet</button><button id="yandexTest">Bağlantıyı test et</button><button id="yandexRemove">Kaldır</button></div><div class="small" role="status" id="yandexStatus">Anahtar kontrol ediliyor…</div></div><div style="margin-top:12px"><label for="geoapifyKey"><b>Geoapify</b></label><div class="row"><input type="password" autocomplete="off" id="geoapifyKey" placeholder="Geocoding API anahtarı" style="flex:1;min-width:0"><button id="geoapifySave">Kaydet</button><button id="geoapifyTest">Bağlantıyı test et</button><button id="geoapifyRemove">Kaldır</button></div><div class="small" role="status" id="geoapifyStatus">Anahtar kontrol ediliyor…</div></div><div style="margin-top:12px"><label for="tomtomKey"><b>TomTom</b></label><div class="row"><input type="password" autocomplete="off" id="tomtomKey" placeholder="Search API anahtarı" style="flex:1;min-width:0"><button id="tomtomSave">Kaydet</button><button id="tomtomTest">Bağlantıyı test et</button><button id="tomtomRemove">Kaldır</button></div><div class="small" role="status" id="tomtomStatus">Anahtar kontrol ediliyor…</div></div><div style="margin-top:12px"><label for="maptilerKey"><b>MapTiler</b></label><div class="row"><input type="password" autocomplete="off" id="maptilerKey" placeholder="Geocoding API anahtarı" style="flex:1;min-width:0"><button id="maptilerSave">Kaydet</button><button id="maptilerTest">Bağlantıyı test et</button><button id="maptilerRemove">Kaldır</button></div><div class="small" role="status" id="maptilerStatus">Anahtar kontrol ediliyor…</div></div><p class="small">Yandex anahtarı reddediliyorsa <a href="https://developer.tech.yandex.ru/" target="_blank" rel="noopener">Yandex geliştirici panelinde</a> Geocoder ürününü ve anahtar kısıtlarını kontrol edin. Sunucu üzerinden sorgulandığı için IP kısıtlarını da kontrol edin.</p><p class="small"><a href="https://www.geoapify.com/" target="_blank" rel="noopener">Powered by Geoapify</a> · © OpenStreetMap contributors · TomTom · MapTiler · Yandex. Her sonucun kaynağı yanında gösterilir.</p></details>
@@ -185,6 +184,13 @@ input[type=date],input[type=month],select{min-width:0;padding:9px 10px;border:1p
   </details>
 </main></div>
   </div>
+
+  <section id="yonetimPage" class="yonetici-only" hidden>
+    <div class="card">
+      <h2><i class="ic" data-ic="user"></i> Kullanıcılar</h2>
+      <div id="kullaniciYonetim"></div>
+    </div>
+  </section>
 
   <section id="hesapPage" hidden>
     <div class="card">
@@ -1302,10 +1308,12 @@ async function renderKullanicilar(liste){
 // ---------- sayfa geçişi: 1) Rota  2) Hesap ----------
 const hesapSayfasiAcik=()=>!$('hesapPage').hidden;
 function sayfaAc(p){
-  $('rotaPage').hidden=p!=='rota';$('hesapPage').hidden=p!=='hesap';
+  if(p==='yonetim'&&!OTURUM.admin)p='rota';
+  $('rotaPage').hidden=p!=='rota';$('hesapPage').hidden=p!=='hesap';$('yonetimPage').hidden=p!=='yonetim';
   document.querySelectorAll('.pagenav button').forEach(b=>b.classList.toggle('on',b.dataset.p===p));
   try{localStorage.setItem('rota_sayfa',p)}catch(e){}
   if(p==='hesap')renderHesap();
+  if(p==='yonetim')renderKullanicilar();
   window.scrollTo(0,0);
 }
 function hesapSekme(t){
@@ -1729,7 +1737,6 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'){stopPick();closePic
 
 // ayarlar: anahtar bir kez kaydedilir, sonra gizli kalır
 $('setBtn').onclick=()=>{const c=$('setCard');c.style.display=c.style.display==='none'?'block':'none'};
-$('kulDetay').addEventListener('toggle',()=>{if($('kulDetay').open)renderKullanicilar()});
 $('yKeyIn').value=yKey;
 $('yKeySave').onclick=async()=>{const k=$('yKeyIn').value.trim();if(!k)return;try{const r=await fetch('/ayarlar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ykey:k})});if(!r.ok)throw new Error();yKey=k;localStorage.setItem('ykey',JSON.stringify(k));location.reload()}catch(e){$('yWarn').style.display='block';$('yWarn').textContent='Anahtar kaydedilemedi. Yerel sunucuyu kontrol edin.'}};
 async function refreshGoogleStatus(){
@@ -1773,7 +1780,7 @@ renderEmpty();
 function uygulamaBaslat(){
   document.querySelectorAll('.pagenav button').forEach(b=>b.onclick=()=>sayfaAc(b.dataset.p));
   document.querySelectorAll('#hesapPage .tabs button').forEach(b=>b.onclick=()=>hesapSekme(b.dataset.t));
-  let ilk='rota';try{ilk=localStorage.getItem('rota_sayfa')==='hesap'?'hesap':'rota'}catch(e){}
+  let ilk='rota';try{ilk=['hesap','yonetim'].includes(localStorage.getItem('rota_sayfa'))?localStorage.getItem('rota_sayfa'):'rota'}catch(e){}
   fiyatYukle().then(()=>restorePlan()).then(()=>sayfaAc(ilk));
 }
 uygulamaBaslat();
