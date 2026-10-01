@@ -1202,9 +1202,10 @@ function planMusteriler(){
 function gunHesap(k){
   if(!k||k.durum==='gidilmedi')return null;
   const sira=k.rota?.sira||[],haric=new Set(k.haric||[]),teslim=sira.filter(m=>!haric.has(musteriKey(m)));
-  const ilceler=[...new Set(teslim.map(m=>m.ilce).filter(Boolean))];
+  const liste=!sira.length&&k.nokta>0;
+  const ilceler=liste?[...new Set(k.ilceler||[])]:[...new Set(teslim.map(m=>m.ilce).filter(Boolean))];
   const bolge=bolgeBul(ilceler)||k.rota?.bolge||'anadolu';
-  return ucretHesapla({bolge,ilceSayisi:ilceler.length||1,nokta:teslim.length,hammaliye:k.hammaliye,ekKm:k.ekKm});
+  return ucretHesapla({bolge,ilceSayisi:ilceler.length||1,nokta:liste?+k.nokta:teslim.length,hammaliye:k.hammaliye,ekKm:k.ekKm});
 }
 async function apiJSON(url,body){
   const r=await fetch(url,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
@@ -1386,6 +1387,7 @@ async function renderGun(){
   el.innerHTML=ust+`<div class="seg"><button data-d="calisti" class="${gid?'':'on'}"><i class="ic" data-ic="check"></i> Çalıştı</button><button data-d="gidilmedi" class="${gid?'on':''}"><i class="ic" data-ic="x"></i> İşe gidilmedi</button></div>
     ${gid?`<label class="fl">Neden<select id="gNeden">${NEDENLER.map(n=>`<option ${n===k.neden?'selected':''}>${n}</option>`).join('')}</select></label>`:`
     <div class="grid2"><label>Hammaliye (₺)<input type="text" inputmode="decimal" autocomplete="off" id="gHam" value="${k.hammaliye||''}" placeholder="ör. 350"></label><label>Ek km<input type="text" inputmode="decimal" autocomplete="off" id="gKm" value="${k.ekKm||''}" placeholder="ör. 25"></label></div>
+    ${!sira.length&&k.nokta?`<div class="grid2"><label>Müşteri sayısı<input type="text" inputmode="numeric" autocomplete="off" id="gNokta" value="${k.nokta}"></label><label>İlçeler<input type="text" autocomplete="off" id="gIlce" value="${esc((k.ilceler||[]).join(', '))}" placeholder="ör. Kadıköy, Maltepe"></label></div><div class="small" style="margin-top:4px">Bu günün müşteri listesi yok${k.kaynak?' ('+esc(k.kaynak)+' kaydı)':''}; hesap müşteri sayısı ve ilçelerle yapılır.</div>`:''}
     <div id="gHesap"></div>
     ${k.rota?`<div class="mlist-h"><b><i class="ic" data-ic="map"></i> Rota</b>${k.rota.olusturma?` <span class="small">${new Date(k.rota.olusturma).toLocaleString('tr-TR',{dateStyle:'short',timeStyle:'short'})} itibarıyla</span>`:''}</div>${rotaOzetHTML(k.rota)}${k.rota.yandex?`<div class="row"><a href="${k.rota.yandex}" target="_blank" rel="noopener"><button><i class="ic" data-ic="nav"></i> Bu rotayı Yandex’te aç</button></a></div>`:''}`:''}
     ${sira.length?`<div class="mlist-h"><b>Müşteriler</b> <span class="small">Teslim edilemeyen veya evrakta olup alınmayan müşterinin işaretini kaldırın.</span></div>
@@ -1393,7 +1395,7 @@ async function renderGun(){
     <label class="fl">Not<input type="text" id="gNot" value="${esc(k.notu||'')}" placeholder="isteğe bağlı"></label>
     <div class="small" id="gMsg">Değişiklikler otomatik kaydedilir.</div><div id="gEk"></div>`;
   const read=()=>({...k,haric:[...el.querySelectorAll('.mlist input[type=checkbox]')].filter(c=>!c.checked).map(c=>c.dataset.k),
-    hammaliye:sayiOku($('gHam')?.value),ekKm:sayiOku($('gKm')?.value),neden:$('gNeden')?.value||k.neden||null,notu:$('gNot').value.trim()});
+    hammaliye:sayiOku($('gHam')?.value),ekKm:sayiOku($('gKm')?.value),...($('gNokta')?{nokta:Math.round(sayiOku($('gNokta').value)),ilceler:$('gIlce').value.split(',').map(x=>x.trim()).filter(Boolean)}:{}),neden:$('gNeden')?.value||k.neden||null,notu:$('gNot').value.trim()});
   const show=()=>{
     if(gid)return;const h=gunHesap(read());
     $('gHesap').innerHTML=!h?'<div class="small" style="color:var(--warn)">Teslim edilen müşteri yok.</div>':
