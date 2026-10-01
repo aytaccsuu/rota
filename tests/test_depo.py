@@ -165,6 +165,10 @@ class PlanEndpointTests(unittest.TestCase):
         self.assertEqual((r.status, r.getheader('Content-Type'), body), (200, 'image/jpeg', b'JPEGDATA'))
         self.assertEqual(self.req('GET', '/api/evrak/%d' % eid, cookie=ali)[0], 404)
         self.assertEqual(self.req('POST', '/api/evrak', {'tarih': '2026-10-01', 'ad': 'x', 'mime': 'text/html', 'data': 'aGk='}, mesut)[0], 400)
+        # rota silme: günün kaydı ve evrakları birlikte silinir, başka gün etkilenmez
+        self.assertEqual(self.req('POST', '/api/rut', {'tarih': '2026-10-01', 'rut': None, 'evraklar': 'sil'}, mesut)[0], 204)
+        self.assertEqual([r['tarih'] for r in self.req('GET', '/api/rutlar?ay=2026-10', cookie=mesut)[1]['rutlar']], ['2026-10-02'])
+        self.assertEqual(self.req('GET', '/api/evrak/%d' % eid, cookie=mesut)[0], 404)
 
 
 

@@ -285,6 +285,22 @@ def save_evrak(user, tarih, ad, mime, data):
     return new_id
 
 
+def delete_evraklar(user, tarih):
+    """O günün bütün evraklarını siler (rota silinince)."""
+    if _url():
+        _run("DELETE FROM evraklar WHERE kullanici = %s AND tarih = %s", (_safe(user), tarih))
+        return
+    index_path = _file("_evrak_" + _safe(user) + ".json")
+    index = json.load(open(index_path, encoding="utf-8")) if os.path.exists(index_path) else []
+    for e in index:
+        if e["tarih"] == tarih:
+            path = _file("_evrak_%s_%d.bin" % (_safe(user), e["id"]))
+            if os.path.exists(path):
+                os.remove(path)
+    with open(index_path, "w", encoding="utf-8") as f:
+        json.dump([e for e in index if e["tarih"] != tarih], f, ensure_ascii=False)
+
+
 def load_evrak(user, evrak_id):
     """(mime, bytes) — yalnızca kendi evrakı; yoksa None."""
     if _url():

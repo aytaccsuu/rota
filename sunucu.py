@@ -432,7 +432,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.reply(502, {"error": "Evrak kaydedilemedi (veritabanı).", "code": "storage"})
 
     def save_record(self, path):
-        """POST /api/fiyat {fiyat:{...}} ortak fiyat tablosu; POST /api/rut {tarih, rut:{...}|null} günlük kayıt."""
+        """POST /api/fiyat {fiyat:{...}} ortak fiyat tablosu; POST /api/rut {tarih, rut:{...}|null, evraklar?:"sil"} günlük kayıt."""
         try:
             size = int(self.headers.get("Content-Length", 0))
             if size <= 0 or size > 256 * 1024:
@@ -454,6 +454,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", tarih) or (rut is not None and not isinstance(rut, dict)):
                     raise ValueError()
                 depo.save_rut(self.user, tarih, None if rut is None else json.dumps(rut, ensure_ascii=False))
+                if rut is None and body.get("evraklar") == "sil":
+                    depo.delete_evraklar(self.user, tarih)
         except (ValueError, TypeError, KeyError, AttributeError):
             return self.reply(400, {"error": "Geçersiz kayıt.", "code": "invalid_request"})
         except OSError:
