@@ -215,6 +215,19 @@ class PlanEndpointTests(unittest.TestCase):
         self.assertEqual(self.req('POST', '/api/kullanici-sil', {'ad': 'veli', 'veriler': True}, mesut)[0], 200)
         self.assertEqual(self.req('GET', '/api/plan', cookie=veli)[0], 401)
         self.assertIsNone(self.login('veli', 'Yeni-4567'))
+        # yönetici başka kullanıcıya kayıt aktarır; yakıt tekrar eklenmez
+        imp = {'kullanici': 'baran', 'rutlar': [{'tarih': '2026-09-01', 'rut': {'durum': 'calisti', 'nokta': 19}}], 'yakitlar': [{'tarih': '2026-09-02', 'tutar': 1500}]}
+        self.assertEqual(self.req('POST', '/api/yonetim/aktar', imp, ali)[0], 403)
+        self.assertEqual(self.req('POST', '/api/yonetim/aktar', imp, mesut)[1], {'kullanici': 'baran', 'rut': 1, 'yakit': 1})
+        self.assertEqual(self.req('POST', '/api/yonetim/aktar', imp, mesut)[1]['yakit'], 0)
+        app.USERS['baran'] = 'x'
+        try:
+            baran = 'rota_oturum=' + app.make_token('baran')
+            self.assertEqual(self.req('GET', '/api/rutlar?ay=2026-09', cookie=baran)[1]['rutlar'][0]['nokta'], 19)
+            self.assertEqual(len(self.req('GET', '/api/yakitlar?ay=2026-09', cookie=baran)[1]['yakitlar']), 1)
+            self.assertEqual(self.req('GET', '/api/rutlar?ay=2026-09', cookie=ali)[1]['rutlar'], [])
+        finally:
+            del app.USERS['baran']
         app.USERS['veli'] = 'x'
         try:
             self.assertEqual(self.req('GET', '/api/rutlar?ay=2026-10', cookie='rota_oturum=' + app.make_token('veli'))[1]['rutlar'], [], 'verileri de silindi')

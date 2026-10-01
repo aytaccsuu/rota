@@ -399,6 +399,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.save_plan()
         if path in ("/api/kullanici", "/api/kullanici-sil"):
             return self.manage_user(path.endswith("sil"))
+        if path == "/api/yonetim/aktar":
+            return self.import_records()
         if path == "/api/fiyat" and not is_admin(self.user):
             self.drain_body()
             return self.reply(403, {"error": "Fiyat tablosunu yalnızca yönetici değiştirebilir.", "code": "forbidden"})
@@ -463,6 +465,42 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         rows += [{"ad": n, "sabit": False, "yonetici": n in admins(), "olusturma": v.get("olusturma")}
                  for n, v in db_users(fresh=True).items() if n not in USERS]
         return rows
+
+    def import_records(self):
+        """Yönetici: başka bir kullanıcının hesabına günlük kayıt ve yakıt aktarır (ör. RutPro dışa aktarımı).
+        {kullanici, rutlar:[{tarih, rut}], yakitlar:[{tarih, tutar}]} — aynı günün kaydı güncellenir, aynı tarih+tutarlı yakıt tekrar eklenmez."""
+        if not is_admin(self.user):
+            self.drain_body()
+            return self.reply(403, {"error": "Bu işlem yalnızca yönetici içindir.", "code": "forbidden"})
+        try:
+            size = int(self.headers.get("Content-Length", 0))
+            if size <= 0 or size > 2 * 1024 * 1024:
+                raise ValueError()
+            body = json.loads(self.rfile.read(size))
+            name = str(body.get("kullanici", "")).strip().casefold()
+            if not (name in USERS or USER_NAME.fullmatch(name)):
+                raise ValueError()
+            day = re.compile(r"\d{4}-\d{2}-\d{2}")
+            rutlar = [(str(r["tarih"]), r["rut"]) for r in body.get("rutlar", [])]
+            yakitlar = [(str(y["tarih"]), float(y["tutar"])) for y in body.get("yakitlar", [])]
+            if any(not day.fullmatch(t) or not isinstance(r, dict) for t, r in rutlar) or any(not day.fullmatch(t) or not 0 < v <= 1000000 for t, v in yakitlar):
+                raise ValueError()
+            for t, r in rutlar:
+                depo.save_rut(name, t, json.dumps(r, ensure_ascii=False))
+            known, added = {}, 0
+            for t, v in yakitlar:
+                ay = t[:7]
+                if ay not in known:
+                    known[ay] = {(y["tarih"], round(float(y["tutar"]), 2)) for y in depo.list_yakitlar(name, ay)}
+                if (t, round(v, 2)) not in known[ay]:
+                    depo.save_yakit(name, {"tarih": t, "tutar": v, "litre": None, "km": None, "notu": "aktarım"})
+                    known[ay].add((t, round(v, 2)))
+                    added += 1
+        except (ValueError, TypeError, KeyError, AttributeError):
+            return self.reply(400, {"error": "Geçersiz aktarım.", "code": "invalid_request"})
+        except OSError:
+            return self.reply(502, {"error": "Kaydedilemedi (veritabanı).", "code": "storage"})
+        return self.reply(200, {"kullanici": name, "rut": len(rutlar), "yakit": added})
 
     def manage_user(self, delete):
         """Yönetici: POST /api/kullanici {ad, sifre} ekler/şifre değiştirir; /api/kullanici-sil {ad, veriler} siler."""

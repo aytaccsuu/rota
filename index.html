@@ -1225,7 +1225,7 @@ function gunHesap(k){
   const liste=!sira.length&&k.nokta>0;
   const ilceler=liste?[...new Set(k.ilceler||[])]:[...new Set(teslim.map(m=>m.ilce).filter(Boolean))];
   const bolge=bolgeBul(ilceler)||k.rota?.bolge||'anadolu';
-  return ucretHesapla({bolge,ilceSayisi:ilceler.length||1,nokta:liste?+k.nokta:teslim.length,hammaliye:k.hammaliye,ekKm:k.ekKm});
+  return ucretHesapla({bolge,ilceSayisi:ilceler.length||1,nokta:liste?+k.nokta:teslim.length,rutTip:k.rutTip||undefined,hammaliye:k.hammaliye,ekKm:k.ekKm});
 }
 async function apiJSON(url,body){
   const r=await fetch(url,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
