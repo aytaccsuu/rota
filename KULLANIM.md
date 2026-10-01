@@ -78,7 +78,7 @@ Görsel kontrol için `python tests/preview_ui.py` komutu kişisel veri içermey
 
 - **Gün kaydı kendiliğinden oluşur:** Rota sayfasında evrak yüklenip rota hesaplanınca o günün kaydı veritabanına yazılır: rota sırası, her müşterinin adresi, mahallesi, sipariş no, koli, önceki duraktan km/dk, tahmini varış, toplam km/süre, Yandex rota bağlantısı ve yüklenen evrak görselleri.
 - **📝 Gün:** Tarih seçilerek geçmiş bir günün rotası, müşterileri ve evrakı görülür. Yalnızca düzeltme yapılır: teslim edilemeyen/alınmayan müşterinin işareti kaldırılır (müşteri sayısı ve hakediş düşer), hammaliye ve ek km girilir, gün “İşe gidilmedi” yapılabilir. Değişiklikler otomatik kaydedilir. **📄 PDF** o günün raporunu açar.
-- **⛽ Yakıt:** Yalnızca tarih ve tutar (₺).
+- **⛽ Yakıt:** Yalnızca tarih ve tutar (₺). Ayın toplam yakıtı, çalışılan gün ve **günlük tahmini yakıt** (toplam yakıt ÷ çalışılan gün; işe gidilmeyen günler sayılmaz) burada ve Özet'te gösterilir.
 - **📊 Özet:** Ayın her günü bir satır (durum, müşteri, bölge, rut, rut ücreti, ek km, hammaliye, KDV, toplam, yakıt) ve toplamlar. Bir satıra dokununca o gün açılır. **📄 PDF** yalnızca aylık tabloyu içerir; yazdır penceresinde “PDF olarak kaydet” seçilir. **CSV** de indirilebilir.
 - **Fiyat tablosu** Ayarlar → “💰 Fiyat tablosu” bölümündedir (bölge baz nokta/₺, kapasite üstü nokta ücreti, ek km ücreti, KDV). Hammaliye ve ek km KDV matrahına dahildir.
 - **Rotayı silmek:** Rota sayfasında sonuç düğmelerinin sonundaki **Rotayı sil** ya da Hesap → Gün'deki **Sil** düğmesi; o günün rota sırası, müşteri listesi, hakediş kaydı ve evrak görselleri kalıcı olarak silinir (onay sorulur). Silinen gün bugünkü plansa Rota sayfası da temizlenir.

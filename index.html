@@ -95,6 +95,8 @@ a{color:var(--pri);text-underline-offset:3px}.app{max-width:1340px;padding:0 30p
 .bos-gun{padding:22px;text-align:center;border:1px dashed var(--line);border-radius:12px;margin:10px 0;color:var(--mute)}
 @media(max-width:720px){.topbar{flex-wrap:wrap}.pagenav{order:3;width:100%}.pagenav button{flex:1}}
 .danger{color:var(--bad);border-color:#ecc9c9}button.danger:hover:not(:disabled){background:#fbeeee;border-color:var(--bad)}
+.yform{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:end}.yform .fl{margin:0}.yform .period{width:100%}.yform input{height:42px}.tiles .tnot{display:block;font-size:10px;color:var(--mute);font-weight:400}
+@media(max-width:620px){.yform{grid-template-columns:1fr}.yform .tbtn{width:100%}}
 .htool{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 14px}.htool .acts{margin-left:auto;display:flex;gap:8px}
 .period{position:relative;display:inline-flex;align-items:stretch;height:42px;border:1px solid var(--line);border-radius:10px;background:#fff}
 .period .pnav{border:0;border-radius:0;padding:0 11px;background:none;color:var(--mute);display:flex;align-items:center}.period .pnav:first-child{border-radius:9px 0 0 9px}.period .pnav:last-child{border-radius:0 9px 9px 0}.period .pnav:hover:not(:disabled){background:#edf5f1;color:var(--ink)}
@@ -1313,7 +1315,7 @@ let donemKapat=null;
 function donemBagla(id,onChange){
   const inp=$(id);if(!inp)return;
   const box=inp.closest('.period'),type=box.dataset.type,iso=d=>d.toLocaleDateString('sv-SE');
-  const sec=v=>{if(donemKapat)donemKapat();inp.value=v;onChange(v)};
+  const sec=v=>{if(donemKapat)donemKapat();inp.value=v;box.querySelector('.plabel span').textContent=donemEtiket(type,v);onChange(v)};
   const kaydir=d=>{const [y,m,g]=inp.value.split('-').map(Number);sec(type==='month'?iso(new Date(y,m-1+d,1)).slice(0,7):iso(new Date(y,m-1,g+d)))};
   box.querySelectorAll('.pnav').forEach(b=>b.onclick=()=>kaydir(+b.dataset.d));
   box.querySelector('.plabel').onclick=e=>{
@@ -1414,20 +1416,26 @@ async function renderGun(){
   $('gPdf').onclick=()=>pdfAc('Gün raporu · '+trTarih(t),gunPdfHTML(t,read()));
 }
 
+// Günlük tahmini yakıt = ayın toplam yakıtı ÷ çalışılan gün (işe gidilmeyen günler sayılmaz)
+const calisilanGun=rutlar=>rutlar.filter(r=>r.durum!=='gidilmedi').length;
+const gunlukYakit=(toplam,gun)=>gun>0?toplam/gun:0;
+
 // ---------- Yakıt: tarih ve tutar ----------
 async function renderYakit(){
   const el=$('hesap_yakit'),ay=ozetAy||todayISO().slice(0,7);
-  el.innerHTML=`<div class="grid2"><label>Tarih<input type="date" id="yTarih" value="${todayISO()}"></label><label>Tutar (₺)<input type="number" min="0" step="0.01" id="yTutar" inputmode="decimal" placeholder="ör. 2500"></label></div>
-    <div class="row"><button class="p tbtn" id="yEkle"><i class="ic" data-ic="fuel"></i> Yakıt ekle</button><span class="small" id="yMsg"></span></div>
-    <div class="htool" style="margin-top:18px">${donemHTML('yAy','month',ay)}</div><div id="yListe" class="small">Yükleniyor…</div>`;
+  el.innerHTML=`<div class="yform"><div class="fl">Tarih${donemHTML('yTarih','date',todayISO())}</div><label class="fl">Tutar (₺)<input type="text" inputmode="decimal" autocomplete="off" id="yTutar" placeholder="ör. 2500"></label><button class="p tbtn" id="yEkle"><i class="ic" data-ic="fuel"></i> Yakıt ekle</button></div>
+    <div class="small" id="yMsg"></div>
+    <div class="htool" style="margin-top:18px">${donemHTML('yAy','month',ay)}</div><div id="yOzet"></div><div id="yListe" class="small">Yükleniyor…</div>`;
   donemBagla('yAy',v=>{ozetAy=v;renderYakit()});
+  donemBagla('yTarih',()=>{});
   $('yEkle').onclick=async()=>{
-    const item={tarih:$('yTarih').value,tutar:$('yTutar').value};
+    const item={tarih:$('yTarih').value,tutar:sayiOku($('yTutar').value)};
     if(!item.tarih||!(+item.tutar>0)){$('yMsg').textContent='Tarih ve tutar gerekli.';return}
     try{await apiJSON('/api/yakit',item);delete ayCache[item.tarih.slice(0,7)];ozetAy=item.tarih.slice(0,7);renderYakit()}catch(e){$('yMsg').textContent='Kaydedilemedi: '+e.message}
   };
   try{
-    const {yakitlar}=await ayYukle(ay,true),top=yakitlar.reduce((a,y)=>a+y.tutar,0);
+    const {yakitlar,rutlar}=await ayYukle(ay,true),top=yakitlar.reduce((a,y)=>a+y.tutar,0),gun=calisilanGun(rutlar);
+    $('yOzet').innerHTML=`<div class="tiles"><div><b>${tl(top)}</b>bu ay alınan yakıt</div><div><b>${gun}</b>çalışılan gün</div><div><b>${gun?tl(gunlukYakit(top,gun)):'—'}</b>günlük tahmini yakıt</div></div>`;
     $('yListe').innerHTML=yakitlar.length?`<table class="otab"><tr><th>Tarih</th><th>Tutar</th><th></th></tr>${yakitlar.map(y=>`<tr><td>${trTarih(y.tarih)}</td><td>${tl(y.tutar)}</td><td><button class="copy" data-sil="${y.id}" title="Sil"><i class="ic" data-ic="x"></i></button></td></tr>`).join('')}<tr class="tot"><td>Toplam</td><td>${tl(top)}</td><td></td></tr></table>`:'Bu ay yakıt kaydı yok.';
     $('yListe').querySelectorAll('[data-sil]').forEach(b=>b.onclick=async()=>{if(!confirm('Bu yakıt kaydı silinsin mi?'))return;await apiJSON('/api/yakit-sil',{id:+b.dataset.sil});renderYakit()});
   }catch(e){$('yListe').textContent='Okunamadı: '+e.message}
@@ -1450,7 +1458,7 @@ async function renderOzet(){
   }
   const n=x=>x?Math.round(x).toLocaleString('tr-TR'):'',AY_ADI=['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
   const durum=r=>!r?'<span class="dim">—</span>':r.durum==='gidilmedi'?`<span class="no">✗ ${esc(r.neden||'Gidilmedi')}</span>`:'<span class="ok">✓</span>';
-  $('oTablo').innerHTML=`<div class="tiles"><div><b>${T.calisti}</b>çalışılan gün</div><div><b>${T.gidilmedi}</b>gidilmeyen gün</div><div><b>${tl(T.top)}</b>hakediş (KDV dahil)</div><div><b>${tl(T.yakit)}</b>yakıt</div><div><b>${tl(T.top-T.yakit)}</b>hakediş − yakıt</div></div>
+  $('oTablo').innerHTML=`<div class="tiles"><div><b>${T.calisti}</b>çalışılan gün</div><div><b>${T.gidilmedi}</b>gidilmeyen gün</div><div><b>${tl(T.top)}</b>hakediş (KDV dahil)</div><div><b>${tl(T.yakit)}</b>yakıt</div><div><b>${T.calisti?tl(gunlukYakit(T.yakit,T.calisti)):'—'}</b>günlük tahmini yakıt${T.calisti?` <span class="tnot">(${tl(T.yakit)} ÷ ${T.calisti} gün)</span>`:''}</div><div><b>${tl(T.top-T.yakit)}</b>hakediş − yakıt</div></div>
   <div class="otab-wrap"><table class="otab" id="ozetTablo"><tr><th>Gün</th><th>Durum</th><th>Müşteri</th><th>Bölge</th><th>Rut</th><th>Rut ücreti</th><th>Ek km</th><th>Hammaliye</th><th>KDV’siz</th><th>KDV</th><th>Toplam</th><th>Yakıt</th></tr>
   ${rows.map(({t,d,r,h,yk})=>`<tr data-t="${t}" class="${!r?'bos':''}"><td>${String(d).padStart(2,'0')} ${GUN_ADI[new Date(Y,M-1,d).getDay()]}</td><td>${durum(r)}</td><td>${h?h.nokta:''}</td><td>${h?BOLGE_KISA[h.bolge]:''}</td><td>${h?String(h.rutTip).replace('.',','):''}</td><td>${n(h&&h.rutUcret+h.ekstraTl)}</td><td>${h&&h.ekKm?h.ekKm+' km / '+n(h.ekKmTl):''}</td><td>${n(h?.hammaliye)}</td><td>${n(h?.net)}</td><td>${n(h?.kdv)}</td><td><b>${n(h?.toplam)}</b></td><td>${n(yk)}</td></tr>`).join('')}
   <tr class="tot"><td>Toplam</td><td>${T.calisti} ✓ / ${T.gidilmedi} ✗</td><td>${T.nokta||''}</td><td></td><td></td><td>${n(T.rut)}</td><td>${T.ekKm?T.ekKm+' km / '+n(T.ekKmTl):''}</td><td>${n(T.ham)}</td><td>${n(T.net)}</td><td>${n(T.kdv)}</td><td><b>${n(T.top)}</b></td><td>${n(T.yakit)}</td></tr></table></div>
@@ -1460,6 +1468,7 @@ async function renderOzet(){
     const head=['Tarih','Durum','Neden','Müşteri','Bölge','Rut','Rut ücreti','Ek km','Ek km ₺','Hammaliye','KDV’siz','KDV','Toplam','Yakıt','Not'];
     const lines=rows.map(({t,r,h,yk})=>[trTarih(t),r?(r.durum==='gidilmedi'?'Gidilmedi':'Çalıştı'):'',r?.neden||'',h?h.nokta:'',h?BOLGE_ADI[h.bolge]:'',h?String(h.rutTip).replace('.',','):'',h?Math.round(h.rutUcret+h.ekstraTl):'',h?.ekKm||'',h?Math.round(h.ekKmTl):'',h?Math.round(h.hammaliye):'',h?Math.round(h.net):'',h?Math.round(h.kdv):'',h?Math.round(h.toplam):'',yk?Math.round(yk):'',r?.notu||'']);
     lines.push(['TOPLAM',T.calisti+' çalışılan / '+T.gidilmedi+' gidilmeyen','',T.nokta,'','',Math.round(T.rut),T.ekKm,Math.round(T.ekKmTl),Math.round(T.ham),Math.round(T.net),Math.round(T.kdv),Math.round(T.top),Math.round(T.yakit),'']);
+    lines.push(['Günlük tahmini yakıt','','','','','','','','','','','','',T.calisti?Math.round(gunlukYakit(T.yakit,T.calisti)):'',T.calisti?'toplam yakıt ÷ '+T.calisti+' çalışılan gün':'']);
     const csv='﻿'+[head,...lines].map(l=>l.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(';')).join('\r\n');
     const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='ozet-'+ay+'.csv';a.click();
   };
