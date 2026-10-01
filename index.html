@@ -94,22 +94,23 @@ a{color:var(--pri);text-underline-offset:3px}.app{max-width:1340px;padding:0 30p
 .mlist-h{margin:14px 0 6px}.mlist{border:1px solid var(--line);border-radius:12px;max-height:420px;overflow:auto}.mlist label{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer}.mlist label:last-child{border-bottom:0}.mlist input{width:20px;height:20px;margin-top:2px;flex:none}.mlist label.off{background:#fbeeee}.mlist label.off b{text-decoration:line-through;color:var(--bad)}
 .bos-gun{padding:22px;text-align:center;border:1px dashed var(--line);border-radius:12px;margin:10px 0;color:var(--mute)}
 @media(max-width:720px){.topbar{flex-wrap:wrap}.pagenav{order:3;width:100%}.pagenav button{flex:1}}
+.ic{display:inline-flex;width:1.1em;height:1.1em;vertical-align:-.18em;flex:none}.ic svg{width:100%;height:100%}
 </style>
 </head>
 <body>
 <div class="app">
-  <header class="topbar"><div class="brand"><div class="brand-icon"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="6" cy="6" r="2.5" stroke="currentColor" stroke-width="1.7"/><circle cx="18" cy="18" r="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M8.5 6H16a4 4 0 0 1 0 8H8a4 4 0 0 0 0 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div><div><h1>Rota Planı</h1><small>GÜNLÜK DAĞITIM ASİSTANI</small></div></div><nav class="pagenav hide-print"><button data-p="rota" class="on">🗺 Rota</button><button data-p="hesap">💰 Hesap</button></nav><div class="top-actions"><span class="local-badge" id="userBadge">Yerel çalışma alanı</span><button id="setBtn" class="hide-print">Ayarlar</button><a id="logoutBtn" class="hide-print" href="/cikis" style="display:none;padding:9px 13px;border:1px solid var(--line);border-radius:9px;font-weight:600;text-decoration:none;color:var(--ink)">Çıkış</a></div></header>
+  <header class="topbar"><div class="brand"><div class="brand-icon"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="6" cy="6" r="2.5" stroke="currentColor" stroke-width="1.7"/><circle cx="18" cy="18" r="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M8.5 6H16a4 4 0 0 1 0 8H8a4 4 0 0 0 0 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div><div><h1>Rota Planı</h1><small>GÜNLÜK DAĞITIM ASİSTANI</small></div></div><nav class="pagenav hide-print"><button data-p="rota" class="on"><i class="ic" data-ic="map"></i> Rota</button><button data-p="hesap"><i class="ic" data-ic="wallet"></i> Hesap</button></nav><div class="top-actions"><span class="local-badge" id="userBadge">Yerel çalışma alanı</span><button id="setBtn" class="hide-print">Ayarlar</button><a id="logoutBtn" class="hide-print" href="/cikis" style="display:none;padding:9px 13px;border:1px solid var(--line);border-radius:9px;font-weight:600;text-decoration:none;color:var(--ink)">Çıkış</a></div></header>
   <div class="card" id="fileWarn" style="display:none;border-color:var(--bad);color:var(--bad)">Sayfa doğrudan dosyadan açılmış. Lütfen klasördeki <b>başlat.bat</b> ile açın; aksi halde ayarlar kaydedilmez ve adres arama çalışmaz.</div>
 
   <div class="card hide-print" id="setCard" style="display:none">
-    <h2>⚙ Ayarlar</h2>
+    <h2><i class="ic" data-ic="settings"></i> Ayarlar</h2>
     <div class="row"><label>Yandex</label><input type="password" id="yKeyIn" placeholder="Yandex JavaScript API anahtarı"><button class="p" id="yKeySave">Kaydet</button></div>
     <div class="small">Anahtar bir kez kaydedilir, tekrar sorulmaz. Harita için gerekir.</div>
     <div class="row" style="margin-top:10px"><label>Gemini</label><input type="password" autocomplete="off" id="gemKeyIn" placeholder="Fotoğraf okuma için Google Gemini anahtarı" style="flex:1;min-width:0"><button class="p" id="gemKeySave">Kaydet</button><button id="gemKeyRemove">Kaldır</button></div>
     <div class="small" id="gemStatus">Evrak fotoğrafları yapay zekâ ile okunur. Anahtar yoksa daha az isabetli yerel okuyucu kullanılır. Not: Gemini ücretsiz planında Google gönderilen içeriği ürün geliştirmede kullanabilir.</div>
     <details style="margin-top:10px"><summary>İsteğe bağlı ücretli Google API</summary><div class="row"><label>Google</label><input type="password" id="gKeyIn" placeholder="Google Places API (New) anahtarı" style="flex:1;min-width:0"><button class="p" id="gKeySave">Kaydet</button></div>
     <div class="small" id="gStatus">Varsayılan arama ücretsiz Photon/OpenStreetMap kullanır.</div></details>
-    <details style="margin-top:10px"><summary>💰 Fiyat tablosu (hakediş)</summary><div id="fiyatEditor"></div></details>
+    <details style="margin-top:10px"><summary><i class="ic" data-ic="wallet"></i> Fiyat tablosu (hakediş)</summary><div id="fiyatEditor"></div></details>
     <div class="small" id="yWarn" role="status" style="display:none;color:var(--bad);margin-top:6px"></div><details open style="margin-top:12px"><summary>Adres servisleri ve bağlantı testleri</summary><p class="small">Kaydettiğiniz servisler adres ararken otomatik karşılaştırılır. Sorgular sağlayıcının kotasından düşer; planına göre ücret doğabilir. Anahtarlar yerel sunucuda tutulur. Google yalnızca ayrı düğmesiyle kullanılır.</p><div style="margin-top:12px"><label for="yandexKey"><b>Yandex Geocoder</b></label><div class="row"><input type="password" autocomplete="off" id="yandexKey" placeholder="Ayrı Geocoder anahtarı (boşsa harita anahtarı denenir)" style="flex:1;min-width:0"><button id="yandexSave">Kaydet</button><button id="yandexTest">Bağlantıyı test et</button><button id="yandexRemove">Kaldır</button></div><div class="small" role="status" id="yandexStatus">Anahtar kontrol ediliyor…</div></div><div style="margin-top:12px"><label for="geoapifyKey"><b>Geoapify</b></label><div class="row"><input type="password" autocomplete="off" id="geoapifyKey" placeholder="Geocoding API anahtarı" style="flex:1;min-width:0"><button id="geoapifySave">Kaydet</button><button id="geoapifyTest">Bağlantıyı test et</button><button id="geoapifyRemove">Kaldır</button></div><div class="small" role="status" id="geoapifyStatus">Anahtar kontrol ediliyor…</div></div><div style="margin-top:12px"><label for="tomtomKey"><b>TomTom</b></label><div class="row"><input type="password" autocomplete="off" id="tomtomKey" placeholder="Search API anahtarı" style="flex:1;min-width:0"><button id="tomtomSave">Kaydet</button><button id="tomtomTest">Bağlantıyı test et</button><button id="tomtomRemove">Kaldır</button></div><div class="small" role="status" id="tomtomStatus">Anahtar kontrol ediliyor…</div></div><div style="margin-top:12px"><label for="maptilerKey"><b>MapTiler</b></label><div class="row"><input type="password" autocomplete="off" id="maptilerKey" placeholder="Geocoding API anahtarı" style="flex:1;min-width:0"><button id="maptilerSave">Kaydet</button><button id="maptilerTest">Bağlantıyı test et</button><button id="maptilerRemove">Kaldır</button></div><div class="small" role="status" id="maptilerStatus">Anahtar kontrol ediliyor…</div></div><p class="small">Yandex anahtarı reddediliyorsa <a href="https://developer.tech.yandex.ru/" target="_blank" rel="noopener">Yandex geliştirici panelinde</a> Geocoder ürününü ve anahtar kısıtlarını kontrol edin. Sunucu üzerinden sorgulandığı için IP kısıtlarını da kontrol edin.</p><p class="small"><a href="https://www.geoapify.com/" target="_blank" rel="noopener">Powered by Geoapify</a> · © OpenStreetMap contributors · TomTom · MapTiler · Yandex. Her sonucun kaynağı yanında gösterilir.</p></details>
   </div>
 
@@ -134,7 +135,7 @@ a{color:var(--pri);text-underline-offset:3px}.app{max-width:1340px;padding:0 30p
     <h2 id="routeTitle">Teslimat planın</h2>
     <div class="bar hide-print" id="geoBar" style="display:none"><i></i></div>
     <div class="small hide-print" id="geoInfo"></div>
-    <div class="route-toolbar hide-print"><div class="row"><label for="svc" style="width:auto">Durak başına</label><input type="number" id="svc" value="5" min="0" aria-label="Durak başına bekleme süresi"><span class="small">dk bekleme</span></div><label class="small" id="trafficWrap" style="display:none;align-items:center;gap:6px"><input type="checkbox" id="trafficOn" checked> 🚦 Canlı trafik</label><button id="routeBtn" class="p" disabled>Rotayı hesapla</button></div>
+    <div class="route-toolbar hide-print"><div class="row"><label for="svc" style="width:auto">Durak başına</label><input type="number" id="svc" value="5" min="0" aria-label="Durak başına bekleme süresi"><span class="small">dk bekleme</span></div><label class="small" id="trafficWrap" style="display:none;align-items:center;gap:6px"><input type="checkbox" id="trafficOn" checked> <i class="ic" data-ic="traffic"></i> Canlı trafik</label><button id="routeBtn" class="p" disabled>Rotayı hesapla</button></div>
     <div class="small hide-print" id="routeInfo"></div>
     <div class="route-rule">En kısa toplam süre <span aria-hidden="true"> · </span> Eve dönüş dahil</div>
     <div id="deliveryInfo" class="small" style="margin-top:6px"></div>
@@ -159,7 +160,7 @@ a{color:var(--pri);text-underline-offset:3px}.app{max-width:1340px;padding:0 30p
 
   <section id="hesapPage" hidden>
     <div class="card">
-      <div class="tabs"><button data-t="ozet" class="on">📊 Özet</button><button data-t="gun">📝 Gün</button><button data-t="yakit">⛽ Yakıt</button></div>
+      <div class="tabs"><button data-t="ozet" class="on"><i class="ic" data-ic="chart"></i> Özet</button><button data-t="gun"><i class="ic" data-ic="edit"></i> Gün</button><button data-t="yakit"><i class="ic" data-ic="fuel"></i> Yakıt</button></div>
       <div id="hesap_ozet"></div><div id="hesap_gun" hidden></div><div id="hesap_yakit" hidden></div>
     </div>
   </section>
@@ -184,12 +185,16 @@ a{color:var(--pri);text-underline-offset:3px}.app{max-width:1340px;padding:0 30p
     <div class="row"><label>Bina no</label><input type="text" id="pkNo" placeholder="ör. 32" style="width:120px"><button class="p" id="pkSave">Kaydet</button></div>
     <div class="small" id="pkMsg"></div>
   </div>
-  <div class="row" style="margin-top:10px"><button id="pkMap">📍 Haritadan seç</button><span style="flex:1"></span><button id="pkClose">Kapat</button></div>
+  <div class="row" style="margin-top:10px"><button id="pkMap"><i class="ic" data-ic="pin"></i> Haritadan seç</button><span style="flex:1"></span><button id="pkClose">Kapat</button></div>
 </div></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
+// ---------- ikonlar: <i class="ic" data-ic="ad"></i> nerede olursa olsun SVG'ye çevrilir ----------
+const ICONS={"map": "<path d=\"M14.1 5.55a2 2 0 0 0 1.8 0l3.65-1.83A1 1 0 0 1 21 4.62v12.76a1 1 0 0 1-.55.9l-4.55 2.27a2 2 0 0 1-1.8 0l-4.2-2.1a2 2 0 0 0-1.8 0l-3.65 1.83A1 1 0 0 1 3 19.38V6.62a1 1 0 0 1 .55-.9L8.1 3.45a2 2 0 0 1 1.8 0z\"/><path d=\"M15 5.76v15M9 3.24v15\"/>", "wallet": "<path d=\"M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1\"/><path d=\"M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4\"/>", "settings": "<circle cx=\"12\" cy=\"12\" r=\"3\"/><path d=\"M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z\"/>", "traffic": "<rect x=\"7\" y=\"2\" width=\"10\" height=\"20\" rx=\"5\"/><circle cx=\"12\" cy=\"7\" r=\"1\"/><circle cx=\"12\" cy=\"12\" r=\"1\"/><circle cx=\"12\" cy=\"17\" r=\"1\"/>", "chart": "<path d=\"M3 3v18h18\"/><path d=\"M18 17V9M13 17V5M8 17v-3\"/>", "edit": "<path d=\"M12 20h9\"/><path d=\"M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z\"/>", "fuel": "<path d=\"M3 22h12M4 9h10\"/><path d=\"M14 22V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v18\"/><path d=\"M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 4 0V9.83a2 2 0 0 0-.59-1.42L18 5\"/>", "pin": "<path d=\"M20 10c0 5-5.54 10.19-7.4 11.8a1 1 0 0 1-1.2 0C9.54 20.19 4 15 4 10a8 8 0 0 1 16 0\"/><circle cx=\"12\" cy=\"10\" r=\"3\"/>", "alert": "<path d=\"m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3\"/><path d=\"M12 9v4M12 17h.01\"/>", "undo": "<path d=\"M9 14 4 9l5-5\"/><path d=\"M4 9h10.5a5.5 5.5 0 0 1 0 11H11\"/>", "spark": "<path d=\"M12 3l1.9 5.8L20 11l-6.1 2.2L12 19l-1.9-5.8L4 11l6.1-2.2z\"/>", "nav": "<path d=\"M3 11 22 2l-9 19-2-8z\"/>", "route": "<circle cx=\"6\" cy=\"19\" r=\"3\"/><path d=\"M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15\"/><circle cx=\"18\" cy=\"5\" r=\"3\"/>", "clock": "<circle cx=\"12\" cy=\"12\" r=\"10\"/><path d=\"M12 6v6l4 2\"/>", "star": "<path d=\"M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01z\"/>", "printer": "<path d=\"M6 9V2h12v7\"/><path d=\"M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2\"/><path d=\"M6 14h12v8H6z\"/>", "copy": "<rect width=\"14\" height=\"14\" x=\"8\" y=\"8\" rx=\"2\"/><path d=\"M4 16a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2\"/>", "file": "<path d=\"M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z\"/><path d=\"M14 2v6h6M16 13H8M16 17H8\"/>", "folder": "<path d=\"M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2z\"/>", "user": "<path d=\"M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2\"/><circle cx=\"12\" cy=\"7\" r=\"4\"/>", "check": "<path d=\"M20 6 9 17l-5-5\"/>", "x": "<path d=\"M18 6 6 18M6 6l12 12\"/>"};
+function ikonla(root){(root.querySelectorAll?[...root.querySelectorAll('i.ic[data-ic]:empty')]:[]).concat(root.matches?.('i.ic[data-ic]:empty')?[root]:[]).forEach(i=>{const p=ICONS[i.dataset.ic];if(p)i.innerHTML=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`})}
+if(typeof MutationObserver!=='undefined'&&document.body){ikonla(document.body);new MutationObserver(ms=>ms.forEach(m=>m.addedNodes.forEach(n=>n.nodeType===1&&ikonla(n)))).observe(document.body,{childList:true,subtree:true})}
 // Oturum süresi dolduysa sunucu 401 döner → giriş ekranına git
 (()=>{if(!window.fetch)return;const f=window.fetch.bind(window);window.fetch=async(u,o)=>{const r=await f(u,o);if(r.status===401&&typeof u==='string'&&u.startsWith('/')){try{const j=await r.clone().json();if(j.code==='login')location.href='/giris'}catch(e){}}return r}})();
 const $=id=>document.getElementById(id);
@@ -243,7 +248,7 @@ const mp={
 };
 function initMap(){
   const el=$('map');
-  if(!yKey){mapReadyRes();el.innerHTML='<div style="padding:30px;color:#6b7686">Haritayı görmek için <b>⚙ Ayarlar</b> bölümüne Yandex anahtarını bir kez girin.</div>';return}
+  if(!yKey){mapReadyRes();el.innerHTML='<div style="padding:30px;color:#6b7686">Haritayı görmek için <b><i class="ic" data-ic="settings"></i> Ayarlar</b> bölümüne Yandex anahtarını bir kez girin.</div>';return}
   const sc=document.createElement('script');
   sc.src='https://api-maps.yandex.ru/2.1/?lang=tr_TR&apikey='+encodeURIComponent(yKey);
   sc.onerror=()=>{mapReadyRes();el.innerHTML='<div style="padding:30px;color:#c62f2f">Yandex haritası yüklenemedi. Anahtarı ve internet bağlantısını kontrol edin.</div>'};
@@ -305,7 +310,7 @@ function renderPts(){
   const box=$('ptBox');box.innerHTML='';
   // kart kapalı durur; depo veya ev eksikse girilebilsin diye açılır
   if(!depot||!home)$('ptCard').open=true;
-  $('ptOzet').textContent=depot&&home?'✓ kayıtlı':'⚠ eksik';
+  $('ptOzet').innerHTML=depot&&home?'<i class="ic" data-ic="check"></i> kayıtlı':'<i class="ic" data-ic="alert"></i> eksik';
   for(const [k,name] of [['depot','Depo'],['home','Ev']]){
     const v=k==='depot'?depot:home;
     const d=document.createElement('div');d.className='pt';
@@ -314,7 +319,7 @@ function renderPts(){
       d.querySelector('[data-a=show]').onclick=()=>mp.setView(v.lat,v.lon,16);
       d.querySelector('[data-a=edit]').onclick=()=>{v._edit=true;renderPts()};
     }else{
-      d.innerHTML=`<b>${name}</b><input type="text" placeholder="koordinat yapıştırın, ör. 41.012345, 29.123456"><button class="p" data-a="save">Kaydet</button><button data-a="pick" title="Haritaya tıklayarak seç">📍</button>${v?'<button data-a="cancel">Vazgeç</button>':''}`;
+      d.innerHTML=`<b>${name}</b><input type="text" placeholder="koordinat yapıştırın, ör. 41.012345, 29.123456"><button class="p" data-a="save">Kaydet</button><button data-a="pick" title="Haritaya tıklayarak seç"><i class="ic" data-ic="pin"></i></button>${v?'<button data-a="cancel">Vazgeç</button>':''}`;
       const inp=d.querySelector('input');
       const save=c=>{const o={lat:c.lat,lon:c.lon};if(k==='depot')depot=o;else home=o;store.set(k,o);clearRoute();renderPts();refreshMarkers();updateState();mp.setView(o.lat,o.lon,15);$('ptStatus').textContent=name+' kaydedildi. Siz değiştirmedikçe hep bu konum kullanılacak.'};
       d.querySelector('[data-a=save]').onclick=()=>{const c=parseCoord(inp.value);if(!c){$('ptStatus').textContent='Koordinat anlaşılamadı. Yandex Haritalar’da noktaya sağ tıklayıp “Koordinatlar”ı kopyalayın ve buraya yapıştırın.';return}save(c)};
@@ -712,20 +717,20 @@ function renderStops(){
   $('stopsCard').style.display=stops.length?'block':'none';
   const miss=stops.filter(s=>s.lat==null).length;
   const warn=pendingStops().filter(s=>!readyStop(s)).length;
-  $('stopsCount').innerHTML=`${stops.length} durak${warn?` · <span style="color:var(--warn);font-weight:600">⚠ ${warn} adres kontrol bekliyor</span>`:''}`;
+  $('stopsCount').innerHTML=`${stops.length} durak${warn?` · <span style="color:var(--warn);font-weight:600"><i class="ic" data-ic="alert"></i> ${warn} adres kontrol bekliyor</span>`:''}`;
   const box=$('stops');box.innerHTML='';
   stops.forEach((s,i)=>{
     const d=document.createElement('div');d.className='stop';
     const adet=s.orders.reduce((a,o)=>a+(o.adet||0),0);
-    const geri=s.orders.some(o=>o.geri)?' ↩ GERİ ALIM':'';
+    const geri=s.orders.some(o=>o.geri)?' <i class="ic" data-ic="undo"></i> GERİ ALIM':'';
     const m=s.match;
     const found=s.quality==='Elle'?'→ elle seçildi':m?`→ ${m.road?`<b>${esc(m.road)}${m.no?' No:'+esc(m.no):''}</b> · `:''}${esc(m.mah||'')}${s.quality==='Kontrol'?' <span style="color:var(--warn)">(mahalle tutmadı, kontrol edin)</span>':''}`:'';
     d.innerHTML=`<div class="top"><span class="small" style="min-width:62px">Kayıt ${i+1}</span><span class="who" title="${esc(s.orders.map(o=>o.alici).join(', '))}">${esc(s.orders.map(o=>o.alici).join(', '))}</span><span class="small">${s.orders.length>1?s.orders.length+' sipariş':''}${adet?(s.orders.length>1?' · ':'')+adet+' koli':''}${geri}</span><span class="tag t-${s.quality}">${s.quality}</span></div>
     <div class="raw">${esc(s.raw)}</div>
-    <div class="small">Okunan: ${esc([s.place,s.mah&&s.mah+' Mah.',s.street,s.no&&'No:'+s.no,s.ilce].filter(Boolean).join(' · ')||'—')}</div>${s.aiFix?.length?`<div class="small" style="color:#6f42c1">🤖 ${esc(s.aiFix.join(' · '))}</div>`:''}
+    <div class="small">Okunan: ${esc([s.place,s.mah&&s.mah+' Mah.',s.street,s.no&&'No:'+s.no,s.ilce].filter(Boolean).join(' · ')||'—')}</div>${s.aiFix?.length?`<div class="small" style="color:#6f42c1"><i class="ic" data-ic="spark"></i> ${esc(s.aiFix.join(' · '))}</div>`:''}
     <div class="found">${found}</div>
     <div class="small">${s.match?.source?esc(s.match.source)+' · '+esc(s.match.name||'')+' · '+esc(s.match.address||''):''}${!readyStop(s)?esc(s.placeError||'Bina konumu teyit bekliyor.'):''}${delivered.includes(s)?' ✓ Teslim edildi':''}</div>
-    <div class="row"><button data-a="fix">Düzelt / yeri teyit et</button><button data-a="pick" title="Haritadan seç">📍</button><label style="width:auto"><input type="checkbox" ${s.skip?'checked':''}> atla</label></div>`;
+    <div class="row"><button data-a="fix">Düzelt / yeri teyit et</button><button data-a="pick" title="Haritadan seç"><i class="ic" data-ic="pin"></i></button><label style="width:auto"><input type="checkbox" ${s.skip?'checked':''}> atla</label></div>`;
     d.querySelectorAll('button,input').forEach(el=>el.disabled=geoBusy||delivered.includes(s));
     d.querySelector('[data-a=fix]').onclick=()=>openPicker(s);
     d.querySelector('[data-a=pick]').onclick=()=>startPick('Durak '+(i+1)+' konumunu seçin',(lat,lon)=>{Object.assign(s,{lat,lon,quality:'Elle',match:null});clearRoute();renderStops();refreshMarkers();updateState()});
@@ -761,7 +766,7 @@ async function pkSearch(){
   const cands=await streetCandidates(street,ilce,mah);
   if(run!==pickerRun)return;
   const box=$('pkList');box.innerHTML='';
-  if(!cands.length){box.innerHTML='<div class="small">Bu isimde sokak bulunamadı. Sokak adını kısaltarak (ör. sadece “Tepegöz”) tekrar deneyin veya 📍 ile haritadan seçin.</div>';return}
+  if(!cands.length){box.innerHTML='<div class="small">Bu isimde sokak bulunamadı. Sokak adını kısaltarak (ör. sadece “Tepegöz”) tekrar deneyin veya <i class="ic" data-ic="pin"></i> ile haritadan seçin.</div>';return}
   cands.forEach(c=>{
     const d=document.createElement('div');d.className='cand';
     const ok=mahOk(c,mah);
@@ -1042,13 +1047,13 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
   const links=[];
   // tüm rota tek bağlantıda: depo → duraklar (sırayla) → ev
   const yx=`https://yandex.com.tr/harita/?rtt=auto&rtext=${seq.map(p=>(+p.lat).toFixed(6)+','+(+p.lon).toFixed(6)).join('~')}`;
-  if(!draft)links.push(`<a href="${yx}" target="_blank" rel="noopener"><button class="p">🧭 Rotayı Yandex'te aç</button></a>`);
+  if(!draft)links.push(`<a href="${yx}" target="_blank" rel="noopener"><button class="p"><i class="ic" data-ic="nav"></i> Rotayı Yandex'te aç</button></a>`);
   const names=s=>esc(stopNames(s));
   const delayTot=legs.reduce((a,l)=>a+(l.delay||0),0),withTraffic=legs.some(l=>'delay' in l);
   // Tahmini varış saatleri: şimdi yola çıkılıyor, her durakta bekleme süresi eklenir
   const svcEach=Math.max(0,+$('svc').value||0)*60,t0=Date.now(),clock=ms=>new Date(ms).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
   let acc=0;const eta=legs.map((l,k)=>{acc+=l.t*1000;const at=t0+acc;acc+=svcEach*1000;return at});lastRoute.eta=eta;
-  let h=`<div class="stat"><span>${routeOrder.length} durak</span><span>🛣 ${(dist/1000).toFixed(1)} km</span><span>⏱ sürüş ${fmtT(dur)}</span><span>toplam ≈ ${fmtT(dur+svc)}</span>${withTraffic?`<span>🚦 trafik gecikmesi ${fmtT(delayTot)}</span>`:''}</div>`;
+  let h=`<div class="stat"><span>${routeOrder.length} durak</span><span><i class="ic" data-ic="route"></i> ${(dist/1000).toFixed(1)} km</span><span><i class="ic" data-ic="clock"></i> sürüş ${fmtT(dur)}</span><span>toplam ≈ ${fmtT(dur+svc)}</span>${withTraffic?`<span><i class="ic" data-ic="traffic"></i> trafik gecikmesi ${fmtT(delayTot)}</span>`:''}</div>`;
   h+=withTraffic?`<div class="small">Süreler şu anki canlı trafikle (TomTom) hesaplandı; sıralama da trafiğe göre yapıldı. Şimdi çıkılırsa eve varış ≈ <b>${clock(eta.at(-1))}</b>.</div>`
     :trafficInfo?.error?`<div class="small" style="color:var(--warn)">Canlı trafik alınamadı (${esc(trafficInfo.error)}); süreler trafiksiz.</div>`:'';
   if(draft)h+=`<div class="notice"><b>Bu bir taslaktır: ${unverified.length} bina konumu teyit edilmedi.</b><br>Sıra yaklaşık konumlara göre hesaplandı. Sokak/mahalle merkezi gerçek bina girişinden uzakta olabilir. Navigasyon ve teslimat başlatma, konumlar teyit edilince açılır.</div>`;
@@ -1056,11 +1061,11 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
   if(comparison.length)h+=`<details class="small"><summary>İlk durak neden seçildi? Yakınlık karşılaştırması</summary>${comparison.map(c=>`${names(c.stop)}: ${(c.d/1000).toFixed(2)} km / ${fmtT(c.t)}`).join('<br>')}<br>${exact?'Karayolu mesafesi':'Kuş uçuşundan tahmini mesafe'} karşılaştırıldı.${draft?' Konumlar yaklaşıktır.':''}</details>`;
   if(!exact)h+='<div class="small" style="color:var(--warn)">Yol matrisi alınamadı: yakınlık ve sıralama kuş uçuşu tahminine dayanıyor. Karayolu mesafeleri doğrulanamadı.</div>';
   if(!exact&&!roadLegs)h+='<div class="small">Kilometre ve süreler kuş uçuşundan türetilen tahminlerdir.</div>';
-  h+='<div class="small">Sıra, eve dönüş dahil toplam sürüş süresi en kısa olacak şekilde hesaplandı. Her adreste ⭐ ile Yandex’te açıp <b>Kaydet</b>’e dokunarak favorilere ekleyebilir, 🧭 ile yol tarifi alabilirsiniz.</div>';
+  h+='<div class="small">Sıra, eve dönüş dahil toplam sürüş süresi en kısa olacak şekilde hesaplandı. Her adreste <i class="ic" data-ic="star"></i> ile Yandex’te açıp <b>Kaydet</b>’e dokunarak favorilere ekleyebilir, <i class="ic" data-ic="nav"></i> ile yol tarifi alabilirsiniz.</div>';
   const unknown=routeOrder.filter(s=>neighborhoodKey(s).startsWith('unknown:')).length;
   if(unknown)h+=`<div class="small" style="color:var(--warn)">${unknown} durakta ilçe/mahalle eksik; bu adresler ayrı durak olarak planlandı.</div>`;
   h+='<div class="small">Sürüş süreleri trafiksiz yol süreleridir; yoğun saatlerde biraz uzayabilir.</div>';
-  h+=`<div class="row hide-print result-actions">${links.join('')}<button id="prBtn">🖨 Yazdır</button><button id="kmlBtn">🗺 Yandex için harita dosyası</button><button id="csvBtn">CSV indir</button></div>`;
+  h+=`<div class="row hide-print result-actions">${links.join('')}<button id="prBtn"><i class="ic" data-ic="printer"></i> Yazdır</button><button id="kmlBtn"><i class="ic" data-ic="map"></i> Yandex için harita dosyası</button><button id="csvBtn">CSV indir</button></div>`;
   h+=`<div class="sira"><span class="n" style="background:#1a8f4c">D</span><div><div class="ad">${delivered.length?'Son teslimat konumundan devam':'Depodan çıkış'}</div></div></div>`;
   routeOrder.forEach((s,i)=>{
     if(i===0||neighborhoodKey(s)!==neighborhoodKey(routeOrder[i-1]))h+=`<div class="neighborhood">${esc(neighborhoodLabel(s))}<span>${routeOrder.filter(x=>neighborhoodKey(x)===neighborhoodKey(s)).length} durak</span></div>`;
@@ -1069,15 +1074,14 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
     const ll=(+s.lon).toFixed(6)+','+(+s.lat).toFixed(6);
     const m=s.match||{},adrText=m.yandexAddress||(m.road&&m.no?[m.road+' '+m.no,(m.mah||s.mah)&&String(m.mah||s.mah).replace(/\s*(mah\.?|mahallesi)$/i,'')+' Mahallesi',s.ilce,'İstanbul'].filter(Boolean).join(', '):'');
     const yhref=adrText?`https://yandex.com.tr/harita/?ll=${ll}&z=18&text=${encodeURIComponent(adrText)}`:`https://yandex.com.tr/harita/?ll=${ll}&z=18&whatshere%5Bpoint%5D=${ll}&whatshere%5Bzoom%5D=18`;
-    const ya=`<div class="yx-actions hide-print"><a class="yx" href="${yhref}" target="_blank" rel="noopener">⭐ Yandex’te aç / kaydet</a><a class="yx" href="yandexnavi://build_route_on_map?lat_to=${(+s.lat).toFixed(6)}&lon_to=${(+s.lon).toFixed(6)}">🧭 Git</a></div>`;
-    h+=`<div class="sira"><span class="n">${i+1+delivered.length}</span><div><div class="ad">${names(s)} <button class="copy hide-print" data-copy="${esc(stopNames(s))}" title="İsmi kopyala" aria-label="İsmi kopyala">📋</button>${warn}</div><div class="adr">${esc(s.raw)}</div>${ya}<div class="small">${esc(neighborhoodLabel(s))} · Eve kalan mesafe (${exact?'karayolu':'tahmini'}): ${(homeDistances[i+1]/1000).toFixed(2)} km · Önceki noktadan: ${(legs[i].d/1000).toFixed(1)} km / ${fmtT(legs[i].t)}${legs[i].delay>60?` (🚦 +${fmtT(legs[i].delay)})`:''} · <b>varış ≈ ${clock(eta[i])}</b></div>${i===0&&!draft?'<button class="p hide-print" id="deliveredBtn">Teslim edildi · sıradaki durağa geç</button>':''}<div class="small">${[s.orders.length>1?s.orders.length+' sipariş':'',k?k+' koli':'',geri?'↩ GERİ ALIM':'',[...new Set(s.orders.map(o=>o.musteri).filter(Boolean))].join(', ')].filter(Boolean).join(' · ')}</div></div></div>`;
+    const ya=`<div class="yx-actions hide-print"><a class="yx" href="${yhref}" target="_blank" rel="noopener"><i class="ic" data-ic="star"></i> Yandex’te aç / kaydet</a><a class="yx" href="yandexnavi://build_route_on_map?lat_to=${(+s.lat).toFixed(6)}&lon_to=${(+s.lon).toFixed(6)}"><i class="ic" data-ic="nav"></i> Git</a></div>`;
+    h+=`<div class="sira"><span class="n">${i+1+delivered.length}</span><div><div class="ad">${names(s)} <button class="copy hide-print" data-copy="${esc(stopNames(s))}" title="İsmi kopyala" aria-label="İsmi kopyala"><i class="ic" data-ic="copy"></i></button>${warn}</div><div class="adr">${esc(s.raw)}</div>${ya}<div class="small">${esc(neighborhoodLabel(s))} · Eve kalan mesafe (${exact?'karayolu':'tahmini'}): ${(homeDistances[i+1]/1000).toFixed(2)} km · Önceki noktadan: ${(legs[i].d/1000).toFixed(1)} km / ${fmtT(legs[i].t)}${legs[i].delay>60?` (<i class="ic" data-ic="traffic"></i> +${fmtT(legs[i].delay)})`:''} · <b>varış ≈ ${clock(eta[i])}</b></div><div class="small">${[s.orders.length>1?s.orders.length+' sipariş':'',k?k+' koli':'',geri?'<i class="ic" data-ic="undo"></i> GERİ ALIM':'',[...new Set(s.orders.map(o=>o.musteri).filter(Boolean))].join(', ')].filter(Boolean).join(' · ')}</div></div></div>`;
   });
   h+=`<div class="sira"><span class="n" style="background:#1c2430">E</span><div><div class="ad">Eve dönüş</div></div></div>`;
   const out=stops.filter(s=>s.skip);
   if(out.length)h+=`<div class="small" style="color:var(--bad);margin-top:8px">Sıraya girmeyen ${out.length} durak: ${out.map(names).join(', ')} — “Adres kontrolü” bölümünden düzeltin.</div>`;
   $('result').innerHTML=h;
   $('result').querySelectorAll('button.copy').forEach(b=>b.onclick=()=>copyText(b.dataset.copy,b));
-  if($('deliveredBtn'))$('deliveredBtn').onclick=()=>{if(!routeOrder?.length||routeOrder.some(s=>!readyStop(s)))return;delivered.push(routeOrder[0]);clearRoute();renderStops();refreshMarkers();updateState()};
   $('prBtn').onclick=()=>window.print();
   $('kmlBtn').onclick=()=>downloadKml(seq,draft);
   $('csvBtn').onclick=()=>{
@@ -1212,7 +1216,7 @@ async function otoKaydet(){
     rota:{sira,km:lastRoute?+((lastRoute.dist||0)/1000).toFixed(1):null,sure:lastRoute?Math.round((lastRoute.dur||0)/60):null,
       gecikme:lastRoute?Math.round((lastRoute.legs||[]).reduce((a,l)=>a+(l.delay||0),0)/60):null,eve:lastRoute?.eta?.length?new Date(lastRoute.eta.at(-1)).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}):null,
       yandex:lastRoute?.seq?.length?'https://yandex.com.tr/harita/?rtt=auto&rtext='+lastRoute.seq.map(p=>p.lat.toFixed(6)+','+p.lon.toFixed(6)).join('~'):null,olusturma:new Date().toISOString()},evraklar:planEvraklar};
-  try{await gunYaz(t,k);if(hesapSayfasiAcik())renderHesap()}catch(e){console.warn('gün kaydı',e)}
+  try{await gunYaz(t,k);if(hesapSayfasiAcik()&&!$('hesapPage').contains(document.activeElement)&&!gunTimer)renderHesap()}catch(e){console.warn('gün kaydı',e)}
 }
 
 // ---------- fiyat tablosu (Ayarlar) ----------
@@ -1272,6 +1276,12 @@ function pdfAc(baslik,govde){
   const imgs=[...w.document.images];Promise.all(imgs.map(i=>i.complete?1:new Promise(r=>{i.onload=i.onerror=r}))).then(()=>{w.focus();w.print()});
 }
 
+// "1.250,50", "350 tl", "25 km" gibi yazımları sayıya çevirir
+function sayiOku(v){
+  let t=String(v||'').replace(/[^\d.,]/g,'');if(!t)return 0;
+  if(t.includes(','))t=t.replace(/\./g,'').replace(',','.');else if(/^\d{1,3}(\.\d{3})+$/.test(t))t=t.replace(/\./g,'');
+  const n=parseFloat(t);return n>0?Math.round(n*100)/100:0;
+}
 // ---------- Gün düzenleme ----------
 let gunTimer=null;
 async function renderGun(){
@@ -1280,26 +1290,26 @@ async function renderGun(){
   el.innerHTML='<div class="small">Yükleniyor…</div>';
   let k=null;try{k=await gunKaydi(t)}catch(e){el.innerHTML='<div class="small">Okunamadı: '+esc(e.message)+'</div>';return}
   if(gunSecili!==t)return;
-  const ust=`<div class="row"><input type="date" id="gTarih" value="${t}"><span class="small">${trTarih(t)}</span>${k?'<button id="gPdf">📄 PDF</button>':''}</div>`;
+  const ust=`<div class="row"><input type="date" id="gTarih" value="${t}"><span class="small">${trTarih(t)}</span>${k?'<button id="gPdf"><i class="ic" data-ic="file"></i> PDF</button>':''}</div>`;
   if(!k){
     el.innerHTML=ust+`<div class="bos-gun">Bu gün için evrak yüklenmemiş.<br><span class="small">Gün, Rota sayfasından evrak yüklenince kendiliğinden oluşur.</span></div>
-      <div class="row"><select id="gNeden">${NEDENLER.map(n=>`<option>${n}</option>`).join('')}</select><button id="gGidilmedi">✗ İşe gidilmedi olarak işaretle</button></div>`;
+      <div class="row"><select id="gNeden">${NEDENLER.map(n=>`<option>${n}</option>`).join('')}</select><button id="gGidilmedi"><i class="ic" data-ic="x"></i> İşe gidilmedi olarak işaretle</button></div>`;
     $('gTarih').onchange=e=>{gunSecili=e.target.value;renderGun()};
     $('gGidilmedi').onclick=async()=>{try{await gunYaz(t,{durum:'gidilmedi',neden:$('gNeden').value,haric:[],hammaliye:0,ekKm:0,notu:'',rota:null,evraklar:[]});renderGun()}catch(e){alert('Kaydedilemedi: '+e.message)}};
     return;
   }
   const gid=k.durum==='gidilmedi',sira=k.rota?.sira||[],haric=new Set(k.haric||[]);
-  el.innerHTML=ust+`<div class="seg"><button data-d="calisti" class="${gid?'':'on'}">✓ Çalıştı</button><button data-d="gidilmedi" class="${gid?'on':''}">✗ İşe gidilmedi</button></div>
+  el.innerHTML=ust+`<div class="seg"><button data-d="calisti" class="${gid?'':'on'}"><i class="ic" data-ic="check"></i> Çalıştı</button><button data-d="gidilmedi" class="${gid?'on':''}"><i class="ic" data-ic="x"></i> İşe gidilmedi</button></div>
     ${gid?`<label class="fl">Neden<select id="gNeden">${NEDENLER.map(n=>`<option ${n===k.neden?'selected':''}>${n}</option>`).join('')}</select></label>`:`
-    <div class="grid2"><label>Hammaliye (₺)<input type="number" min="0" id="gHam" value="${k.hammaliye||''}" placeholder="0"></label><label>Ek km<input type="number" min="0" id="gKm" value="${k.ekKm||''}" placeholder="0"></label></div>
+    <div class="grid2"><label>Hammaliye (₺)<input type="text" inputmode="decimal" autocomplete="off" id="gHam" value="${k.hammaliye||''}" placeholder="ör. 350"></label><label>Ek km<input type="text" inputmode="decimal" autocomplete="off" id="gKm" value="${k.ekKm||''}" placeholder="ör. 25"></label></div>
     <div id="gHesap"></div>
-    ${k.rota?`<div class="mlist-h"><b>🗺 Rota</b>${k.rota.olusturma?` <span class="small">${new Date(k.rota.olusturma).toLocaleString('tr-TR',{dateStyle:'short',timeStyle:'short'})} itibarıyla</span>`:''}</div>${rotaOzetHTML(k.rota)}${k.rota.yandex?`<div class="row"><a href="${k.rota.yandex}" target="_blank" rel="noopener"><button>🧭 Bu rotayı Yandex’te aç</button></a></div>`:''}`:''}
+    ${k.rota?`<div class="mlist-h"><b><i class="ic" data-ic="map"></i> Rota</b>${k.rota.olusturma?` <span class="small">${new Date(k.rota.olusturma).toLocaleString('tr-TR',{dateStyle:'short',timeStyle:'short'})} itibarıyla</span>`:''}</div>${rotaOzetHTML(k.rota)}${k.rota.yandex?`<div class="row"><a href="${k.rota.yandex}" target="_blank" rel="noopener"><button><i class="ic" data-ic="nav"></i> Bu rotayı Yandex’te aç</button></a></div>`:''}`:''}
     ${sira.length?`<div class="mlist-h"><b>Müşteriler</b> <span class="small">Teslim edilemeyen veya evrakta olup alınmayan müşterinin işaretini kaldırın.</span></div>
     <div class="mlist">${sira.map((m,i)=>`<label class="${haric.has(musteriKey(m))?'off':''}"><input type="checkbox" data-k="${esc(musteriKey(m))}" ${haric.has(musteriKey(m))?'':'checked'}><span><b>${i+1}. ${esc(m.ad)}</b><br><span class="small">${esc(m.adres)}</span>${musteriDetay(m)?`<br><span class="small">${esc(musteriDetay(m))}</span>`:''}</span></label>`).join('')}</div>`:''}`}
     <label class="fl">Not<input type="text" id="gNot" value="${esc(k.notu||'')}" placeholder="isteğe bağlı"></label>
     <div class="small" id="gMsg">Değişiklikler otomatik kaydedilir.</div><div id="gEk"></div>`;
   const read=()=>({...k,haric:[...el.querySelectorAll('.mlist input[type=checkbox]')].filter(c=>!c.checked).map(c=>c.dataset.k),
-    hammaliye:+($('gHam')?.value||0),ekKm:+($('gKm')?.value||0),neden:$('gNeden')?.value||k.neden||null,notu:$('gNot').value.trim()});
+    hammaliye:sayiOku($('gHam')?.value),ekKm:sayiOku($('gKm')?.value),neden:$('gNeden')?.value||k.neden||null,notu:$('gNot').value.trim()});
   const show=()=>{
     if(gid)return;const h=gunHesap(read());
     $('gHesap').innerHTML=!h?'<div class="small" style="color:var(--warn)">Teslim edilen müşteri yok.</div>':
@@ -1311,13 +1321,13 @@ async function renderGun(){
        <div><span>KDV’siz</span><b>${tl(h.net)}</b></div><div><span>KDV (%${h.kdvOran})</span><b>+${tl(h.kdv)}</b></div>
        <div class="top"><span>Toplam hakediş</span><b>${tl(h.toplam)}</b></div></div>`;
   };
-  const save=()=>{clearTimeout(gunTimer);gunTimer=setTimeout(async()=>{try{k=await gunYaz(t,read());$('gMsg').textContent='✓ Kaydedildi '+new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})}catch(e){$('gMsg').textContent='Kaydedilemedi: '+e.message}},700)};
+  const save=()=>{clearTimeout(gunTimer);gunTimer=setTimeout(async()=>{gunTimer=null;try{k=await gunYaz(t,read());$('gMsg').textContent='✓ Kaydedildi '+new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})}catch(e){$('gMsg').textContent='Kaydedilemedi: '+e.message}},700)};
   show();
   $('gTarih').onchange=e=>{gunSecili=e.target.value;renderGun()};
   el.querySelectorAll('.seg button').forEach(b=>b.onclick=async()=>{k={...read(),durum:b.dataset.d,neden:b.dataset.d==='gidilmedi'?(k.neden||NEDENLER[0]):null};try{k=await gunYaz(t,k)}catch(e){}renderGun()});
   el.querySelectorAll('input,select').forEach(x=>{if(x.id==='gTarih')return;const f=()=>{if(x.type==='checkbox')x.closest('label').classList.toggle('off',!x.checked);show();save()};x.addEventListener('input',f);x.addEventListener('change',f)});
   const ev=k.evraklar||[];
-  $('gEk').innerHTML=ev.length?`<div class="small" style="margin-top:10px">📄 Yüklenen evraklar</div>${evrakHTML(ev)}`:'';
+  $('gEk').innerHTML=ev.length?`<div class="small" style="margin-top:10px"><i class="ic" data-ic="file"></i> Yüklenen evraklar</div>${evrakHTML(ev)}`:'';
   $('gPdf').onclick=()=>pdfAc('Gün raporu · '+trTarih(t),gunPdfHTML(t,read()));
 }
 
@@ -1325,7 +1335,7 @@ async function renderGun(){
 async function renderYakit(){
   const el=$('hesap_yakit'),ay=ozetAy||todayISO().slice(0,7);
   el.innerHTML=`<div class="grid2"><label>Tarih<input type="date" id="yTarih" value="${todayISO()}"></label><label>Tutar (₺)<input type="number" min="0" step="0.01" id="yTutar" inputmode="decimal" placeholder="ör. 2500"></label></div>
-    <div class="row"><button class="p" id="yEkle">⛽ Yakıt ekle</button><span class="small" id="yMsg"></span></div>
+    <div class="row"><button class="p" id="yEkle"><i class="ic" data-ic="fuel"></i> Yakıt ekle</button><span class="small" id="yMsg"></span></div>
     <div class="row" style="margin-top:10px"><label style="width:auto">Ay</label><input type="month" id="yAy" value="${ay}"></div><div id="yListe" class="small">Yükleniyor…</div>`;
   $('yAy').onchange=e=>{ozetAy=e.target.value;renderYakit()};
   $('yEkle').onclick=async()=>{
@@ -1335,7 +1345,7 @@ async function renderYakit(){
   };
   try{
     const {yakitlar}=await ayYukle(ay,true),top=yakitlar.reduce((a,y)=>a+y.tutar,0);
-    $('yListe').innerHTML=yakitlar.length?`<table class="otab"><tr><th>Tarih</th><th>Tutar</th><th></th></tr>${yakitlar.map(y=>`<tr><td>${trTarih(y.tarih)}</td><td>${tl(y.tutar)}</td><td><button class="copy" data-sil="${y.id}" title="Sil">✕</button></td></tr>`).join('')}<tr class="tot"><td>Toplam</td><td>${tl(top)}</td><td></td></tr></table>`:'Bu ay yakıt kaydı yok.';
+    $('yListe').innerHTML=yakitlar.length?`<table class="otab"><tr><th>Tarih</th><th>Tutar</th><th></th></tr>${yakitlar.map(y=>`<tr><td>${trTarih(y.tarih)}</td><td>${tl(y.tutar)}</td><td><button class="copy" data-sil="${y.id}" title="Sil"><i class="ic" data-ic="x"></i></button></td></tr>`).join('')}<tr class="tot"><td>Toplam</td><td>${tl(top)}</td><td></td></tr></table>`:'Bu ay yakıt kaydı yok.';
     $('yListe').querySelectorAll('[data-sil]').forEach(b=>b.onclick=async()=>{if(!confirm('Bu yakıt kaydı silinsin mi?'))return;await apiJSON('/api/yakit-sil',{id:+b.dataset.sil});renderYakit()});
   }catch(e){$('yListe').textContent='Okunamadı: '+e.message}
 }
@@ -1343,7 +1353,7 @@ async function renderYakit(){
 // ---------- Özet: ayın her günü bir satır ----------
 async function renderOzet(){
   const el=$('hesap_ozet'),ay=ozetAy||(gunSecili||todayISO()).slice(0,7);ozetAy=ay;
-  el.innerHTML=`<div class="row"><label style="width:auto">Ay</label><input type="month" id="oAy" value="${ay}"><button id="oYaz">📄 PDF</button><button id="oCsv">CSV</button></div><div id="oTablo" class="small">Yükleniyor…</div>`;
+  el.innerHTML=`<div class="row"><label style="width:auto">Ay</label><input type="month" id="oAy" value="${ay}"><button id="oYaz"><i class="ic" data-ic="file"></i> PDF</button><button id="oCsv">CSV</button></div><div id="oTablo" class="small">Yükleniyor…</div>`;
   $('oAy').onchange=e=>{ozetAy=e.target.value;renderOzet()};
   let data;try{data=await ayYukle(ay,true)}catch(e){$('oTablo').textContent='Okunamadı: '+e.message;return}
   const [Y,M]=ay.split('-').map(Number),gunSay=new Date(Y,M,0).getDate();
@@ -1361,7 +1371,7 @@ async function renderOzet(){
   <div class="otab-wrap"><table class="otab" id="ozetTablo"><tr><th>Gün</th><th>Durum</th><th>Müşteri</th><th>Bölge</th><th>Rut</th><th>Rut ücreti</th><th>Ek km</th><th>Hammaliye</th><th>KDV’siz</th><th>KDV</th><th>Toplam</th><th>Yakıt</th></tr>
   ${rows.map(({t,d,r,h,yk})=>`<tr data-t="${t}" class="${!r?'bos':''}"><td>${String(d).padStart(2,'0')} ${GUN_ADI[new Date(Y,M-1,d).getDay()]}</td><td>${durum(r)}</td><td>${h?h.nokta:''}</td><td>${h?BOLGE_KISA[h.bolge]:''}</td><td>${h?String(h.rutTip).replace('.',','):''}</td><td>${n(h&&h.rutUcret+h.ekstraTl)}</td><td>${h&&h.ekKm?h.ekKm+' km / '+n(h.ekKmTl):''}</td><td>${n(h?.hammaliye)}</td><td>${n(h?.net)}</td><td>${n(h?.kdv)}</td><td><b>${n(h?.toplam)}</b></td><td>${n(yk)}</td></tr>`).join('')}
   <tr class="tot"><td>Toplam</td><td>${T.calisti} ✓ / ${T.gidilmedi} ✗</td><td>${T.nokta||''}</td><td></td><td></td><td>${n(T.rut)}</td><td>${T.ekKm?T.ekKm+' km / '+n(T.ekKmTl):''}</td><td>${n(T.ham)}</td><td>${n(T.net)}</td><td>${n(T.kdv)}</td><td><b>${n(T.top)}</b></td><td>${n(T.yakit)}</td></tr></table></div>
-  <div class="small">Bir güne dokunun: o günün rotası, müşterileri ve yüklenen evrakı açılır; eksik müşteri, hammaliye, ek km düzenlenebilir. 📄 PDF: aylık tablo.</div>`;
+  <div class="small">Bir güne dokunun: o günün rotası, müşterileri ve yüklenen evrakı açılır; eksik müşteri, hammaliye, ek km düzenlenebilir. <i class="ic" data-ic="file"></i> PDF: aylık tablo.</div>`;
   $('oTablo').querySelectorAll('tr[data-t]').forEach(tr=>tr.onclick=()=>{gunSecili=tr.dataset.t;hesapSekme('gun')});
   $('oCsv').onclick=()=>{
     const head=['Tarih','Durum','Neden','Müşteri','Bölge','Rut','Rut ücreti','Ek km','Ek km ₺','Hammaliye','KDV’siz','KDV','Toplam','Yakıt','Not'];
@@ -1427,7 +1437,7 @@ async function restorePlan(){
     delivered=(plan.delivered||[]).map(id=>byId.get(id)).filter(Boolean);
     if(plan.svc)$('svc').value=plan.svc;
     const when=new Date(plan.savedAt).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-    $('fileInfo').innerHTML=(plan.fileInfo||'')+`<br><span class="small">📂 Kayıtlı plan geri yüklendi (${when}). <a href="#" id="newPlan">Yeni evrak için temizle</a></span>`;
+    $('fileInfo').innerHTML=(plan.fileInfo||'')+`<br><span class="small"><i class="ic" data-ic="folder"></i> Kayıtlı plan geri yüklendi (${when}). <a href="#" id="newPlan">Yeni evrak için temizle</a></span>`;
     $('newPlan').onclick=async e=>{e.preventDefault();await clearPlan();location.reload()};
     renderStops();refreshMarkers();updateState();
     const r=plan.route,order=r?.order?.map(id=>byId.get(id))||null;
@@ -1435,7 +1445,7 @@ async function restorePlan(){
       routeOrder=order;lastRoute=r;lastCoords=r.lastCoords||null;trafficInfo=r.trafficInfo||null;
       refreshMarkers();drawRouteLine();
       renderResult(r.seq,r.legs,r.dist,r.dur,r.exact,r.homeDistances,r.roadLegs,[]);
-      $('planStatus').textContent='📂 Kayıtlı rota gösteriliyor ('+when+'). Yeniden hesaplamak için “Rotayı hesapla”.';
+      $('planStatus').innerHTML='<i class="ic" data-ic="folder"></i> Kayıtlı rota gösteriliyor ('+when+'). Yeniden hesaplamak için “Rotayı hesapla”.';
     }else autoRoute();
   }finally{planRestoring=false}
 }
@@ -1584,7 +1594,7 @@ $('setBtn').onclick=()=>{const c=$('setCard');c.style.display=c.style.display===
 $('yKeyIn').value=yKey;
 $('yKeySave').onclick=async()=>{const k=$('yKeyIn').value.trim();if(!k)return;try{const r=await fetch('/ayarlar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ykey:k})});if(!r.ok)throw new Error();yKey=k;localStorage.setItem('ykey',JSON.stringify(k));location.reload()}catch(e){$('yWarn').style.display='block';$('yWarn').textContent='Anahtar kaydedilemedi. Yerel sunucuyu kontrol edin.'}};
 async function refreshGoogleStatus(){
-  try{const r=await fetch('/ayarlar');if(!r.ok)throw new Error();const a=await r.json();googleConfigured=!!a.googleConfigured;$('trafficWrap').style.display=(a.providers||{}).tomtom?'inline-flex':'none';if(a.authOn){$('userBadge').textContent='👤 '+(a.user||'');$('logoutBtn').style.display='inline-block'}aiOcr=!!a.ocrConfigured;$('gemStatus').textContent=aiOcr?'✓ Gemini anahtarı kayıtlı (…'+(a.ocrHint||'')+'). Fotoğraflar yapay zekâ ile okunur.':'Gemini anahtarı yok: fotoğraflar daha az isabetli yerel okuyucuyla okunur.';$('gemKeyIn').placeholder=aiOcr?'Kayıtlı: ••••••••'+(a.ocrHint||'')+' — değiştirmek için yenisini yapıştırın':'Fotoğraf okuma için Google Gemini anahtarı';configuredProviders=a.providers||{};const hints=a.hints||{};for(const p of Object.keys(providerFields)){if(!$(p+'Key').dataset.ph)$(p+'Key').dataset.ph=$(p+'Key').placeholder;showProviderStatus(p,configuredProviders[p]?'✓ Anahtar kayıtlı (…'+(hints[p]||'')+') · Bağlantıyı test edin':'Anahtar eklenmedi');$(p+'Key').placeholder=hints[p]?'Kayıtlı: ••••••••'+hints[p]+' — değiştirmek için yenisini yapıştırın':$(p+'Key').dataset.ph||$(p+'Key').placeholder;}
+  try{const r=await fetch('/ayarlar');if(!r.ok)throw new Error();const a=await r.json();googleConfigured=!!a.googleConfigured;$('trafficWrap').style.display=(a.providers||{}).tomtom?'inline-flex':'none';if(a.authOn){$('userBadge').innerHTML='<i class="ic" data-ic="user"></i> '+esc(a.user||'');$('logoutBtn').style.display='inline-block'}aiOcr=!!a.ocrConfigured;$('gemStatus').textContent=aiOcr?'✓ Gemini anahtarı kayıtlı (…'+(a.ocrHint||'')+'). Fotoğraflar yapay zekâ ile okunur.':'Gemini anahtarı yok: fotoğraflar daha az isabetli yerel okuyucuyla okunur.';$('gemKeyIn').placeholder=aiOcr?'Kayıtlı: ••••••••'+(a.ocrHint||'')+' — değiştirmek için yenisini yapıştırın':'Fotoğraf okuma için Google Gemini anahtarı';configuredProviders=a.providers||{};const hints=a.hints||{};for(const p of Object.keys(providerFields)){if(!$(p+'Key').dataset.ph)$(p+'Key').dataset.ph=$(p+'Key').placeholder;showProviderStatus(p,configuredProviders[p]?'✓ Anahtar kayıtlı (…'+(hints[p]||'')+') · Bağlantıyı test edin':'Anahtar eklenmedi');$(p+'Key').placeholder=hints[p]?'Kayıtlı: ••••••••'+hints[p]+' — değiştirmek için yenisini yapıştırın':$(p+'Key').dataset.ph||$(p+'Key').placeholder;}
     $('gStatus').textContent=googleConfigured?'Google API yalnızca ücretli arama düğmesine basıldığında kullanılır. Varsayılan arama ücretsizdir.':'Google anahtarı gerekmez: varsayılan arama ücretsiz Photon/OpenStreetMap kullanır. İsterseniz ayrıca ücretli Google API ekleyebilirsiniz.';
   }catch(e){$('gStatus').textContent='Ücretsiz arama hazır. İsteğe bağlı Google API için yerel sunucu gerekir.'}
 }

@@ -225,10 +225,9 @@ async function main(){
   assert.ok(elements.get('result').innerHTML.includes('konum yaklaşık'));
   assert.ok(!elements.get('result').innerHTML.includes('Rotayı Yandex'));
   assert.ok(!elements.get('result').innerHTML.includes('id="deliveredBtn"'));
-  run(`$('deliveredBtn').onclick()`);assert.equal(run('delivered.length'),0,'Taslak teslimata başlatılmamalı');
   run(`stops[1].quality='Elle'`);await run('buildRoute()');
   assert.ok(elements.get('result').innerHTML.includes('Rotayı Yandex'));
-  assert.ok(elements.get('result').innerHTML.includes('id="deliveredBtn"'));
+  assert.ok(!elements.get('result').innerHTML.includes('id="deliveredBtn"'),'Teslim edildi düğmesi kaldırıldı');
   // Dağıtım devamında depo yerine son teslimat kullanılır; sonrasında yalnızca ev kalır.
   run(`stops=[{id:1,lat:41.2,lon:29,quality:'Elle',orders:[],raw:'A'},{id:2,lat:41.15,lon:29,quality:'Elle',orders:[],raw:'B'}]; delivered=[stops[0]];
     var seenPts;getMatrix=async pts=>{seenPts=pts;return {dur:[[0,1,2],[1,0,1],[2,1,0]],dist:[[0,100,200],[100,0,100],[200,100,0]],osrm:true}};osrm=async()=>null;`);
