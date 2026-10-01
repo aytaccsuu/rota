@@ -183,6 +183,10 @@ class PlanEndpointTests(unittest.TestCase):
         ali = 'rota_oturum=' + app.make_token('ali')
         self.assertTrue(self.req('GET', '/ayarlar', cookie=mesut)[1]['isAdmin'])
         self.assertFalse(self.req('GET', '/ayarlar', cookie=ali)[1]['isAdmin'])
+        with patch.dict(os.environ, {'TOMTOM_API_KEY': 'abcdefgh1234', 'GEMINI_API_KEY': 'gemini-5678'}):
+            self.assertEqual(self.req('GET', '/ayarlar', cookie=mesut)[1]['hints'].get('tomtom'), '1234')
+            other = self.req('GET', '/ayarlar', cookie=ali)[1]
+            self.assertEqual((other['hints'], other['ocrHint']), ({}, ''), 'anahtar ipucu yalnızca yöneticiye')
         self.assertEqual(self.req('GET', '/api/kullanicilar', cookie=ali)[0], 403)
         self.assertEqual(self.req('POST', '/api/kullanici', {'ad': 'veli', 'sifre': 'Gizli-123'}, ali)[0], 403)
         self.assertEqual(self.req('POST', '/api/fiyat', {'fiyat': {}}, ali)[0], 403, 'fiyatı yalnızca yönetici değiştirir')

@@ -301,7 +301,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             for _, field, _ in PROVIDERS.values():
                 data.pop(field, None)
             data.update(self.user_points(data))
-            return self.reply(200, {**data, "isAdmin": is_admin(self.user), "providers": configured, "hints": hints, "googleConfigured": bool(os.environ.get("GOOGLE_MAPS_API_KEY") or key), "ocrConfigured": bool(gem), "ocrHint": gem[-4:] if gem else "", "user": self.user, "authOn": auth_enabled()})
+            admin = is_admin(self.user)
+            if not admin:
+                hints = {}  # anahtar ipuçları yalnızca yöneticiye (Yandex harita anahtarı tarayıcıda harita için zorunlu)
+            return self.reply(200, {**data, "isAdmin": admin, "providers": configured, "hints": hints, "googleConfigured": bool(os.environ.get("GOOGLE_MAPS_API_KEY") or key), "ocrConfigured": bool(gem), "ocrHint": gem[-4:] if gem and admin else "", "user": self.user, "authOn": auth_enabled()})
         if path == "/api/kullanicilar":
             if not is_admin(self.user):
                 return self.reply(403, {"error": "Bu işlem yalnızca yönetici içindir.", "code": "forbidden"})
