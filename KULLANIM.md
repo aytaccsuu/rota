@@ -12,6 +12,15 @@ Sitede kullanıcı adı ve şifreyle giriş yapılır; oturum aynı cihazda 30 g
 - `ROTA_KULLANICILAR` boşsa eski `ROTA_SIFRE` (tek şifre, kullanıcı adı serbest) kullanılır. İkisi de boşsa (bilgisayarda `başlat.bat`) giriş istenmez.
 - Depo/ev ve servis anahtarları bütün kullanıcılar için ortaktır.
 
+## Plan kaydı ve veritabanı
+
+Günlük plan (okunan duraklar, bulunan konumlar, hesaplanan sıra, teslim edilenler) her değişiklikte otomatik kaydedilir. Sayfa yenilense, çıkış yapıp tekrar girilse veya başka cihazdan girilse plan kaldığı yerden açılır. Yeni evrak yüklemek eski planın yerine geçer; “Yeni evrak için temizle” bağlantısı planı siler. Kopya ayrıca cihazın kendi hafızasında tutulur.
+
+- Yayında kalıcılık için PostgreSQL gerekir: **Neon** ücretsiz planı (0,5 GB, süresiz; kullanılmayınca uyur ama veriyi silmez). Render → Environment → `DATABASE_URL` = Neon bağlantı adresi (`postgresql://…?sslmode=require`).
+- `DATABASE_URL` yoksa plan sunucuda `planlar/` klasörüne yazılır (bilgisayarda yeterli; Render'ın ücretsiz sunucusunda uyuyup uyanınca silinir).
+- Tablolar `depo.py` içindeki `SCHEMA` listesindedir; sunucu ilk bağlantıda eksik tabloları kendisi oluşturur. Yeni özellik için tablo eklemek oraya bir `CREATE TABLE IF NOT EXISTS` eklemek kadardır.
+- Her kullanıcının planı ayrıdır; başkasının planı görünmez.
+
 ## Arayüz
 
 Sol panelde depo/ev ve evrak yükleme; ana panelde ilk teslimat, mesafe/süre özeti ve mahalle başlıklarıyla teslimat sırası bulunur. Adres kontrol merkezi ayrı bir bölümdür. Düzen telefon genişliğine uyarlanır.

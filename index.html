@@ -78,6 +78,7 @@ a{color:var(--pri);text-underline-offset:3px}.app{max-width:1340px;padding:0 30p
 @media(max-width:430px){.setup-column{grid-template-columns:1fr}.pt{grid-template-columns:1fr auto auto}.pt .val{grid-column:auto}.drop{padding:18px}.upload-icon{display:none}.drop strong{margin:0}.side-note{display:none}.top-actions button{font-size:11px}.hero h2{font-size:24px}}
 @media print{body{background:white}.topbar,.hero,.setup-column,.route-toolbar,.route-rule{display:none!important}.workspace{display:block}.app{max-width:none;padding:0}#resCard{padding:0}.stat>span{border:1px solid #ccc}.next-stop{color:#000;background:#fff;border:1px solid #ccc}.sira{break-inside:avoid}.card{box-shadow:none}.route-column{width:100%}}
 .yx-actions{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 2px}.yx{display:inline-block;padding:8px 12px;border:1px solid var(--line);border-radius:9px;font-size:14px;font-weight:600;color:inherit;text-decoration:none;background:#fff}.yx:active{background:#edf5f1}
+.copy{border:1px solid var(--line);background:#fff;border-radius:8px;padding:2px 7px;font-size:13px;line-height:1.4;cursor:pointer;vertical-align:middle}.copy:active{background:#e5f1eb}
 </style>
 </head>
 <body>
@@ -121,7 +122,7 @@ a{color:var(--pri);text-underline-offset:3px}.app{max-width:1340px;padding:0 30p
     <div class="small hide-print" id="routeInfo"></div>
     <div class="route-rule">En kısa toplam süre <span aria-hidden="true"> · </span> Eve dönüş dahil</div>
     <div id="deliveryInfo" class="small" style="margin-top:6px"></div>
-    <div id="result"></div>
+    <div class="small hide-print" id="planStatus" style="margin:4px 0"></div><div id="result"></div>
   </div>
 
   <details class="card hide-print" id="stopsCard" style="display:none">
@@ -678,6 +679,7 @@ async function geocodeAll(force){
 
 // ---------- durak listesi ----------
 function renderStops(){
+  if(stops.length)savePlan();
   $('stopsCard').style.display=stops.length?'block':'none';
   const miss=stops.filter(s=>s.lat==null).length;
   const warn=pendingStops().filter(s=>!readyStop(s)).length;
@@ -1002,6 +1004,8 @@ async function buildRoute(){
   }finally{if(run===routeRun){routeBusy=false;updateState()}}
 }
 function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=[]){
+  lastRoute={seq:seq.map(p=>({lat:+p.lat,lon:+p.lon})),legs,dist,dur,exact,homeDistances,roadLegs,trafficInfo,lastCoords:(lastCoords||[]).filter((_,i,a)=>i%Math.max(1,Math.ceil(a.length/600))===0)};
+  savePlan();
   const unverified=routeOrder.filter(s=>!readyStop(s)),draft=unverified.length>0;
   $('routeTitle').innerHTML=draft?'Rota taslağı · Teyit bekliyor':'Teslimat sıran hazır';
   const svc=Math.max(0,+$('svc').value||0)*routeOrder.length*60;
@@ -1036,12 +1040,13 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
     const m=s.match||{},adrText=m.yandexAddress||(m.road&&m.no?[m.road+' '+m.no,(m.mah||s.mah)&&String(m.mah||s.mah).replace(/\s*(mah\.?|mahallesi)$/i,'')+' Mahallesi',s.ilce,'İstanbul'].filter(Boolean).join(', '):'');
     const yhref=adrText?`https://yandex.com.tr/harita/?ll=${ll}&z=18&text=${encodeURIComponent(adrText)}`:`https://yandex.com.tr/harita/?ll=${ll}&z=18&whatshere%5Bpoint%5D=${ll}&whatshere%5Bzoom%5D=18`;
     const ya=`<div class="yx-actions hide-print"><a class="yx" href="${yhref}" target="_blank" rel="noopener">⭐ Yandex’te aç / kaydet</a><a class="yx" href="yandexnavi://build_route_on_map?lat_to=${(+s.lat).toFixed(6)}&lon_to=${(+s.lon).toFixed(6)}">🧭 Git</a></div>`;
-    h+=`<div class="sira"><span class="n">${i+1+delivered.length}</span><div><div class="ad">${names(s)}${warn}</div><div class="adr">${esc(s.raw)}</div>${ya}<div class="small">${esc(neighborhoodLabel(s))} · Eve kalan mesafe (${exact?'karayolu':'tahmini'}): ${(homeDistances[i+1]/1000).toFixed(2)} km · Önceki noktadan: ${(legs[i].d/1000).toFixed(1)} km / ${fmtT(legs[i].t)}${legs[i].delay>60?` (🚦 +${fmtT(legs[i].delay)})`:''} · <b>varış ≈ ${clock(eta[i])}</b></div>${i===0&&!draft?'<button class="p hide-print" id="deliveredBtn">Teslim edildi · sıradaki durağa geç</button>':''}<div class="small">${[s.orders.length>1?s.orders.length+' sipariş':'',k?k+' koli':'',geri?'↩ GERİ ALIM':'',[...new Set(s.orders.map(o=>o.musteri).filter(Boolean))].join(', ')].filter(Boolean).join(' · ')}</div></div></div>`;
+    h+=`<div class="sira"><span class="n">${i+1+delivered.length}</span><div><div class="ad">${names(s)} <button class="copy hide-print" data-copy="${esc(stopNames(s))}" title="İsmi kopyala" aria-label="İsmi kopyala">📋</button>${warn}</div><div class="adr">${esc(s.raw)}</div>${ya}<div class="small">${esc(neighborhoodLabel(s))} · Eve kalan mesafe (${exact?'karayolu':'tahmini'}): ${(homeDistances[i+1]/1000).toFixed(2)} km · Önceki noktadan: ${(legs[i].d/1000).toFixed(1)} km / ${fmtT(legs[i].t)}${legs[i].delay>60?` (🚦 +${fmtT(legs[i].delay)})`:''} · <b>varış ≈ ${clock(eta[i])}</b></div>${i===0&&!draft?'<button class="p hide-print" id="deliveredBtn">Teslim edildi · sıradaki durağa geç</button>':''}<div class="small">${[s.orders.length>1?s.orders.length+' sipariş':'',k?k+' koli':'',geri?'↩ GERİ ALIM':'',[...new Set(s.orders.map(o=>o.musteri).filter(Boolean))].join(', ')].filter(Boolean).join(' · ')}</div></div></div>`;
   });
   h+=`<div class="sira"><span class="n" style="background:#1c2430">E</span><div><div class="ad">Eve dönüş</div></div></div>`;
   const out=stops.filter(s=>s.skip);
   if(out.length)h+=`<div class="small" style="color:var(--bad);margin-top:8px">Sıraya girmeyen ${out.length} durak: ${out.map(names).join(', ')} — “Adres kontrolü” bölümünden düzeltin.</div>`;
   $('result').innerHTML=h;
+  $('result').querySelectorAll('button.copy').forEach(b=>b.onclick=()=>copyText(b.dataset.copy,b));
   if($('deliveredBtn'))$('deliveredBtn').onclick=()=>{if(!routeOrder?.length||routeOrder.some(s=>!readyStop(s)))return;delivered.push(routeOrder[0]);clearRoute();renderStops();refreshMarkers();updateState()};
   $('prBtn').onclick=()=>window.print();
   $('kmlBtn').onclick=()=>downloadKml(seq,draft);
@@ -1081,6 +1086,68 @@ function downloadKml(seq,draft){
   a.download='rota-'+new Date().toISOString().slice(0,10)+'.kml';a.click();
   $('routeInfo').innerHTML='Dosya indirildi. Yandex’e aktarmak için: <a href="https://yandex.com.tr/map-constructor/" target="_blank" rel="noopener">Yandex Harita Oluşturucu</a> → <b>İçe aktar</b> → dosyayı seçin → <b>Kaydet ve devam et</b>. Harita, Yandex Haritalar’da “Haritalarım” altında isimli noktalarla görünür.';
 }
+
+
+// Panoya kopyala (telefonda da çalışır); düğmede kısa süre "✓" gösterir
+async function copyText(text,btn){
+  let ok=false;
+  try{await navigator.clipboard.writeText(text);ok=true}catch(e){
+    const t=document.createElement('textarea');t.value=text;t.style.position='fixed';t.style.opacity='0';document.body.appendChild(t);t.select();
+    try{ok=document.execCommand('copy')}catch(e2){}t.remove();
+  }
+  if(btn){const old=btn.textContent;btn.textContent=ok?'✓':'✗';setTimeout(()=>btn.textContent=old,1200)}
+}
+// ---------- plan kaydı: duraklar, konumlar, sıra, teslim edilenler (veritabanı + bu cihaz) ----------
+// Sayfa yenilense, yeniden giriş yapılsa ya da başka cihazdan girilse plan kaldığı yerden açılır.
+let lastRoute=null,planTimer=null,planRestoring=false;
+const PLAN_LOCAL='rota_plan';
+function planData(){
+  const strip=(k,v)=>(k==='placeCandidates'||k==='candidates'||k==='placeError')?undefined:v;
+  const ids=list=>(list||[]).map(s=>s.id);
+  return JSON.parse(JSON.stringify({v:1,savedAt:Date.now(),fileInfo:$('fileInfo').innerHTML,svc:$('svc').value,
+    stops,delivered:ids(delivered),route:lastRoute&&routeOrder?{...lastRoute,order:ids(routeOrder)}:null},strip));
+}
+function savePlan(now){
+  if(planRestoring)return;
+  clearTimeout(planTimer);
+  planTimer=setTimeout(async()=>{
+    if(!stops.length)return;
+    const plan=planData();
+    try{localStorage.setItem(PLAN_LOCAL,JSON.stringify(plan))}catch(e){}
+    try{const r=await fetch('/api/plan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan})});
+      $('planStatus').textContent=r.ok?'✓ Plan kaydedildi '+new Date(plan.savedAt).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}):'Plan bu cihaza kaydedildi; sunucuya kaydedilemedi.'}
+    catch(e){$('planStatus').textContent='Plan bu cihaza kaydedildi (sunucuya ulaşılamadı).'}
+  },now?0:1500);
+}
+async function clearPlan(){
+  try{localStorage.removeItem(PLAN_LOCAL)}catch(e){}
+  try{await fetch('/api/plan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan:null})})}catch(e){}
+}
+async function restorePlan(){
+  let server=null,local=null;
+  try{const r=await fetch('/api/plan');if(r.ok){const j=await r.json();server=j.plan?JSON.parse(j.plan):null;planBackend=j.backend}}catch(e){}
+  try{local=JSON.parse(localStorage.getItem(PLAN_LOCAL)||'null')}catch(e){}
+  const plan=[server,local].filter(x=>x&&x.v===1&&Array.isArray(x.stops)&&x.stops.length).sort((a,b)=>b.savedAt-a.savedAt)[0];
+  if(!plan||stops.length)return;
+  planRestoring=true;
+  try{
+    stops=plan.stops;const byId=new Map(stops.map(s=>[s.id,s]));
+    delivered=(plan.delivered||[]).map(id=>byId.get(id)).filter(Boolean);
+    if(plan.svc)$('svc').value=plan.svc;
+    const when=new Date(plan.savedAt).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+    $('fileInfo').innerHTML=(plan.fileInfo||'')+`<br><span class="small">📂 Kayıtlı plan geri yüklendi (${when}). <a href="#" id="newPlan">Yeni evrak için temizle</a></span>`;
+    $('newPlan').onclick=async e=>{e.preventDefault();await clearPlan();location.reload()};
+    renderStops();refreshMarkers();updateState();
+    const r=plan.route,order=r?.order?.map(id=>byId.get(id))||null;
+    if(r&&order&&order.every(Boolean)&&order.length){
+      routeOrder=order;lastRoute=r;lastCoords=r.lastCoords||null;trafficInfo=r.trafficInfo||null;
+      refreshMarkers();drawRouteLine();
+      renderResult(r.seq,r.legs,r.dist,r.dur,r.exact,r.homeDistances,r.roadLegs,[]);
+      $('planStatus').textContent='📂 Kayıtlı rota gösteriliyor ('+when+'). Yeniden hesaplamak için “Rotayı hesapla”.';
+    }else autoRoute();
+  }finally{planRestoring=false}
+}
+let planBackend='';
 
 // ---------- fotoğraftan okuma: yapay zekâ (Gemini, sunucu üzerinden) ----------
 let aiOcr=false;
@@ -1199,7 +1266,7 @@ async function loadFiles(files){
   }
   $('ocrBar').style.display='none';
   if(!orders.length){$('fileInfo').textContent='Adres bulunamadı. '+msgs.join(' · ');return}
-  geoRun++;geoBusy=false;delivered=[];stops=buildStops(orders);clearRoute();
+  geoRun++;geoBusy=false;delivered=[];lastRoute=null;stops=buildStops(orders);clearRoute();
   $('fileInfo').innerHTML=esc(msgs.join(' · '))+`<br><b>${orders.length} sipariş → ${stops.length} durak.</b>`;
   renderStops();refreshMarkers();updateState();
   if(aiOcr){const run=geoRun;await aiNormalize(stops);if(run!==geoRun)return;renderStops()}
@@ -1261,6 +1328,7 @@ if(location.protocol==='file:')$('fileWarn').style.display='block';
 renderPts();updateState();initMap();
 refreshGoogleStatus();
 renderEmpty();
+restorePlan();
 </script>
 </body>
 </html>

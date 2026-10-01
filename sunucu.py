@@ -15,6 +15,7 @@ import webbrowser
 from providers import PROVIDERS, SSL_CONTEXT, key_for, provider_search
 from evrak_okuma import OkumaHatasi, normalize_addresses, read_document
 import trafik
+import depo
 
 KLASOR = os.path.dirname(os.path.abspath(__file__))
 AYAR = os.path.join(KLASOR, "ayarlar.json")
@@ -240,6 +241,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             for _, field, _ in PROVIDERS.values():
                 data.pop(field, None)
             return self.reply(200, {**data, "providers": configured, "hints": hints, "googleConfigured": bool(os.environ.get("GOOGLE_MAPS_API_KEY") or key), "ocrConfigured": bool(gem), "ocrHint": gem[-4:] if gem else "", "user": self.user, "authOn": auth_enabled()})
+        if path == "/api/plan":
+            try:
+                return self.reply(200, {"plan": depo.load(self.user), "backend": depo.backend()})
+            except (OSError, ValueError):
+                return self.reply(502, {"error": "Kayıtlı plan okunamadı (veritabanı).", "code": "storage"})
         if path == "/api/location-search":
             args = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
             provider = args.get('provider', [''])[0]
@@ -291,6 +297,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.ocr()
         if path == "/api/adres-duzelt":
             return self.fix_addresses()
+        if path == "/api/plan":
+            return self.save_plan()
         if path in ("/api/trafik-matris", "/api/trafik-rota"):
             return self.traffic(path.endswith("matris"))
         if path != "/ayarlar":
@@ -339,6 +347,25 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.reply(502, {"error": str(error), "code": error.code})
         except (urllib.error.URLError, TimeoutError):
             return self.reply(502, {"error": "Gemini’ye ulaşılamadı veya zaman aşımı oluştu.", "code": "network"})
+
+    def save_plan(self):
+        """Kullanıcının planını kaydeder; {"plan": null} planı siler."""
+        try:
+            size = int(self.headers.get("Content-Length", 0))
+            if size <= 0 or size > 3 * 1024 * 1024:
+                raise ValueError()
+            body = json.loads(self.rfile.read(size))
+            plan = body.get("plan")
+            if plan is not None and not isinstance(plan, dict):
+                raise ValueError()
+        except (ValueError, TypeError, AttributeError):
+            return self.reply(400, {"error": "Geçersiz plan.", "code": "invalid_request"})
+        try:
+            depo.save(self.user, None if plan is None else json.dumps(plan, ensure_ascii=False, separators=(",", ":")))
+        except (OSError, ValueError):
+            return self.reply(502, {"error": "Plan kaydedilemedi (veritabanı).", "code": "storage"})
+        self.send_response(204)
+        self.end_headers()
 
     def traffic(self, is_matrix):
         """TomTom canlı trafik: süre tablosu (sıralama için) ya da sıralı rota (varış saatleri için)."""

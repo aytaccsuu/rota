@@ -82,6 +82,14 @@ async function main(){
   assert.equal(run(`baseNoOk('16/1','16')`),true);
   assert.equal(run(`baseNoOk('16/1','16/2')`),false);
   assert.equal(run(`baseNoOk('161','16')`),false);
+  // Plan kaydı: aday listeleri atılır, sıra ve teslim edilenler kimlikle saklanır
+  {
+    const pl=app();
+    pl.run(`stops=[{id:1,raw:'a',lat:41,lon:29,placeCandidates:[{x:1}],match:{road:'A',candidates:[1,2]},orders:[]},{id:2,raw:'b',lat:41.1,lon:29.1,orders:[]}];delivered=[stops[1]];routeOrder=[stops[0]];lastRoute={seq:[],legs:[]};`);
+    const d=plain(pl.run('planData()'));
+    assert.equal(d.v,1);assert.deepEqual(d.delivered,[2]);assert.deepEqual(d.route.order,[1]);
+    assert.ok(!('placeCandidates' in d.stops[0])&&!('candidates' in d.stops[0].match),'büyük aday listeleri kaydedilmez');
+  }
   // AVM kodlu alıcı: mağaza kodu yerine AVM adı, aynı AVM tek durak
   assert.equal(run(`mallFromCode('TUR.Ist.GS.mll.METROGARDEN.I')`),'Metrogarden');
   assert.equal(run(`mallFromCode('TUR.Ist.GS.mII.CANPARK.I')`),'Canpark','fotoğrafta mII okunsa da bulunmalı');

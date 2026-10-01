@@ -8,3 +8,5 @@ __pycache__/
 # ev/depo konumu içeren ekran görüntüleri
 *.png
 _test_*
+# kullanıcı planları (yerel kayıt)
+planlar/

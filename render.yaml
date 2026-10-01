@@ -4,7 +4,7 @@ services:
     name: rota-olusturucu
     runtime: python
     plan: free
-    buildCommand: echo "bağımlılık yok"
+    buildCommand: pip install -r requirements.txt
     startCommand: python sunucu.py
     envVars:
       - key: ROTA_HOST
@@ -27,6 +27,9 @@ services:
       - key: GEOAPIFY_API_KEY
         sync: false
       - key: GEMINI_API_KEY
+        sync: false
+      # Kalıcı veritabanı: Neon (ücretsiz PostgreSQL) bağlantı adresi
+      - key: DATABASE_URL
         sync: false
       - key: TOMTOM_API_KEY
         sync: false
