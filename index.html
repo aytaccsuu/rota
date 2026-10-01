@@ -1357,7 +1357,7 @@ async function renderOzet(){
   <div class="otab-wrap"><table class="otab" id="ozetTablo"><tr><th>Gün</th><th>Durum</th><th>Müşteri</th><th>Bölge</th><th>Rut</th><th>Rut ücreti</th><th>Ek km</th><th>Hammaliye</th><th>KDV’siz</th><th>KDV</th><th>Toplam</th><th>Yakıt</th></tr>
   ${rows.map(({t,d,r,h,yk})=>`<tr data-t="${t}" class="${!r?'bos':''}"><td>${String(d).padStart(2,'0')} ${GUN_ADI[new Date(Y,M-1,d).getDay()]}</td><td>${durum(r)}</td><td>${h?h.nokta:''}</td><td>${h?BOLGE_KISA[h.bolge]:''}</td><td>${h?String(h.rutTip).replace('.',','):''}</td><td>${n(h&&h.rutUcret+h.ekstraTl)}</td><td>${h&&h.ekKm?h.ekKm+' km / '+n(h.ekKmTl):''}</td><td>${n(h?.hammaliye)}</td><td>${n(h?.net)}</td><td>${n(h?.kdv)}</td><td><b>${n(h?.toplam)}</b></td><td>${n(yk)}</td></tr>`).join('')}
   <tr class="tot"><td>Toplam</td><td>${T.calisti} ✓ / ${T.gidilmedi} ✗</td><td>${T.nokta||''}</td><td></td><td></td><td>${n(T.rut)}</td><td>${T.ekKm?T.ekKm+' km / '+n(T.ekKmTl):''}</td><td>${n(T.ham)}</td><td>${n(T.net)}</td><td>${n(T.kdv)}</td><td><b>${n(T.top)}</b></td><td>${n(T.yakit)}</td></tr></table></div>
-  <div class="small">Bir güne dokunun: o günün rotası, müşterileri ve yüklenen evrakı açılır; eksik müşteri, hammaliye, ek km düzenlenebilir. 📄 PDF: tablo + her günün rotası ve evrakı.</div>`;
+  <div class="small">Bir güne dokunun: o günün rotası, müşterileri ve yüklenen evrakı açılır; eksik müşteri, hammaliye, ek km düzenlenebilir. 📄 PDF: aylık tablo.</div>`;
   $('oTablo').querySelectorAll('tr[data-t]').forEach(tr=>tr.onclick=()=>{gunSecili=tr.dataset.t;hesapSekme('gun')});
   $('oCsv').onclick=()=>{
     const head=['Tarih','Durum','Neden','Müşteri','Bölge','Rut','Rut ücreti','Ek km','Ek km ₺','Hammaliye','KDV’siz','KDV','Toplam','Yakıt','Not'];
@@ -1366,7 +1366,7 @@ async function renderOzet(){
     const csv='﻿'+[head,...lines].map(l=>l.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(';')).join('\r\n');
     const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='ozet-'+ay+'.csv';a.click();
   };
-  $('oYaz').onclick=()=>pdfAc('Aylık özet · '+AY_ADI[M-1]+' '+Y,$('oTablo').innerHTML+rows.filter(x=>x.r).map(x=>gunPdfHTML(x.t,x.r)).join(''));
+  $('oYaz').onclick=()=>pdfAc('Aylık özet · '+AY_ADI[M-1]+' '+Y,$('oTablo').innerHTML);
 }
 // evrak dosyasını sıkıştırıp sakla (geçmişte görmek için)
 async function evrakSakla(f){
