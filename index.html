@@ -9,7 +9,7 @@
 *{box-sizing:border-box}
 body{margin:0;font:14px/1.45 system-ui,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink)}
 .app{max-width:780px;margin:0 auto;padding:14px}
-summary{cursor:pointer;font-size:14px}
+summary{cursor:pointer;font-size:14px}#ptCard>summary{list-style:none}#ptCard>summary::-webkit-details-marker{display:none}#ptCard>summary h2{margin:0;display:flex;align-items:center}#ptCard>summary h2:after{content:'▾';margin-left:auto;color:var(--mute);transition:transform .2s}#ptCard[open]>summary h2:after{transform:rotate(180deg)}#ptCard[open]>summary{margin-bottom:12px}#ptOzet{font-size:11px;font-weight:600;color:var(--mute);margin-left:8px}
 .sira{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
 .sira .n{min-width:34px;height:34px;line-height:34px;border-radius:17px;font-size:16px}
 .sira .ad{font-size:16px;font-weight:700}
@@ -115,11 +115,12 @@ a{color:var(--pri);text-underline-offset:3px}.app{max-width:1340px;padding:0 30p
 
   <div id="rotaPage">
   <div class="workspace"><aside class="setup-column">
-  <div class="card hide-print">
-    <h2><span>1</span>Başlangıç ve bitiş</h2><p class="card-caption">Bir kez kaydet, her gün kullan.</p>
+  <details class="card hide-print" id="ptCard">
+    <summary><h2><span>1</span>Başlangıç ve bitiş <small id="ptOzet"></small></h2></summary>
+    <p class="card-caption">Bir kez kaydet, her gün kullan.</p>
     <div id="ptBox"></div>
     <div class="small" id="ptStatus"></div>
-  </div>
+  </details>
 
   <div class="card hide-print">
     <h2><span>2</span>Teslimatları ekle</h2><p class="card-caption">Satırların sıralı olması gerekmez.</p>
@@ -302,6 +303,9 @@ function parseCoord(t){
 }
 function renderPts(){
   const box=$('ptBox');box.innerHTML='';
+  // kart kapalı durur; depo veya ev eksikse girilebilsin diye açılır
+  if(!depot||!home)$('ptCard').open=true;
+  $('ptOzet').textContent=depot&&home?'✓ kayıtlı':'⚠ eksik';
   for(const [k,name] of [['depot','Depo'],['home','Ev']]){
     const v=k==='depot'?depot:home;
     const d=document.createElement('div');d.className='pt';
