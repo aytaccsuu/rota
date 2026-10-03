@@ -68,6 +68,9 @@ async function main(){
   }
   assert.equal(run(`buildStops([{sip:'162409262477306',alici:'NAZİF ÖCAL',ilce:'Kadıköy',raw:'Göztepe mah. Arı apartmanı no: 171'},{sip:'162609262477306',alici:'NAZİF ÖCAL',ilce:'Kadıköy',raw:'Göztepe mah. Arı apartmanı no: 171'}]).reduce((a,s)=>a+s.orders.length,0)`),1,'sipariş no farklı okunsa da aynı alıcı+adres tek sipariş');
   // Ayrıştırma: virgül sınırı ve numaradan önceki yol
+  // kapı numarası farklı yazımlarla: "No 334", "N:334", "Nu 334", "numara 334", ":" olmadan
+  for(const t of ['no 334','No334','No.334 D:5','N:334','N 334','Nu:334','Nr 334','numara 334','No :334','334'])
+    assert.equal(run(`parseAddress('Bostancı mah. Bahçe sok ${t}','Kadıköy').no`),'334',t);
   assert.equal(run(`parseAddress('Kozyatağı mah. Baytur Kozyatağı Konutları, Şakacı Sokak, No: 16, C Blok','Kadıköy').street`),'Şakacı Sokak');
   assert.equal(run(`parseAddress('Kozyatağı mah. Baytur Kozyatağı Konutları, Şakacı Sokak, No: 16, C Blok','Kadıköy').no`),'16');
   assert.equal(run(`parseAddress('Suadiye mah. Çetin emeç bulvarı Su yanı Sokak yalı apartmanı No:7 D:1','Kadıköy').street`),'Su yanı Sokak');

@@ -172,7 +172,8 @@ Kurallar:
 - sokak_adaylari: sokak adı okunurken bozulmuş olabilirse (ör. "Tünelc Sok.") en olası doğru yazımlar, en fazla 3
   ("Tünek Sokak"). Adreste başka bir yol daha yazıyorsa onu da ekle. Emin olduğun adlarda boş liste.
 - mahalle: sadece adı ("Göztepe"), "Mahallesi" yazma. Adreste birden çok mahalle geçiyorsa sokağın bağlı olduğunu seç.
-- kapi_no: bina kapı numarası, yazıldığı gibi ("49/21", "4-6", "12A"). Daire/kat numarası kapı no değildir.
+- kapi_no: bina kapı numarası, yazıldığı gibi ("49/21", "4-6", "12A"). "No:334", "No 334", "no334", "N:334", "Nu 334",
+  "numara 334" ya da "No" yazılmadan sokaktan hemen sonra gelen "334" hepsi kapı numarasıdır → "334". Daire/kat numarası kapı no değildir.
 - daire, kat: varsa.
 - bina: apartman/site/plaza/AVM adı varsa ("Utku Apt.", "Kozzy AVM").
 - duzeltmeler: yaptığın her düzeltmeyi "eski → yeni" biçiminde yaz; düzeltme yoksa boş liste.
