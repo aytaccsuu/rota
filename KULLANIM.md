@@ -108,3 +108,7 @@ Görsel kontrol için `python tests/preview_ui.py` komutu kişisel veri içermey
 - Öncelik: elle düzeltme > durakta telefon konumu > servis araması. Servis araması hafızadaki bir konumu hiçbir zaman değiştirmez; yanlış bir konum elle düzeltilince hafıza da düzelir.
 - Hafızada yalnızca adres anahtarı ve konum tutulur; müşteri adı ve kişiye ait kayıt paylaşılmaz.
 
+## Yol hesabı yedeği
+
+Sıralama için yol süreleri şu sırayla denenir: **TomTom canlı trafik** (açıksa) → **TomTom trafiksiz** → **openrouteservice** (anahtar varsa) → **OSRM** (ücretsiz deneme sunucusu) → kuş uçuşu tahmini. Kullanılan kaynak rota özetinin altında "Yol verisi: …" diye yazar. openrouteservice anahtarı (ücretsiz, openrouteservice.org) yönetici tarafından Ayarlar → "Yol yedeği" alanına ya da Render'da `ORS_API_KEY` olarak girilir.
+

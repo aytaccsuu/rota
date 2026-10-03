@@ -54,9 +54,11 @@ def blocks(n, max_cells=MAX_CELLS):
     return [((o, min(o + orig, n)), (d, min(d + dest, n))) for o in range(0, n, orig) for d in range(0, n, dest)]
 
 
-def matrix(points, key):
-    """points: [[lat, lon], ...] → {dur, dist, delay} (saniye / metre), canlı trafik ve şimdiki kalkış saatiyle."""
-    hit = _cached("m", points)
+def matrix(points, key, traffic=True):
+    """points: [[lat, lon], ...] → {dur, dist, delay} (saniye / metre).
+    traffic=True: canlı trafik, şimdiki kalkış saati. traffic=False: trafikten bağımsız yol süreleri (yedek)."""
+    kind = "m" if traffic else "m0"
+    hit = _cached(kind, points)
     if hit:
         return {**hit, "cached": True}
     n = len(points)
@@ -67,7 +69,8 @@ def matrix(points, key):
     for (o0, o1), (d0, d1) in blocks(n):
         data = _post("https://api.tomtom.com/routing/matrix/2?key=" + key, {
             "origins": [pt(p) for p in points[o0:o1]], "destinations": [pt(p) for p in points[d0:d1]],
-            "options": {"departAt": "now", "traffic": "live", "travelMode": "car", "routeType": "fastest"}})
+            "options": {"departAt": "now", "traffic": "live", "travelMode": "car", "routeType": "fastest"} if traffic
+            else {"departAt": "any", "traffic": "historical", "travelMode": "car", "routeType": "fastest"}})
         for cell in data.get("data", []):
             i, j = o0 + cell["originIndex"], d0 + cell["destinationIndex"]
             s = cell.get("routeSummary")
@@ -77,8 +80,54 @@ def matrix(points, key):
     for i in range(n):
         dur[i][i] = dist[i][i] = delay[i][i] = 0
     result = {"dur": dur, "dist": dist, "delay": delay, "at": time.time()}
-    _store("m", points, result)
+    _store(kind, points, result)
     return {**result, "cached": False}
+
+
+ORS_MAX = 59  # openrouteservice ücretsiz planı: istek başına en fazla 3500 hücre (59×59)
+
+
+def ors_matrix(points, key):
+    """openrouteservice (ücretsiz anahtar) ile trafiksiz süre/mesafe tablosu."""
+    hit = _cached("o", points)
+    if hit:
+        return hit
+    if len(points) > ORS_MAX:
+        raise ValueError("openrouteservice en fazla %d nokta" % ORS_MAX)
+    req = urllib.request.Request("https://api.openrouteservice.org/v2/matrix/driving-car",
+                                 data=json.dumps({"locations": [[p[1], p[0]] for p in points], "metrics": ["distance", "duration"], "units": "m"}).encode(),
+                                 headers={"Content-Type": "application/json", "Authorization": key, "User-Agent": "RotaPlan/1.0"})
+    with urllib.request.urlopen(req, timeout=60, context=SSL_CONTEXT) as response:
+        data = json.load(response)
+    dur, dist = data.get("durations"), data.get("distances")
+    n = len(points)
+    if not (isinstance(dur, list) and isinstance(dist, list) and len(dur) == n and len(dist) == n
+            and all(isinstance(r, list) and len(r) == n and all(isinstance(x, (int, float)) for x in r) for r in dur + dist)):
+        raise ValueError("openrouteservice yanıtı eksik (yola bağlanamayan nokta olabilir)")
+    result = {"dur": dur, "dist": dist, "at": time.time()}
+    _store("o", points, result)
+    return result
+
+
+def road_matrix(points, tomtom_key="", ors_key=""):
+    """Trafiksiz yol tablosu için yedek zinciri: TomTom (trafiksiz) → openrouteservice. Hangisi kullanıldıysa 'kaynak' döner."""
+    errors = []
+    if tomtom_key:
+        try:
+            return {**matrix(points, tomtom_key, traffic=False), "kaynak": "TomTom"}
+        except Exception as error:  # kota, ağ, yanıt hatası → sıradaki servis
+            errors.append("TomTom: %s" % _why(error))
+    if ors_key:
+        try:
+            return {**ors_matrix(points, ors_key), "kaynak": "openrouteservice"}
+        except Exception as error:
+            errors.append("openrouteservice: %s" % _why(error))
+    raise LookupError("; ".join(errors) or "yol servisi anahtarı yok")
+
+
+def _why(error):
+    code = getattr(error, "code", None)
+    return {401: "anahtar reddedildi", 403: "anahtar reddedildi", 429: "kota doldu"}.get(code, "hata %s" % code if code else type(error).__name__)
 
 
 def route(points, key):

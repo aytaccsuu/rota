@@ -29,6 +29,9 @@ services:
         sync: false
       - key: GEOAPIFY_API_KEY
         sync: false
+      # Yol hesabı yedeği (ücretsiz anahtar: openrouteservice.org) — canlı trafik ve TomTom alınamazsa
+      - key: ORS_API_KEY
+        sync: false
       - key: GEMINI_API_KEY
         sync: false
       # Kalıcı veritabanı: Neon (ücretsiz PostgreSQL) bağlantı adresi

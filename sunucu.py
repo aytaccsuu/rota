@@ -146,6 +146,10 @@ def env_point(name):
         return None
 
 
+def ors_key(settings):
+    return os.environ.get("ORS_API_KEY") or settings.get("orsKey", "")
+
+
 def gemini_key(settings):
     return os.environ.get("GEMINI_API_KEY") or settings.get("geminiKey", "")
 
@@ -295,6 +299,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             key = data.pop("gkey", "")
             gem = gemini_key(data)
             data.pop("geminiKey", None)
+            ors = ors_key(data)
+            data.pop("orsKey", None)
             configured = {p: bool(key_for(p, data)) for p in PROVIDERS}
             # anahtarın kendisi değil, yalnızca son 4 karakteri: kaydın yapıldığı ekranda görülsün
             hints = {p: key_for(p, data)[-4:] for p in PROVIDERS if key_for(p, data)}
@@ -308,7 +314,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             admin = is_admin(self.user)
             if not admin:
                 hints = {}  # anahtar ipuçları yalnızca yöneticiye (Yandex harita anahtarı tarayıcıda harita için zorunlu)
-            return self.reply(200, {**data, "isAdmin": admin, "providers": configured, "hints": hints, "googleConfigured": bool(os.environ.get("GOOGLE_MAPS_API_KEY") or key), "ocrConfigured": bool(gem), "ocrHint": gem[-4:] if gem and admin else "", "user": self.user, "authOn": auth_enabled()})
+            return self.reply(200, {**data, "isAdmin": admin, "providers": configured, "hints": hints, "googleConfigured": bool(os.environ.get("GOOGLE_MAPS_API_KEY") or key), "ocrConfigured": bool(gem), "ocrHint": gem[-4:] if gem and admin else "", "orsConfigured": bool(ors), "orsHint": ors[-4:] if ors and admin else "", "user": self.user, "authOn": auth_enabled()})
         if path == "/api/yonetim/ozet":
             if not is_admin(self.user):
                 return self.reply(403, {"error": "Bu işlem yalnızca yönetici içindir.", "code": "forbidden"})
@@ -429,6 +435,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.save_fuel(path.endswith("sil"))
         if path in ("/api/trafik-matris", "/api/trafik-rota"):
             return self.traffic(path.endswith("matris"))
+        if path == "/api/yol-matris":
+            return self.road_matrix()
         if path != "/ayarlar":
             return self.send_error(404)
         try:
@@ -438,7 +446,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             new = json.loads(self.rfile.read(size))
             if not isinstance(new, dict):
                 raise ValueError()
-            fields = {'ykey', 'gkey', 'geminiKey'} | {spec[1] for spec in PROVIDERS.values()}
+            fields = {'ykey', 'gkey', 'geminiKey', 'orsKey'} | {spec[1] for spec in PROVIDERS.values()}
             if any(k in fields for k in new) and not is_admin(self.user):
                 return self.reply(403, {"error": "API anahtarlarını yalnızca yönetici değiştirebilir.", "code": "forbidden"})
             if "tercihler" in new:  # kişiye özel tercihler (ör. arama takibi açık/kapalı)
@@ -711,6 +719,27 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.reply(502, {"error": "Plan kaydedilemedi (veritabanı).", "code": "storage"})
         self.send_response(204)
         self.end_headers()
+
+    def road_matrix(self):
+        """Trafiksiz yol tablosu yedeği: TomTom (trafiksiz) → openrouteservice. Canlı trafik alınamazsa ya da kapalıysa kullanılır."""
+        try:
+            size = int(self.headers.get("Content-Length", 0))
+            if size <= 0 or size > 256 * 1024:
+                raise ValueError()
+            pts = json.loads(self.rfile.read(size)).get("points")
+            if not isinstance(pts, list) or not 2 <= len(pts) <= 150:
+                raise ValueError()
+            pts = [[float(p[0]), float(p[1])] for p in pts]
+            if not all(35 <= la <= 43 and 25 <= lo <= 45 for la, lo in pts):
+                raise ValueError()
+        except (ValueError, TypeError, KeyError, IndexError, AttributeError):
+            return self.reply(400, {"error": "Geçersiz nokta listesi.", "code": "invalid_request"})
+        with LOCK:
+            settings = read_settings()
+        try:
+            return self.reply(200, trafik.road_matrix(pts, key_for("tomtom", settings), ors_key(settings)))
+        except LookupError as error:
+            return self.reply(503, {"error": str(error), "code": "unavailable"})
 
     def traffic(self, is_matrix):
         """TomTom canlı trafik: süre tablosu (sıralama için) ya da sıralı rota (varış saatleri için)."""

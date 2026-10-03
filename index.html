@@ -179,6 +179,8 @@ html[data-theme="dark"] .tk.on.acti,html[data-theme="dark"] .tk.on.acmadi,html[d
     <div class="row"><label>Yandex</label><input type="password" id="yKeyIn" placeholder="Yandex JavaScript API anahtarı"><button class="p" id="yKeySave">Kaydet</button></div>
     <div class="small">Anahtar bir kez kaydedilir, tekrar sorulmaz. Harita için gerekir.</div>
     <div class="row" style="margin-top:10px"><label>Gemini</label><input type="password" autocomplete="off" id="gemKeyIn" placeholder="Fotoğraf okuma için Google Gemini anahtarı" style="flex:1;min-width:0"><button class="p" id="gemKeySave">Kaydet</button><button id="gemKeyRemove">Kaldır</button></div>
+    <div class="row" style="margin-top:10px"><label>Yol yedeği</label><input type="password" autocomplete="off" id="orsKeyIn" placeholder="openrouteservice anahtarı (ücretsiz)" style="flex:1;min-width:0"><button class="p" id="orsKeySave">Kaydet</button><button id="orsKeyRemove">Kaldır</button></div>
+    <div class="small" id="orsStatus">Canlı trafik alınamazsa yol süreleri sırayla TomTom (trafiksiz) ve openrouteservice’ten alınır.</div>
     <div class="small" id="gemStatus">Evrak fotoğrafları yapay zekâ ile okunur. Anahtar yoksa daha az isabetli yerel okuyucu kullanılır. Not: Gemini ücretsiz planında Google gönderilen içeriği ürün geliştirmede kullanabilir.</div>
     <details style="margin-top:10px"><summary>İsteğe bağlı ücretli Google API</summary><div class="row"><label>Google</label><input type="password" id="gKeyIn" placeholder="Google Places API (New) anahtarı" style="flex:1;min-width:0"><button class="p" id="gKeySave">Kaydet</button></div>
     <div class="small" id="gStatus">Varsayılan arama ücretsiz Photon/OpenStreetMap kullanır.</div></details>
@@ -1054,20 +1056,24 @@ async function trafficCall(kind,pts){
   const r=await fetch('/api/trafik-'+kind,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({points:pts.map(p=>[+p.lat,+p.lon])}),signal:AbortSignal.timeout(90000)});
   const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'trafik servisi hatası');return j;
 }
+let yolKaynagi='';
 async function getMatrix(pts){
   // Canlı trafik (TomTom): sıralama şu anki trafikle yapılır; alınamazsa trafiksiz yol süreleri kullanılır
   trafficInfo=null;
   if(useTraffic()&&pts.length<=150){
-    try{const j=await trafficCall('matris',pts);trafficInfo={at:j.at};return {dur:j.dur,dist:j.dist,delay:j.delay,osrm:true,traffic:true}}
+    try{const j=await trafficCall('matris',pts);trafficInfo={at:j.at};return {dur:j.dur,dist:j.dist,delay:j.delay,osrm:true,traffic:true,kaynak:'TomTom · canlı trafik'}}
     catch(e){trafficInfo={error:e.message}}
+  }
+  const valid=m=>Array.isArray(m)&&m.length===pts.length&&m.every(row=>Array.isArray(row)&&row.length===pts.length&&row.every(x=>Number.isFinite(x)&&x>=0));
+  if(srv&&pts.length<=150){
+    try{const j=await apiJSON('/api/yol-matris',{points:pts.map(p=>[+p.lat,+p.lon])});if(valid(j.dur)&&valid(j.dist))return {dur:j.dur,dist:j.dist,osrm:true,kaynak:j.kaynak}}catch(e){}
   }
   if(pts.length<=100){
     const j=await osrm('table/v1/driving/'+cstr(pts)+'?annotations=duration,distance');
-    const valid=m=>Array.isArray(m)&&m.length===pts.length&&m.every(row=>Array.isArray(row)&&row.length===pts.length&&row.every(x=>Number.isFinite(x)&&x>=0));
-    if(j&&valid(j.durations)&&valid(j.distances))return {dur:j.durations,dist:j.distances,osrm:true};
+    if(j&&valid(j.durations)&&valid(j.distances))return {dur:j.durations,dist:j.distances,osrm:true,kaynak:'OSRM'};
   }
   const d=pts.map(a=>pts.map(b=>hav(a,b)*1000*1.35));
-  return {dur:d.map(r=>r.map(x=>x/8.3)),dist:d,osrm:false};
+  return {dur:d.map(r=>r.map(x=>x/8.3)),dist:d,osrm:false,kaynak:'kuş uçuşu tahmini'};
 }
 // Aynı ilçe/mahalle tek bloktur. Mahallesi bilinmeyen adresleri rastgele birleştirme.
 function neighborhoodKey(s){
@@ -1142,7 +1148,7 @@ async function buildRoute(){
   routeBusy=true;$('routeBtn').disabled=true;$('routeInfo').textContent='Depodan müşterilere yol mesafeleri ve sürüş süreleri hesaplanıyor…';
   try{
     const pts=[{...origin()},...ok.map(s=>({...s})),{...home}];
-    const M=await getMatrix(pts);
+    const M=await getMatrix(pts);yolKaynagi=M.kaynak||'';
     if(run!==routeRun)return;
     const H=M.dist.map(row=>row.at(-1));
     if(elleSira&&!elleSiraGecerli(ok))elleSira=null;
@@ -1178,7 +1184,7 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
   sonRender=[seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison];
   const takip=takipAcik(),siradaki=takip?routeOrder.findIndex(s=>!s.tamam):0;
   gunuRotadanGuncelle();
-  lastRoute={seq:seq.map(p=>({lat:+p.lat,lon:+p.lon})),legs,dist,dur,exact,homeDistances,roadLegs,trafficInfo,lastCoords:(lastCoords||[]).filter((_,i,a)=>i%Math.max(1,Math.ceil(a.length/600))===0)};
+  lastRoute={kaynak:yolKaynagi||lastRoute?.kaynak||'',seq:seq.map(p=>({lat:+p.lat,lon:+p.lon})),legs,dist,dur,exact,homeDistances,roadLegs,trafficInfo,lastCoords:(lastCoords||[]).filter((_,i,a)=>i%Math.max(1,Math.ceil(a.length/600))===0)};
   savePlan();
   const unverified=routeOrder.filter(s=>!readyStop(s)),draft=unverified.length>0;
   $('routeTitle').innerHTML=draft?'Rota taslağı · Teyit bekliyor':'Teslimat sıran hazır';
@@ -1193,7 +1199,7 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
   const svcEach=Math.max(0,+$('svc').value||0)*60,t0=Date.now(),clock=ms=>new Date(ms).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
   let acc=0;const eta=legs.map((l,k)=>{acc+=l.t*1000;const at=t0+acc;acc+=svcEach*1000;return at});lastRoute.eta=eta;
   let h=`<div class="stat"><span>${routeOrder.length} durak</span><span><i class="ic" data-ic="route"></i> ${(dist/1000).toFixed(1)} km</span><span><i class="ic" data-ic="clock"></i> sürüş ${fmtT(dur)}</span><span>toplam ≈ ${fmtT(dur+svc)}</span>${withTraffic?`<span><i class="ic" data-ic="traffic"></i> trafik gecikmesi ${fmtT(delayTot)}</span>`:''}</div>`;
-  h+=withTraffic?`<div class="small">Eve varış ≈ <b>${clock(eta.at(-1))}</b></div>`:'';
+  h+=`<div class="small yol-kaynak">${withTraffic?`Eve varış ≈ <b>${clock(eta.at(-1))}</b> · `:''}Yol verisi: ${esc(yolKaynagi||lastRoute?.kaynak||'kayıtlı rota')}</div>`;
   if(draft)h+=`<div class="notice"><b>Bu bir taslaktır: ${unverified.length} bina konumu teyit edilmedi.</b></div>`;
   if(takip&&routeOrder.length){const bit=routeOrder.filter(s=>s.tamam).length;h+=siradaki<0?`<div class="next-stop"><small>TAMAMLANDI</small>Bütün duraklar tamamlandı (${bit}/${routeOrder.length}). Eve dönüş.</div>`:`<div class="next-stop"><small>SIRADAKİ · ${bit}/${routeOrder.length} tamamlandı</small>${siradaki+1+delivered.length}. ${names(routeOrder[siradaki])}<span class="ns-adr">${esc(routeOrder[siradaki].raw)}</span></div>`}
   else if(routeOrder.length)h+=`<div class="next-stop"><small>İLK TESLİMAT</small>${delivered.length?'Bulunduğunuz yerden':'Depodan'} ilk durak: ${names(routeOrder[0])} · ${(legs[0].d/1000).toFixed(1)} km · ${fmtT(legs[0].t)}</div>`;
@@ -1935,7 +1941,7 @@ $('setBtn').onclick=()=>{const c=$('setCard');c.style.display=c.style.display===
 $('yKeyIn').value=yKey;
 $('yKeySave').onclick=async()=>{const k=$('yKeyIn').value.trim();if(!k)return;try{const r=await fetch('/ayarlar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ykey:k})});if(!r.ok)throw new Error();yKey=k;localStorage.setItem('ykey',JSON.stringify(k));location.reload()}catch(e){$('yWarn').style.display='block';$('yWarn').textContent='Anahtar kaydedilemedi. Yerel sunucuyu kontrol edin.'}};
 async function refreshGoogleStatus(){
-  try{const r=await fetch('/ayarlar');if(!r.ok)throw new Error();const a=await r.json();googleConfigured=!!a.googleConfigured;$('trafficWrap').style.display=(a.providers||{}).tomtom?'inline-flex':'none';if(a.authOn){$('userBadge').innerHTML='<i class="ic" data-ic="user"></i> '+esc(a.user||'');$('logoutBtn').style.display='inline-block'}aiOcr=!!a.ocrConfigured;$('gemStatus').textContent=aiOcr?'✓ Gemini anahtarı kayıtlı (…'+(a.ocrHint||'')+'). Fotoğraflar yapay zekâ ile okunur.':'Gemini anahtarı yok: fotoğraflar daha az isabetli yerel okuyucuyla okunur.';$('gemKeyIn').placeholder=aiOcr?'Kayıtlı: ••••••••'+(a.ocrHint||'')+' — değiştirmek için yenisini yapıştırın':'Fotoğraf okuma için Google Gemini anahtarı';configuredProviders=a.providers||{};const hints=a.hints||{};for(const p of Object.keys(providerFields)){if(!$(p+'Key').dataset.ph)$(p+'Key').dataset.ph=$(p+'Key').placeholder;showProviderStatus(p,configuredProviders[p]?'✓ Anahtar kayıtlı (…'+(hints[p]||'')+') · Bağlantıyı test edin':'Anahtar eklenmedi');$(p+'Key').placeholder=hints[p]?'Kayıtlı: ••••••••'+hints[p]+' — değiştirmek için yenisini yapıştırın':$(p+'Key').dataset.ph||$(p+'Key').placeholder;}
+  try{const r=await fetch('/ayarlar');if(!r.ok)throw new Error();const a=await r.json();googleConfigured=!!a.googleConfigured;$('trafficWrap').style.display=(a.providers||{}).tomtom?'inline-flex':'none';if(a.authOn){$('userBadge').innerHTML='<i class="ic" data-ic="user"></i> '+esc(a.user||'');$('logoutBtn').style.display='inline-block'}$('orsStatus').textContent=a.orsConfigured?'✓ openrouteservice anahtarı kayıtlı'+(a.orsHint?' (…'+a.orsHint+')':'')+' · yol yedeği: TomTom (trafiksiz) → openrouteservice → OSRM':'openrouteservice anahtarı yok · yol yedeği: TomTom (trafiksiz) → OSRM';aiOcr=!!a.ocrConfigured;$('gemStatus').textContent=aiOcr?'✓ Gemini anahtarı kayıtlı (…'+(a.ocrHint||'')+'). Fotoğraflar yapay zekâ ile okunur.':'Gemini anahtarı yok: fotoğraflar daha az isabetli yerel okuyucuyla okunur.';$('gemKeyIn').placeholder=aiOcr?'Kayıtlı: ••••••••'+(a.ocrHint||'')+' — değiştirmek için yenisini yapıştırın':'Fotoğraf okuma için Google Gemini anahtarı';configuredProviders=a.providers||{};const hints=a.hints||{};for(const p of Object.keys(providerFields)){if(!$(p+'Key').dataset.ph)$(p+'Key').dataset.ph=$(p+'Key').placeholder;showProviderStatus(p,configuredProviders[p]?'✓ Anahtar kayıtlı (…'+(hints[p]||'')+') · Bağlantıyı test edin':'Anahtar eklenmedi');$(p+'Key').placeholder=hints[p]?'Kayıtlı: ••••••••'+hints[p]+' — değiştirmek için yenisini yapıştırın':$(p+'Key').dataset.ph||$(p+'Key').placeholder;}
     $('gStatus').textContent=googleConfigured?'Google API yalnızca ücretli arama düğmesine basıldığında kullanılır. Varsayılan arama ücretsizdir.':'Google anahtarı gerekmez: varsayılan arama ücretsiz Photon/OpenStreetMap kullanır. İsterseniz ayrıca ücretli Google API ekleyebilirsiniz.';
   }catch(e){$('gStatus').textContent='Ücretsiz arama hazır. İsteğe bağlı Google API için yerel sunucu gerekir.'}
 }
@@ -1945,6 +1951,12 @@ async function saveGemini(v){
 }
 $('gemKeySave').onclick=()=>{const v=$('gemKeyIn').value.trim();if(v)saveGemini(v)};
 $('gemKeyRemove').onclick=()=>saveGemini('');
+async function saveOrs(v){
+  try{const r=await fetch('/ayarlar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({orsKey:v})});if(!r.ok)throw new Error();$('orsKeyIn').value='';await refreshGoogleStatus()}
+  catch(e){$('orsStatus').textContent='Kaydedilemedi.'}
+}
+$('orsKeySave').onclick=()=>{const v=$('orsKeyIn').value.trim();if(v)saveOrs(v)};
+$('orsKeyRemove').onclick=()=>saveOrs('');
 $('gKeySave').onclick=async()=>{
   const gkey=$('gKeyIn').value.trim();if(!gkey)return;
   try{const r=await fetch('/ayarlar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({gkey})});if(!r.ok)throw new Error();$('gKeyIn').value='';await refreshGoogleStatus()}

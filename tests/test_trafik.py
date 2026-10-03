@@ -8,6 +8,33 @@ class TrafikTests(unittest.TestCase):
     def setUp(self):
         trafik._cache.clear()
 
+    def test_road_matrix_yedek_zinciri(self):
+        import io, json, urllib.error
+        pts = [[41.0, 29.0], [41.01, 29.01], [41.02, 29.02]]
+        ok_tomtom = lambda url, body: {"data": [{"originIndex": i, "destinationIndex": j, "routeSummary": {"travelTimeInSeconds": 60, "lengthInMeters": 500}} for i in range(3) for j in range(3)]}
+        with patch.object(trafik, "_post", side_effect=ok_tomtom) as post:
+            m = trafik.road_matrix(pts, "tt", "ors")
+            self.assertEqual(m["kaynak"], "TomTom")
+            self.assertEqual(post.call_args[0][1]["options"]["traffic"], "historical", "trafiksiz yedek")
+        trafik._cache.clear()
+        quota = urllib.error.HTTPError("u", 429, "kota", {}, io.BytesIO(b""))
+        ors_body = json.dumps({"durations": [[0, 70, 80], [70, 0, 90], [80, 90, 0]], "distances": [[0, 600, 700], [600, 0, 800], [700, 800, 0]]}).encode()
+
+        class Resp(io.BytesIO):
+            def __enter__(self): return self
+            def __exit__(self, *a): pass
+        with patch.object(trafik, "_post", side_effect=quota), patch.object(trafik.urllib.request, "urlopen", return_value=Resp(ors_body)) as op:
+            m = trafik.road_matrix(pts, "tt", "ors")
+            self.assertEqual((m["kaynak"], m["dur"][0][1]), ("openrouteservice", 70))
+            self.assertEqual(op.call_args[0][0].get_header("Authorization"), "ors")
+        trafik._cache.clear()
+        with patch.object(trafik, "_post", side_effect=quota):
+            with self.assertRaises(LookupError) as e:
+                trafik.road_matrix(pts, "tt", "")
+            self.assertIn("kota doldu", str(e.exception))
+        with self.assertRaises(LookupError):
+            trafik.road_matrix(pts, "", "")
+
     def test_blocks_cover_matrix_within_free_limit(self):
         for n in (2, 8, 30, 70, 150):
             cells = set()
