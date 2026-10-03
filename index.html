@@ -9,7 +9,7 @@
 *{box-sizing:border-box}
 body{margin:0;font:14px/1.45 system-ui,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink)}
 .app{max-width:780px;margin:0 auto;padding:14px}
-summary{cursor:pointer;font-size:14px}#ptCard>summary{list-style:none}#ptCard>summary::-webkit-details-marker{display:none}#ptCard>summary h2{margin:0;display:flex;align-items:center}#ptCard>summary h2:after{content:'▾';margin-left:auto;color:var(--mute);transition:transform .2s}#ptCard[open]>summary h2:after{transform:rotate(180deg)}#ptCard[open]>summary{margin-bottom:12px}#ptOzet{font-size:11px;font-weight:600;color:var(--mute);margin-left:8px}
+summary{cursor:pointer;font-size:14px}#ptCard>summary h2{margin:0;display:flex;align-items:center}#ptCard>summary h2:after{content:'▾';margin-left:auto;color:var(--mute);transition:transform .2s}#ptCard[open]>summary h2:after{transform:rotate(180deg)}#ptCard[open]>summary{margin-bottom:12px}#ptOzet{font-size:11px;font-weight:600;color:var(--mute);margin-left:8px}
 .sira{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
 .sira .n{min-width:34px;height:34px;line-height:34px;border-radius:17px;font-size:16px}
 .sira .ad{font-size:16px;font-weight:700}
@@ -140,7 +140,7 @@ html[data-theme="dark"] .tag{filter:brightness(.85)}
 html[data-theme="dark"] .ppop{box-shadow:0 12px 32px #0008}
 html[data-theme="dark"] a{color:#5fd0a9}
 /* Rota sayfası: başlangıç ve evrak kartları üstte yan yana, teslimat sırası altta tam genişlikte */
-.workspace{display:block}.setup-column{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}.setup-column .card{margin-bottom:18px}.route-column{width:100%}
+.workspace{display:block}.setup-column{display:block}.ayar-bolum{border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:4px 0 14px}.ayar-bolum>summary{font-size:14px}.ayar-bolum #ptOzet{font-size:11px;color:var(--mute);margin-left:6px}.setup-column .card{margin-bottom:18px}.route-column{width:100%}
 @media(max-width:720px){.setup-column{grid-template-columns:1fr;gap:0}}
 .route-toolbar{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px}.route-toolbar>label.small{display:inline-flex!important;align-items:center;justify-content:flex-start!important;gap:6px;width:auto!important;min-width:0!important;flex:none!important;margin:0}.route-toolbar input[type=checkbox]{width:18px!important;min-width:0!important;height:18px;margin:0;padding:0;flex:none}.route-toolbar>#routeBtn{margin-left:auto}
 @media(max-width:520px){.route-toolbar>#routeBtn{width:100%;margin-left:0}}
@@ -169,6 +169,12 @@ html[data-theme="dark"] .tk.on.acti,html[data-theme="dark"] .tk.on.acmadi,html[d
 
   <div class="card hide-print" id="setCard" style="display:none">
     <h2><i class="ic" data-ic="settings"></i> Ayarlar</h2>
+    <details id="ptCard" class="ayar-bolum" open>
+      <summary><b><i class="ic" data-ic="pin"></i> Başlangıç (depo) ve bitiş (ev)</b> <small id="ptOzet"></small></summary>
+      <p class="card-caption" style="margin:8px 0">Bir kez kaydet, her gün kullan. Koordinatı Yandex Haritalar’da noktaya basılı tutup kopyalayabilirsiniz.</p>
+      <div id="ptBox"></div>
+      <div class="small" id="ptStatus"></div>
+    </details>
     <div class="yonetici-only">
     <div class="row"><label>Yandex</label><input type="password" id="yKeyIn" placeholder="Yandex JavaScript API anahtarı"><button class="p" id="yKeySave">Kaydet</button></div>
     <div class="small">Anahtar bir kez kaydedilir, tekrar sorulmaz. Harita için gerekir.</div>
@@ -185,15 +191,8 @@ html[data-theme="dark"] .tk.on.acti,html[data-theme="dark"] .tk.on.acmadi,html[d
 
   <div id="rotaPage">
   <div class="workspace"><aside class="setup-column">
-  <details class="card hide-print" id="ptCard">
-    <summary><h2><span>1</span>Başlangıç ve bitiş <small id="ptOzet"></small></h2></summary>
-    <p class="card-caption">Bir kez kaydet, her gün kullan.</p>
-    <div id="ptBox"></div>
-    <div class="small" id="ptStatus"></div>
-  </details>
-
   <div class="card hide-print">
-    <h2><span>2</span>Teslimatları ekle</h2><p class="card-caption">Satırların sıralı olması gerekmez.</p>
+    <h2><span>1</span>Teslimatları ekle</h2><p class="card-caption">Satırların sıralı olması gerekmez.</p>
     <div class="drop" id="drop" role="button" tabindex="0" aria-label="Teslimat evrakı yükle"><svg class="upload-icon" width="29" height="29" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 16V4m-4 4 4-4 4 4M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><strong>Dosyanı buraya bırak</strong><span class="small">veya seçmek için tıkla<br>Fotoğraf, Excel, CSV · Çoklu yükleme</span><input type="file" id="file" accept="image/*,.xlsx,.xls,.csv" multiple hidden></div>
     <div class="bar" id="ocrBar" style="display:none"><i></i></div>
     <div class="small" id="fileInfo" style="margin-top:6px"></div>
@@ -398,7 +397,7 @@ function parseCoord(t){
 function renderPts(){
   const box=$('ptBox');box.innerHTML='';
   // kart kapalı durur; depo veya ev eksikse girilebilsin diye açılır
-  if(!depot||!home)$('ptCard').open=true;
+  if(!depot||!home){$('ptCard').open=true;$('setCard').style.display='block'}
   $('ptOzet').innerHTML=depot&&home?'<i class="ic" data-ic="check"></i> kayıtlı':'<i class="ic" data-ic="alert"></i> eksik';
   for(const [k,name] of [['depot','Depo'],['home','Ev']]){
     const v=k==='depot'?depot:home;
