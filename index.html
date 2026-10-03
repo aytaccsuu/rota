@@ -201,7 +201,6 @@ html[data-theme="dark"] .tk.on.acti,html[data-theme="dark"] .tk.on.acmadi,html[d
     <div class="small hide-print" id="geoInfo"></div>
     <div class="route-toolbar hide-print"><div class="row"><label for="svc" style="width:auto">Durak başına</label><input type="number" id="svc" value="5" min="0" aria-label="Durak başına bekleme süresi"><span class="small">dk bekleme</span></div><label class="small" id="trafficWrap" style="display:none;align-items:center;gap:6px"><input type="checkbox" id="trafficOn" checked> <i class="ic" data-ic="traffic"></i> Canlı trafik</label><label class="small takipSec" title="Müşteri aramalarını (açtı / açmadı / meşgul) ve tamamlanan durakları işaretleyin"><input type="checkbox" id="takipOn"> <i class="ic" data-ic="phone"></i> Arama takibi</label><button id="routeBtn" class="p" disabled>Rotayı hesapla</button></div>
     <div class="small hide-print" id="routeInfo"></div>
-    <div class="route-rule">En kısa toplam süre <span aria-hidden="true"> · </span> Eve dönüş dahil</div>
     <div id="deliveryInfo" class="small" style="margin-top:6px"></div>
     <div class="small hide-print" id="planStatus" style="margin:4px 0"></div><div id="result"></div>
   </div>
@@ -211,7 +210,6 @@ html[data-theme="dark"] .tk.on.acti,html[data-theme="dark"] .tk.on.acmadi,html[d
   <details class="card hide-print" id="stopsCard" style="display:none">
     <summary><b>Adres kontrol merkezi</b> <span class="small">· Evrak kayıtları</span> <span class="small" id="stopsCount"></span></summary>
     <div class="row" style="margin-top:8px"><button id="geoBtn">Adresleri tekrar ara</button></div>
-    <div class="small">Önce sokak, mahalle ve bina numarası eşleştirilir. Bina bulunamazsa AVM/apartman/site adı ücretsiz OpenStreetMap verisinde aranır. Yaklaşık konumlarla yalnızca rota taslağı hazırlanır. Navigasyon için bina konumlarını teyit edin. Bu liste evraktaki sırayı korur; teslimat sırası üstte gösterilir.</div>
     <div id="stops"></div><div class="small">Yer verisi: © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap katkıcıları</a> · Photon. Kamu servisi sınırlıdır; her bina kayıtlı olmayabilir.</div>
   </details>
 
@@ -924,7 +922,7 @@ function updateState(){
   const draft=ok.length<act.length;
   $('routeBtn').textContent=draft?'Taslak rotayı hesapla':routeOrder?'Sırayı yeniden hesapla':'Rotayı hesapla';
   $('routeBtn').disabled=!(validPoint(origin())&&validPoint(home)&&(act.length||delivered.length)&&located.length===act.length)||geoBusy||routeBusy;
-  if(!routeBusy)$('routeInfo').textContent=msgs.length?'Rota bekliyor: '+msgs.join(', ')+'.':draft?(act.length-ok.length)+' bina teyit bekliyor. Yaklaşık konumlarla taslak gösterilir; ilk durak konum teyidinden sonra değişebilir.':(ok.length?ok.length+' kalan durak için mahalleleri birlikte tamamlayan rota.':delivered.length?'Teslimatlar tamamlandı; eve dönüş.':'');
+  if(!routeBusy)$('routeInfo').textContent=msgs.length?'Rota bekliyor: '+msgs.join(', ')+'.':draft?(act.length-ok.length)+' bina teyit bekliyor.':'';
   if(!routeOrder)$('routeTitle').innerHTML=routeBusy?'Teslimat planı hesaplanıyor…':'Teslimat planın';
   $('deliveryInfo').innerHTML=delivered.length?`${delivered.length} durak teslim edildi · ${act.length} durak kaldı. <button id="undoDelivery" class="hide-print">Son teslimatı geri al</button>`:'';
   if($('undoDelivery'))$('undoDelivery').onclick=()=>{delivered.pop();clearRoute();renderStops();refreshMarkers()};
@@ -1152,18 +1150,13 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
   const svcEach=Math.max(0,+$('svc').value||0)*60,t0=Date.now(),clock=ms=>new Date(ms).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
   let acc=0;const eta=legs.map((l,k)=>{acc+=l.t*1000;const at=t0+acc;acc+=svcEach*1000;return at});lastRoute.eta=eta;
   let h=`<div class="stat"><span>${routeOrder.length} durak</span><span><i class="ic" data-ic="route"></i> ${(dist/1000).toFixed(1)} km</span><span><i class="ic" data-ic="clock"></i> sürüş ${fmtT(dur)}</span><span>toplam ≈ ${fmtT(dur+svc)}</span>${withTraffic?`<span><i class="ic" data-ic="traffic"></i> trafik gecikmesi ${fmtT(delayTot)}</span>`:''}</div>`;
-  h+=withTraffic?`<div class="small">Süreler şu anki canlı trafikle (TomTom) hesaplandı; sıralama da trafiğe göre yapıldı. Şimdi çıkılırsa eve varış ≈ <b>${clock(eta.at(-1))}</b>.</div>`
-    :trafficInfo?.error?`<div class="small" style="color:var(--warn)">Canlı trafik alınamadı (${esc(trafficInfo.error)}); süreler trafiksiz.</div>`:'';
-  if(draft)h+=`<div class="notice"><b>Bu bir taslaktır: ${unverified.length} bina konumu teyit edilmedi.</b><br>Sıra yaklaşık konumlara göre hesaplandı. Sokak/mahalle merkezi gerçek bina girişinden uzakta olabilir. Navigasyon ve teslimat başlatma, konumlar teyit edilince açılır.</div>`;
+  h+=withTraffic?`<div class="small">Eve varış ≈ <b>${clock(eta.at(-1))}</b></div>`:'';
+  if(draft)h+=`<div class="notice"><b>Bu bir taslaktır: ${unverified.length} bina konumu teyit edilmedi.</b></div>`;
   if(takip&&routeOrder.length){const bit=routeOrder.filter(s=>s.tamam).length;h+=siradaki<0?`<div class="next-stop"><small>TAMAMLANDI</small>Bütün duraklar tamamlandı (${bit}/${routeOrder.length}). Eve dönüş.</div>`:`<div class="next-stop"><small>SIRADAKİ · ${bit}/${routeOrder.length} tamamlandı</small>${siradaki+1+delivered.length}. ${names(routeOrder[siradaki])}<span class="ns-adr">${esc(routeOrder[siradaki].raw)}</span></div>`}
   else if(routeOrder.length)h+=`<div class="next-stop"><small>İLK TESLİMAT</small>${delivered.length?'Bulunduğunuz yerden':'Depodan'} ilk durak: ${names(routeOrder[0])} · ${(legs[0].d/1000).toFixed(1)} km · ${fmtT(legs[0].t)}</div>`;
-  if(comparison.length)h+=`<details class="small"><summary>İlk durak neden seçildi? Yakınlık karşılaştırması</summary>${comparison.map(c=>`${names(c.stop)}: ${(c.d/1000).toFixed(2)} km / ${fmtT(c.t)}`).join('<br>')}<br>${exact?'Karayolu mesafesi':'Kuş uçuşundan tahmini mesafe'} karşılaştırıldı.${draft?' Konumlar yaklaşıktır.':''}</details>`;
-  if(!exact)h+='<div class="small" style="color:var(--warn)">Yol matrisi alınamadı: yakınlık ve sıralama kuş uçuşu tahminine dayanıyor. Karayolu mesafeleri doğrulanamadı.</div>';
-  if(!exact&&!roadLegs)h+='<div class="small">Kilometre ve süreler kuş uçuşundan türetilen tahminlerdir.</div>';
-  h+='<div class="small">Sıra, eve dönüş dahil toplam sürüş süresi en kısa olacak şekilde hesaplandı. Her adreste <i class="ic" data-ic="star"></i> ile Yandex’te açıp <b>Kaydet</b>’e dokunarak favorilere ekleyebilir, <i class="ic" data-ic="nav"></i> ile yol tarifi alabilirsiniz.</div>';
+  if(!exact)h+='<div class="small" style="color:var(--warn)">Yol bilgisi alınamadı; mesafeler tahminidir.</div>';
   const unknown=routeOrder.filter(s=>neighborhoodKey(s).startsWith('unknown:')).length;
-  if(unknown)h+=`<div class="small" style="color:var(--warn)">${unknown} durakta ilçe/mahalle eksik; bu adresler ayrı durak olarak planlandı.</div>`;
-  h+='<div class="small">Sürüş süreleri trafiksiz yol süreleridir; yoğun saatlerde biraz uzayabilir.</div>';
+  if(unknown)h+=`<div class="small" style="color:var(--warn)">${unknown} durakta ilçe/mahalle eksik.</div>`;
   h+=`<div class="row hide-print result-actions">${links.join('')}<button id="siraBtn" class="${siraDuzenle?'p':''}"><i class="ic" data-ic="${siraDuzenle?'check':'edit'}"></i> ${siraDuzenle?'Düzenlemeyi bitir':'Sırayı elle düzenle'}</button>${elleSira?'<button id="otoSiraBtn"><i class="ic" data-ic="refresh"></i> En kısa sıraya dön</button>':''}<button class="danger" id="rotaSilBtn"><i class="ic" data-ic="trash"></i> Rotayı sil</button></div>`;
   if(elleSira||siraDuzenle)h+=`<div class="sira-not hide-print"><i class="ic" data-ic="edit"></i> ${siraDuzenle?'Okları kullanarak durakların sırasını değiştirin; süreler ve varış saatleri her değişiklikte yeniden hesaplanır.':'Bu sıra elle düzenlendi. Süreler bu sıraya göre hesaplandı.'}</div>`;
   h+=`<div class="sira"><span class="n" style="background:#1a8f4c">D</span><div><div class="ad">${delivered.length?'Son teslimat konumundan devam':'Depodan çıkış'}</div></div></div>`;
@@ -1178,7 +1171,7 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
     const tas=siraDuzenle?`<div class="sira-tas hide-print"><button data-tas="${i}" data-y="-1" ${i?'':'disabled'} aria-label="Yukarı taşı"><i class="ic" data-ic="up"></i></button><button data-tas="${i}" data-y="1" ${i<routeOrder.length-1?'':'disabled'} aria-label="Aşağı taşı"><i class="ic" data-ic="down"></i></button></div>`:'';
     if(takip&&s.tamam&&!siraDuzenle){h+=`<div class="sira bitti"><span class="n"><i class="ic" data-ic="check"></i></span><div><div class="ad">${i+1+delivered.length}. ${names(s)} <span class="tk-zaman">tamamlandı ${esc(s.tamamZaman||'')}${s.arama?' · '+ARAMA[s.arama][1]:''}</span> <button class="tk-geri hide-print" data-tm="${i}">Geri al</button></div></div></div>`;return}
     const tk=takip&&!siraDuzenle?`<div class="takip hide-print">${Object.entries(ARAMA).map(([v,[icn,ad]])=>`<button class="tk ${s.arama===v?'on '+v:''}" data-tk="${i}" data-v="${v}"><i class="ic" data-ic="${icn}"></i> ${ad}</button>`).join('')}${s.arama?`<span class="tk-zaman">${esc(s.aramaZaman||'')}</span>`:''}<button class="tk tamam" data-tm="${i}"><i class="ic" data-ic="check"></i> Tamamlandı</button></div>`:'';
-    h+=`<div class="sira${siraDuzenle?' duzen':''}${takip&&i===siradaki?' siradaki':''}"${takip&&i===siradaki?' id="siradakiDurak"':''}>${tas}<span class="n">${i+1+delivered.length}</span><div><div class="ad">${names(s)} <button class="copy hide-print" data-copy="${esc(stopNames(s))}" title="İsmi kopyala" aria-label="İsmi kopyala"><i class="ic" data-ic="copy"></i></button>${warn}</div><div class="adr">${esc(s.raw)}</div>${tk}${ya}<div class="small">${esc(neighborhoodLabel(s))} · Eve kalan mesafe (${exact?'karayolu':'tahmini'}): ${(homeDistances[i+1]/1000).toFixed(2)} km · Önceki noktadan: ${(legs[i].d/1000).toFixed(1)} km / ${fmtT(legs[i].t)}${legs[i].delay>60?` (<i class="ic" data-ic="traffic"></i> +${fmtT(legs[i].delay)})`:''} · <b>varış ≈ ${clock(eta[i])}</b></div><div class="small">${[s.orders.length>1?s.orders.length+' sipariş':'',k?k+' koli':'',geri?'<i class="ic" data-ic="undo"></i> GERİ ALIM':'',[...new Set(s.orders.map(o=>o.musteri).filter(Boolean))].join(', ')].filter(Boolean).join(' · ')}</div></div></div>`;
+    h+=`<div class="sira${siraDuzenle?' duzen':''}${takip&&i===siradaki?' siradaki':''}"${takip&&i===siradaki?' id="siradakiDurak"':''}>${tas}<span class="n">${i+1+delivered.length}</span><div><div class="ad">${names(s)} <button class="copy hide-print" data-copy="${esc(stopNames(s))}" title="İsmi kopyala" aria-label="İsmi kopyala"><i class="ic" data-ic="copy"></i></button>${warn}</div><div class="adr">${esc(s.raw)}</div>${tk}${ya}<div class="small">${esc(neighborhoodLabel(s))} · ${(legs[i].d/1000).toFixed(1)} km / ${fmtT(legs[i].t)}${legs[i].delay>60?` (<i class="ic" data-ic="traffic"></i> +${fmtT(legs[i].delay)})`:''} · <b>varış ≈ ${clock(eta[i])}</b></div><div class="small">${[s.orders.length>1?s.orders.length+' sipariş':'',k?k+' koli':'',geri?'<i class="ic" data-ic="undo"></i> GERİ ALIM':'',[...new Set(s.orders.map(o=>o.musteri).filter(Boolean))].join(', ')].filter(Boolean).join(' · ')}</div></div></div>`;
   });
   h+=`<div class="sira"><span class="n" style="background:#1c2430">E</span><div><div class="ad">Eve dönüş</div></div></div>`;
   const out=stops.filter(s=>s.skip);
@@ -1732,7 +1725,7 @@ async function restorePlan(){
       routeOrder=order;lastRoute=r;lastCoords=r.lastCoords||null;trafficInfo=r.trafficInfo||null;
       refreshMarkers();drawRouteLine();
       renderResult(r.seq,r.legs,r.dist,r.dur,r.exact,r.homeDistances,r.roadLegs,[]);
-      $('planStatus').innerHTML='<i class="ic" data-ic="folder"></i> Kayıtlı rota gösteriliyor ('+when+'). Yeniden hesaplamak için “Rotayı hesapla”.';
+      $('planStatus').innerHTML='<i class="ic" data-ic="folder"></i> Kayıtlı rota ('+when+')';
     }else autoRoute();
   }finally{planRestoring=false}
 }
