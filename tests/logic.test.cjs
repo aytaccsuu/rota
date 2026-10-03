@@ -238,6 +238,14 @@ async function main(){
   run(`delivered=[];var release;getMatrix=()=>new Promise(r=>release=r);var inFlight=buildRoute();clearRoute();`);
   run(`release({dur:[[0,1,2,3],[1,0,1,2],[2,1,0,1],[3,2,1,0]],dist:[[0,1,2,3],[1,0,1,2],[2,1,0,1],[3,2,1,0]],osrm:true})`);
   await run('inFlight');assert.equal(run('routeOrder'),null);
+  // Elle düzenlenen sıra çözücü yerine kullanılır; duraklar değişince geçersiz olur.
+  await new Promise(r=>setTimeout(r,50));run(`clearTimeout(autoT);delivered=[];stops=[{id:1,lat:41.2,lon:29,quality:'Elle',orders:[],raw:'A'},{id:2,lat:41.15,lon:29,quality:'Elle',orders:[],raw:'B'},{id:3,lat:41.1,lon:29,quality:'Elle',orders:[],raw:'C'}];elleSira=[3,1,2];
+    getMatrix=async p=>{const m=p.map((_,i)=>p.map((_,j)=>Math.abs(i-j)));return {dur:m,dist:m,osrm:true}};osrm=async()=>null;`);
+  await run('buildRoute()');assert.equal(run('routeOrder.map(s=>s.id).join()'),'3,1,2','elle sıra korunur');
+  run(`stops.pop();clearTimeout(autoT)`);await run('buildRoute()');assert.equal(run('elleSira'),null,'durak değişince elle sıra düşer');assert.equal(run('routeOrder.length'),2);
+  // Elle rut: bölge ve ilçe sayısı seçilir (24 nokta, Avrupa 1, 2+ ilçe → 1,5 rut 8.700)
+  assert.equal(run(`gunHesap({durum:'calisti',nokta:24,bolge:'avrupa1',ilceSayisi:2,ilceler:[]}).net`),8700);
+  assert.equal(run(`gunHesap({durum:'calisti',nokta:28,parcalar:[{nokta:24,bolge:'avrupa1',ilceSayisi:2},{nokta:4,bolge:'anadolu',ilceSayisi:1}]}).net`),13700);
   console.log('OK: adres/AVM ayrıştırma, ücretsiz yer teyidi, 250 rota senaryosu, teslimat devamı ve eski yanıt koruması');
 }
 main().catch(e=>{console.error(e);process.exitCode=1});

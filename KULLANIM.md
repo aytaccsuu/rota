@@ -90,3 +90,8 @@ Görsel kontrol için `python tests/preview_ui.py` komutu kişisel veri içermey
 - `ROTA_KULLANICILAR` içindeki hesaplar "Render ayarı" olarak görünür ve yalnızca Render'dan değiştirilir. Arayüzden eklenen kullanıcılar veritabanında (şifreler PBKDF2 ile özetlenmiş olarak) saklanır.
 - Şifresi değiştirilen ya da silinen kullanıcının açık oturumları kapanır.
 
+## Elle rut ve rota sırası düzeltme
+
+- **Elle rut (evraksız gün):** Hesap → Gün'de kaydı olmayan bir tarih seçin; **Elle rut ekle** bölümüne müşteri sayısı, bölge (Anadolu / Avrupa 1 / Avrupa 2), ilçe sayısı (tek / 2+) ve isteğe bağlı ilçeleri girin. Aynı gün birden fazla rut yapıldıysa **Sefer ekle** ile her seferi ayrı girin; her sefer ayrı hesaplanır. Kaydedilen gün sonradan da düzenlenebilir.
+- **Rota sırasını elle düzeltme:** Rota hesaplandıktan sonra **Sırayı elle düzenle** → durakları oklarla yukarı/aşağı taşıyın; km, süre ve varış saatleri her değişiklikte yeniden hesaplanır ve sıra planla birlikte kaydedilir. **En kısa sıraya dön** otomatik sıralamaya geri getirir. Durak eklenir/çıkarılırsa elle sıra sıfırlanır.
+
