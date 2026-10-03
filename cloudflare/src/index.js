@@ -310,6 +310,8 @@ async function girisYap(env, request) {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url), yol = url.pathname;
+    // Kullanıcılar tanımlanmadan yayında hiçbir şey açılmaz (yalnızca yerel geliştirmede YEREL_ACIK=1 ile girişsiz çalışır)
+    if (!G.girisAcik(env) && env.YEREL_ACIK !== '1') return new Response('Kurulum tamamlanmadı: Cloudflare panelinde ROTA_KULLANICILAR gizli ayarını girin.', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
     try {
       if (yol === '/giris') {
         if (request.method === 'POST') return girisYap(env, request);

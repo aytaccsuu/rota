@@ -3,6 +3,8 @@ name = "rota-plani"
 main = "src/index.js"
 compatibility_date = "2025-09-01"
 compatibility_flags = ["nodejs_compat"]
+# Panelden girilen düz ayarlar yayına almada silinmesin
+keep_vars = true
 
 # index.html ve giris.html (npm run build ile ana klasörden kopyalanır). Giriş kontrolü için önce Worker çalışır.
 [assets]
@@ -14,7 +16,7 @@ run_worker_first = true
 [[d1_databases]]
 binding = "DB"
 database_name = "rota-plani"
-database_id = "BURAYA-D1-KIMLIGI"   # wrangler d1 create rota-plani çıktısından
+database_id = "4405cfcf-fce0-4924-ae29-e715a2750d51"
 migrations_dir = "migrations"
 
 # Evrak görselleri: R2 (isteğe bağlı). Bu bölüm yoksa görseller D1'de saklanır.
@@ -31,5 +33,6 @@ binding = "AI"
 #   ROTA_KULLANICILAR, ROTA_GIZLI, YANDEX_MAPS_JS_KEY, YANDEX_GEOCODER_API_KEY, TOMTOM_API_KEY,
 #   MAPTILER_API_KEY, GEOAPIFY_API_KEY, GEMINI_API_KEY, ORS_API_KEY, GOOGLE_MAPS_API_KEY
 ROTA_YONETICI = "aytac"
-DEPO_KOORDINAT = ""
-EV_KOORDINAT = ""
+# Neon'dan taşıma bitince bu satırı silip yeniden yayına alın
+TASIMA_ACIK = "1"
+# DEPO_KOORDINAT ve EV_KOORDINAT panelden girilir (ör. "41.012345, 29.123456")
