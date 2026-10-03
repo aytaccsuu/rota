@@ -747,9 +747,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             size = int(self.headers.get("Content-Length", 0))
             if size <= 0 or size > 256 * 1024:
                 raise ValueError()
-            pts = json.loads(self.rfile.read(size)).get("points")
+            body = json.loads(self.rfile.read(size))
+            pts = body.get("points")
             if not isinstance(pts, list) or not 2 <= len(pts) <= (150 if is_matrix else 150):
                 raise ValueError()
+            depart = trafik.depart_at(body.get("departAt"))
             pts = [[float(p[0]), float(p[1])] for p in pts]
             if not all(35 <= la <= 43 and 25 <= lo <= 45 for la, lo in pts):
                 raise ValueError()
@@ -760,7 +762,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if not key:
             return self.reply(503, {"error": "Trafik için TomTom anahtarı gerekli.", "code": "missing_key"})
         try:
-            return self.reply(200, trafik.matrix(pts, key) if is_matrix else trafik.route(pts, key))
+            result = trafik.matrix(pts, key, depart=depart) if is_matrix else trafik.route(pts, key, depart=depart)
+            return self.reply(200, {**result, "departAt": depart})
         except urllib.error.HTTPError as error:
             code = "auth" if error.code in (401, 403) else "quota" if error.code == 429 else "upstream"
             msg = {"auth": "TomTom anahtarı trafik/rota hizmetine izin vermiyor.", "quota": "TomTom günlük ücretsiz kotası doldu; trafiksiz hesaplanıyor.",

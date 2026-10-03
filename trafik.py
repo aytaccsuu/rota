@@ -6,6 +6,7 @@ Aynı noktalar için sonuç 15 dakika saklanır; adres düzeltip yeniden hesapla
 import json
 import threading
 import time
+import urllib.parse
 import urllib.request
 
 from providers import SSL_CONTEXT
@@ -25,6 +26,26 @@ def _post(url, body):
 def _get(url):
     with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "RotaPlan/1.0"}), timeout=60, context=SSL_CONTEXT) as response:
         return json.load(response)
+
+
+def depart_at(text, now=None):
+    """İstemcinin gönderdiği çıkış saatini doğrular: en az 10 dk, en fazla 24 saat sonrası; 15 dakikaya yuvarlanmış UTC metni döner.
+    Geçmiş/yakın saatler için None (canlı trafik kullanılır)."""
+    import datetime
+    if not text:
+        return None
+    t = datetime.datetime.fromisoformat(str(text).replace("Z", "+00:00"))
+    if t.tzinfo is None:
+        raise ValueError("saat dilimi yok")
+    t = t.astimezone(datetime.timezone.utc)
+    now = now or datetime.datetime.now(datetime.timezone.utc)
+    delta = (t - now).total_seconds()
+    if delta < 600:
+        return None
+    if delta > 24 * 3600:
+        raise ValueError("çıkış saati çok ileri")
+    t = t.replace(second=0, microsecond=0) + datetime.timedelta(minutes=(15 - t.minute % 15) % 15)  # önbellek isabeti için 15 dk'ya yukarı yuvarla
+    return t.strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
 def _key(kind, points):
@@ -54,10 +75,11 @@ def blocks(n, max_cells=MAX_CELLS):
     return [((o, min(o + orig, n)), (d, min(d + dest, n))) for o in range(0, n, orig) for d in range(0, n, dest)]
 
 
-def matrix(points, key, traffic=True):
+def matrix(points, key, traffic=True, depart=None):
     """points: [[lat, lon], ...] → {dur, dist, delay} (saniye / metre).
-    traffic=True: canlı trafik, şimdiki kalkış saati. traffic=False: trafikten bağımsız yol süreleri (yedek)."""
-    kind = "m" if traffic else "m0"
+    traffic=True: canlı trafik, şimdiki kalkış saati. depart="2026-10-05T06:30:00Z": o saatin tahmini trafiği.
+    traffic=False: trafikten bağımsız yol süreleri (yedek)."""
+    kind = ("m@" + depart if depart else "m") if traffic else "m0"
     hit = _cached(kind, points)
     if hit:
         return {**hit, "cached": True}
@@ -69,7 +91,8 @@ def matrix(points, key, traffic=True):
     for (o0, o1), (d0, d1) in blocks(n):
         data = _post("https://api.tomtom.com/routing/matrix/2?key=" + key, {
             "origins": [pt(p) for p in points[o0:o1]], "destinations": [pt(p) for p in points[d0:d1]],
-            "options": {"departAt": "now", "traffic": "live", "travelMode": "car", "routeType": "fastest"} if traffic
+            "options": {"departAt": depart, "traffic": "historical", "travelMode": "car", "routeType": "fastest"} if traffic and depart
+            else {"departAt": "now", "traffic": "live", "travelMode": "car", "routeType": "fastest"} if traffic
             else {"departAt": "any", "traffic": "historical", "travelMode": "car", "routeType": "fastest"}})
         for cell in data.get("data", []):
             i, j = o0 + cell["originIndex"], d0 + cell["destinationIndex"]
@@ -130,18 +153,19 @@ def _why(error):
     return {401: "anahtar reddedildi", 403: "anahtar reddedildi", 429: "kota doldu"}.get(code, "hata %s" % code if code else type(error).__name__)
 
 
-def route(points, key):
-    """Sıralı noktalar için trafikli rota: her bacağın süresi/mesafesi/gecikmesi ve çizgi."""
-    hit = _cached("r", points)
+def route(points, key, depart=None):
+    """Sıralı noktalar için trafikli rota: her bacağın süresi/mesafesi/gecikmesi ve çizgi. depart verilirse o saatin tahmini trafiği."""
+    kind = "r@" + depart if depart else "r"
+    hit = _cached(kind, points)
     if hit:
         return hit
     locs = ":".join("%.6f,%.6f" % (p[0], p[1]) for p in points)
-    data = _get("https://api.tomtom.com/routing/1/calculateRoute/%s/json?key=%s&traffic=true&departAt=now&travelMode=car&routeType=fastest" % (locs, key))
+    data = _get("https://api.tomtom.com/routing/1/calculateRoute/%s/json?key=%s&traffic=true&departAt=%s&travelMode=car&routeType=fastest" % (locs, key, urllib.parse.quote(depart or "now")))
     r = data["routes"][0]
     legs = [{"d": l["summary"]["lengthInMeters"], "t": l["summary"]["travelTimeInSeconds"], "delay": l["summary"].get("trafficDelayInSeconds", 0)} for l in r["legs"]]
     line = [[p["latitude"], p["longitude"]] for l in r["legs"] for p in l.get("points", [])]
     if len(legs) != len(points) - 1:
         raise ValueError("bacak sayısı tutmuyor")
     result = {"legs": legs, "line": line[::max(1, len(line) // 2000)]}
-    _store("r", points, result)
+    _store(kind, points, result)
     return result

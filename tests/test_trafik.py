@@ -35,6 +35,25 @@ class TrafikTests(unittest.TestCase):
         with self.assertRaises(LookupError):
             trafik.road_matrix(pts, "", "")
 
+    def test_cikis_saati(self):
+        import datetime
+        now = datetime.datetime(2026, 10, 5, 6, 0, tzinfo=datetime.timezone.utc)
+        self.assertIsNone(trafik.depart_at("2026-10-05T06:05:00Z", now), "yakın saat → canlı")
+        self.assertIsNone(trafik.depart_at("2026-10-05T05:00:00Z", now), "geçmiş → canlı")
+        self.assertEqual(trafik.depart_at("2026-10-05T07:31:00Z", now), "2026-10-05T07:45:00Z")
+        self.assertEqual(trafik.depart_at("2026-10-05T10:31:00+03:00", now), "2026-10-05T07:45:00Z")
+        with self.assertRaises(ValueError):
+            trafik.depart_at("2026-10-07T07:00:00Z", now)
+        with self.assertRaises(ValueError):
+            trafik.depart_at("2026-10-05T07:00:00", now)
+        calls = []
+        fake = lambda url, body: calls.append(body) or {"data": [{"originIndex": i, "destinationIndex": j, "routeSummary": {"travelTimeInSeconds": 60, "lengthInMeters": 500}} for i in range(2) for j in range(2)]}
+        with patch.object(trafik, "_post", side_effect=fake):
+            trafik.matrix([[41, 29], [41.01, 29.01]], "k", depart="2026-10-05T07:45:00Z")
+            self.assertEqual(calls[-1]["options"], {"departAt": "2026-10-05T07:45:00Z", "traffic": "historical", "travelMode": "car", "routeType": "fastest"})
+            trafik.matrix([[41, 29], [41.01, 29.01]], "k")
+            self.assertEqual(calls[-1]["options"]["traffic"], "live", "çıkış saati yoksa canlı; önbellek ayrı")
+
     def test_blocks_cover_matrix_within_free_limit(self):
         for n in (2, 8, 30, 70, 150):
             cells = set()

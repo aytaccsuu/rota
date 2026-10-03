@@ -112,3 +112,9 @@ Görsel kontrol için `python tests/preview_ui.py` komutu kişisel veri içermey
 
 Sıralama için yol süreleri şu sırayla denenir: **TomTom canlı trafik** (açıksa) → **TomTom trafiksiz** → **openrouteservice** (anahtar varsa) → **OSRM** (ücretsiz deneme sunucusu) → kuş uçuşu tahmini. Kullanılan kaynak rota özetinin altında "Yol verisi: …" diye yazar. openrouteservice anahtarı (ücretsiz, openrouteservice.org) yönetici tarafından Ayarlar → "Yol yedeği" alanına ya da Render'da `ORS_API_KEY` olarak girilir.
 
+## Çıkış saatine göre trafik
+
+- Çıkış saati kendiliğinden **evrak okutma saati + ayarlanan süre** olur (varsayılan 90 dk; Ayarlar → "Çıkış saati", kişiye özel). Rota sayfasında **Çıkış** kutusundan elle de değiştirilebilir.
+- Canlı trafik açıkken çıkış 10 dakikadan ileriyse sıralama ve süreler **o saatin tahmini trafiğine** göre yapılır; varış saatleri çıkış saatinden başlar ("Çıkış 09:30 → eve varış ≈ 14:05").
+- Yola çıkarken **Şimdi çıkıyorum**'a basın: çıkış şimdiye alınır, rota canlı trafikle yeniden hesaplanır.
+

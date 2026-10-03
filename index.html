@@ -153,7 +153,7 @@ html[data-theme="dark"] a{color:#5fd0a9}
 .sira.bitti{opacity:.6;padding:8px 0}.sira.bitti .ad{font-size:14px}.sira.bitti .n{background:var(--soft);color:var(--pri)}.tk-geri{padding:2px 8px;font-size:11px;border-radius:12px;margin-left:6px}
 .sira.siradaki{background:var(--soft);border-radius:12px;padding-left:8px;padding-right:8px}.sira.siradaki:before{display:none}
 .ns-adr{display:block;font-size:13px;font-weight:500;opacity:.9;margin-top:3px}
-.takipSec{display:inline-flex;align-items:center;gap:6px}
+.takipSec,.cikisSec{display:inline-flex;align-items:center;gap:6px}.cikisSec input{width:auto!important;min-width:92px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--surf2);color:var(--ink);font:inherit}
 html[data-theme="dark"] .tk.on.acti,html[data-theme="dark"] .tk.on.acmadi,html[data-theme="dark"] .tk.on.mesgul{color:#fff}html[data-theme="dark"] .tk.on.acti{background:#1f8a5b}html[data-theme="dark"] .tk.on.acmadi{background:#b24343}html[data-theme="dark"] .tk.on.mesgul{background:#b27a12}
 .sira .small{font-size:13px;color:var(--mute)}
 .raw{font-size:14px;color:var(--ink)}
@@ -169,6 +169,7 @@ html[data-theme="dark"] .tk.on.acti,html[data-theme="dark"] .tk.on.acmadi,html[d
 
   <div class="card hide-print" id="setCard" style="display:none">
     <h2><i class="ic" data-ic="settings"></i> Ayarlar</h2>
+    <div class="ayar-bolum row" style="align-items:center;gap:8px"><b style="font-size:14px"><i class="ic" data-ic="clock"></i> Çıkış saati</b><span class="small">Evrak okutulduktan</span><input type="number" id="cikisDkIn" min="0" max="600" step="5" style="width:80px"><span class="small">dk sonra (rota o saatin trafiğine göre)</span><span class="small" id="cikisDkMsg"></span></div>
     <details id="ptCard" class="ayar-bolum" open>
       <summary><b><i class="ic" data-ic="pin"></i> Başlangıç (depo) ve bitiş (ev)</b> <small id="ptOzet"></small></summary>
       <p class="card-caption" style="margin:8px 0">Bir kez kaydet, her gün kullan. Koordinatı Yandex Haritalar’da noktaya basılı tutup kopyalayabilirsiniz.</p>
@@ -205,7 +206,7 @@ html[data-theme="dark"] .tk.on.acti,html[data-theme="dark"] .tk.on.acmadi,html[d
     <h2 id="routeTitle">Teslimat planın</h2>
     <div class="bar hide-print" id="geoBar" style="display:none"><i></i></div>
     <div class="small hide-print" id="geoInfo"></div>
-    <div class="route-toolbar hide-print"><div class="row"><label for="svc" style="width:auto">Durak başına</label><input type="number" id="svc" value="5" min="0" aria-label="Durak başına bekleme süresi"><span class="small">dk bekleme</span></div><label class="small" id="trafficWrap" style="display:none;align-items:center;gap:6px"><input type="checkbox" id="trafficOn" checked> <i class="ic" data-ic="traffic"></i> Canlı trafik</label><label class="small takipSec" title="Müşteri aramalarını (açtı / açmadı / meşgul) ve tamamlanan durakları işaretleyin"><input type="checkbox" id="takipOn"> <i class="ic" data-ic="phone"></i> Arama takibi</label><button id="routeBtn" class="p" disabled>Rotayı hesapla</button></div>
+    <div class="route-toolbar hide-print"><div class="row"><label for="svc" style="width:auto">Durak başına</label><input type="number" id="svc" value="5" min="0" aria-label="Durak başına bekleme süresi"><span class="small">dk bekleme</span></div><label class="small" id="trafficWrap" style="display:none;align-items:center;gap:6px"><input type="checkbox" id="trafficOn" checked> <i class="ic" data-ic="traffic"></i> Canlı trafik</label><label class="small cikisSec" title="Evrak okutulduktan sonra ayarladığınız süre kadar sonrası; değiştirebilirsiniz">Çıkış <input type="time" id="cikisSaat"></label><label class="small takipSec" title="Müşteri aramalarını (açtı / açmadı / meşgul) ve tamamlanan durakları işaretleyin"><input type="checkbox" id="takipOn"> <i class="ic" data-ic="phone"></i> Arama takibi</label><button id="routeBtn" class="p" disabled>Rotayı hesapla</button></div>
     <div class="small hide-print" id="routeInfo"></div>
     <div id="deliveryInfo" class="small" style="margin-top:6px"></div>
     <div class="small hide-print" id="planStatus" style="margin:4px 0"></div><div id="result"></div>
@@ -1052,8 +1053,15 @@ async function osrm(path){ // geçici hatalarda 3 kez dener
 const cstr=pts=>pts.map(p=>(+p.lon).toFixed(6)+','+(+p.lat).toFixed(6)).join(';');
 let trafficInfo=null;
 const useTraffic=()=>!!configuredProviders.tomtom&&$('trafficOn').checked!==false;
+let planEvrakZamani=null,planCikis=null;
+const cikisDk=()=>{const v=+OTURUM.tercih?.cikisDk;return Number.isFinite(v)&&v>=0&&v<=600?v:90};
+function cikisZamani(){return planCikis||(planEvrakZamani?planEvrakZamani+cikisDk()*60000:Date.now())}
+// 10 dakikadan ileri bir çıkış varsa o saatin tahmini trafiği; yoksa canlı trafik
+const ileriCikis=()=>{const t=cikisZamani();return t-Date.now()>10*60000&&t-Date.now()<24*3600000?t:null};
+const saatYaz=ms=>new Date(ms).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
 async function trafficCall(kind,pts){
-  const r=await fetch('/api/trafik-'+kind,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({points:pts.map(p=>[+p.lat,+p.lon])}),signal:AbortSignal.timeout(90000)});
+  const ileri=ileriCikis();
+  const r=await fetch('/api/trafik-'+kind,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({points:pts.map(p=>[+p.lat,+p.lon]),departAt:ileri?new Date(ileri).toISOString():null}),signal:AbortSignal.timeout(90000)});
   const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'trafik servisi hatası');return j;
 }
 let yolKaynagi='';
@@ -1061,7 +1069,7 @@ async function getMatrix(pts){
   // Canlı trafik (TomTom): sıralama şu anki trafikle yapılır; alınamazsa trafiksiz yol süreleri kullanılır
   trafficInfo=null;
   if(useTraffic()&&pts.length<=150){
-    try{const j=await trafficCall('matris',pts);trafficInfo={at:j.at};return {dur:j.dur,dist:j.dist,delay:j.delay,osrm:true,traffic:true,kaynak:'TomTom · canlı trafik'}}
+    try{const j=await trafficCall('matris',pts);trafficInfo={at:j.at,departAt:j.departAt};return {dur:j.dur,dist:j.dist,delay:j.delay,osrm:true,traffic:true,kaynak:j.departAt?'TomTom · '+saatYaz(Date.parse(j.departAt))+' çıkışı için tahmini trafik':'TomTom · canlı trafik'}}
     catch(e){trafficInfo={error:e.message}}
   }
   const valid=m=>Array.isArray(m)&&m.length===pts.length&&m.every(row=>Array.isArray(row)&&row.length===pts.length&&row.every(x=>Number.isFinite(x)&&x>=0));
@@ -1196,17 +1204,17 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
   const names=s=>esc(stopNames(s));
   const delayTot=legs.reduce((a,l)=>a+(l.delay||0),0),withTraffic=legs.some(l=>'delay' in l);
   // Tahmini varış saatleri: şimdi yola çıkılıyor, her durakta bekleme süresi eklenir
-  const svcEach=Math.max(0,+$('svc').value||0)*60,t0=Date.now(),clock=ms=>new Date(ms).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
+  const svcEach=Math.max(0,+$('svc').value||0)*60,t0=Math.max(Date.now(),cikisZamani()),clock=ms=>new Date(ms).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
   let acc=0;const eta=legs.map((l,k)=>{acc+=l.t*1000;const at=t0+acc;acc+=svcEach*1000;return at});lastRoute.eta=eta;
   let h=`<div class="stat"><span>${routeOrder.length} durak</span><span><i class="ic" data-ic="route"></i> ${(dist/1000).toFixed(1)} km</span><span><i class="ic" data-ic="clock"></i> sürüş ${fmtT(dur)}</span><span>toplam ≈ ${fmtT(dur+svc)}</span>${withTraffic?`<span><i class="ic" data-ic="traffic"></i> trafik gecikmesi ${fmtT(delayTot)}</span>`:''}</div>`;
-  h+=`<div class="small yol-kaynak">${withTraffic?`Eve varış ≈ <b>${clock(eta.at(-1))}</b> · `:''}Yol verisi: ${esc(yolKaynagi||lastRoute?.kaynak||'kayıtlı rota')}</div>`;
+  h+=`<div class="small yol-kaynak">Çıkış ${clock(t0)} → eve varış ≈ <b>${clock(eta.at(-1))}</b> · Yol verisi: ${esc(yolKaynagi||lastRoute?.kaynak||'kayıtlı rota')}</div>`;
   if(draft)h+=`<div class="notice"><b>Bu bir taslaktır: ${unverified.length} bina konumu teyit edilmedi.</b></div>`;
   if(takip&&routeOrder.length){const bit=routeOrder.filter(s=>s.tamam).length;h+=siradaki<0?`<div class="next-stop"><small>TAMAMLANDI</small>Bütün duraklar tamamlandı (${bit}/${routeOrder.length}). Eve dönüş.</div>`:`<div class="next-stop"><small>SIRADAKİ · ${bit}/${routeOrder.length} tamamlandı</small>${siradaki+1+delivered.length}. ${names(routeOrder[siradaki])}<span class="ns-adr">${esc(routeOrder[siradaki].raw)}</span></div>`}
   else if(routeOrder.length)h+=`<div class="next-stop"><small>İLK TESLİMAT</small>${delivered.length?'Bulunduğunuz yerden':'Depodan'} ilk durak: ${names(routeOrder[0])} · ${(legs[0].d/1000).toFixed(1)} km · ${fmtT(legs[0].t)}</div>`;
   if(!exact)h+='<div class="small" style="color:var(--warn)">Yol bilgisi alınamadı; mesafeler tahminidir.</div>';
   const unknown=routeOrder.filter(s=>neighborhoodKey(s).startsWith('unknown:')).length;
   if(unknown)h+=`<div class="small" style="color:var(--warn)">${unknown} durakta ilçe/mahalle eksik.</div>`;
-  h+=`<div class="row hide-print result-actions">${links.join('')}<button id="siraBtn" class="${siraDuzenle?'p':''}"><i class="ic" data-ic="${siraDuzenle?'check':'edit'}"></i> ${siraDuzenle?'Düzenlemeyi bitir':'Sırayı elle düzenle'}</button>${elleSira?'<button id="otoSiraBtn"><i class="ic" data-ic="refresh"></i> En kısa sıraya dön</button>':''}<button class="danger" id="rotaSilBtn"><i class="ic" data-ic="trash"></i> Rotayı sil</button></div>`;
+  h+=`<div class="row hide-print result-actions">${links.join('')}${ileriCikis()?'<button class="p" id="simdiBtn"><i class="ic" data-ic="nav"></i> Şimdi çıkıyorum</button>':''}<button id="siraBtn" class=""${siraDuzenle?'p':''}"><i class="ic" data-ic="${siraDuzenle?'check':'edit'}"></i> ${siraDuzenle?'Düzenlemeyi bitir':'Sırayı elle düzenle'}</button>${elleSira?'<button id="otoSiraBtn"><i class="ic" data-ic="refresh"></i> En kısa sıraya dön</button>':''}<button class="danger" id="rotaSilBtn"><i class="ic" data-ic="trash"></i> Rotayı sil</button></div>`;
   if(elleSira||siraDuzenle)h+=`<div class="sira-not hide-print"><i class="ic" data-ic="edit"></i> ${siraDuzenle?'Okları kullanarak durakların sırasını değiştirin; süreler ve varış saatleri her değişiklikte yeniden hesaplanır.':'Bu sıra elle düzenlendi. Süreler bu sıraya göre hesaplandı.'}</div>`;
   h+=`<div class="sira"><span class="n" style="background:#1a8f4c">D</span><div><div class="ad">${delivered.length?'Son teslimat konumundan devam':'Depodan çıkış'}</div></div></div>`;
   routeOrder.forEach((s,i)=>{
@@ -1228,6 +1236,7 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
   $('result').innerHTML=h;
   $('result').querySelectorAll('button.copy').forEach(b=>b.onclick=()=>copyText(b.dataset.copy,b));
   $('rotaSilBtn').onclick=()=>rotaSil(planDate||todayISO());
+  if($('simdiBtn'))$('simdiBtn').onclick=()=>{planCikis=Date.now();cikisGoster();buildRoute()};
   $('result').querySelectorAll('[data-tk]').forEach(b=>b.onclick=()=>{const s=routeOrder[+b.dataset.tk],v=b.dataset.v;if(s.arama===v){s.arama=null;s.aramaZaman=null}else{s.arama=v;s.aramaZaman=saatNow()}renderResult(...sonRender)});
   $('result').querySelectorAll('[data-tm]').forEach(b=>b.onclick=()=>{const s=routeOrder[+b.dataset.tm];s.tamam=!s.tamam;s.tamamZaman=s.tamam?saatNow():null;if(s.tamam)gpsIleOgren(s);renderResult(...sonRender);if(s.tamam)setTimeout(()=>document.getElementById('siradakiDurak')?.scrollIntoView({behavior:'smooth',block:'center'}),60)});
   $('siraBtn').onclick=()=>{siraDuzenle=!siraDuzenle;renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison)};
@@ -1749,7 +1758,7 @@ function planData(){
   const strip=(k,v)=>(k==='placeCandidates'||k==='candidates'||k==='placeError')?undefined:v;
   const ids=list=>(list||[]).map(s=>s.id);
   return JSON.parse(JSON.stringify({v:1,savedAt:Date.now(),fileInfo:$('fileInfo').innerHTML,svc:$('svc').value,
-    planDate,evraklar:planEvraklar,elleSira,stops,delivered:ids(delivered),route:lastRoute&&routeOrder?{...lastRoute,order:ids(routeOrder)}:null},strip));
+    planDate,evraklar:planEvraklar,elleSira,planEvrakZamani,planCikis,stops,delivered:ids(delivered),route:lastRoute&&routeOrder?{...lastRoute,order:ids(routeOrder)}:null},strip));
 }
 function savePlan(now){
   if(planRestoring)return;
@@ -1775,7 +1784,7 @@ async function restorePlan(){
   if(!plan||stops.length)return;
   planRestoring=true;
   try{
-    stops=plan.stops;const byId=new Map(stops.map(s=>[s.id,s]));planDate=plan.planDate||new Date(plan.savedAt).toLocaleDateString('sv-SE');planEvraklar=plan.evraklar||[];elleSira=plan.elleSira||null;siraDuzenle=false;
+    stops=plan.stops;const byId=new Map(stops.map(s=>[s.id,s]));planDate=plan.planDate||new Date(plan.savedAt).toLocaleDateString('sv-SE');planEvraklar=plan.evraklar||[];elleSira=plan.elleSira||null;siraDuzenle=false;planEvrakZamani=plan.planEvrakZamani||null;planCikis=plan.planCikis||null;cikisGoster();
     delivered=(plan.delivered||[]).map(id=>byId.get(id)).filter(Boolean);
     if(plan.svc)$('svc').value=plan.svc;
     const when=new Date(plan.savedAt).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
@@ -1911,7 +1920,7 @@ async function loadFiles(files){
   $('ocrBar').style.display='none';
   if(!orders.length){$('fileInfo').textContent='Adres bulunamadı. '+msgs.join(' · ');return}
   geoRun++;geoBusy=false;delivered=[];lastRoute=null;stops=buildStops(orders);clearRoute();
-  planDate=todayISO();planEvraklar=[];gunSecili=planDate;elleSira=null;siraDuzenle=false;files.forEach(f=>evrakSakla(f));
+  planDate=todayISO();planEvraklar=[];gunSecili=planDate;elleSira=null;siraDuzenle=false;planEvrakZamani=Date.now();planCikis=null;cikisGoster();files.forEach(f=>evrakSakla(f));
   $('fileInfo').innerHTML=esc(msgs.join(' · '))+`<br><b>${orders.length} sipariş → ${stops.length} durak.</b>`;
   renderStops();refreshMarkers();updateState();
   if(aiOcr){const run=geoRun;await aiNormalize(stops);if(run!==geoRun)return;renderStops()}
@@ -1932,6 +1941,13 @@ $('mapCard').addEventListener('toggle',()=>{if($('mapCard').open)createMap()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){stopPick();closePicker()}});
 
 // ayarlar: anahtar bir kez kaydedilir, sonra gizli kalır
+$('cikisDkIn').value=cikisDk();
+$('cikisDkIn').onchange=()=>{const v=Math.max(0,Math.min(600,Math.round(+$('cikisDkIn').value||0)));$('cikisDkIn').value=v;OTURUM.tercih={...OTURUM.tercih,cikisDk:v};
+  fetch('/ayarlar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tercihler:{cikisDk:v}})}).then(r=>{$('cikisDkMsg').textContent=r.ok?'✓ kaydedildi':'kaydedilemedi'}).catch(()=>{});
+  if(!planCikis){cikisGoster();if(routeOrder?.length)buildRoute()}};
+function cikisGoster(){const i=$('cikisSaat');if(i)i.value=saatYaz(cikisZamani())}
+$('cikisSaat').onchange=()=>{const v=$('cikisSaat').value;if(!/^\d\d:\d\d$/.test(v))return;const [h,m]=v.split(':').map(Number),d=new Date();d.setHours(h,m,0,0);if(d.getTime()<Date.now()-12*3600000)d.setDate(d.getDate()+1);planCikis=d.getTime();savePlan();if(routeOrder?.length||stops.length)buildRoute()};
+cikisGoster();
 $('takipOn').checked=takipAcik();
 $('takipOn').onchange=()=>{OTURUM.tercih={...OTURUM.tercih,arama:$('takipOn').checked};
   fetch('/ayarlar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tercihler:{arama:OTURUM.tercih.arama}})}).catch(()=>{});
