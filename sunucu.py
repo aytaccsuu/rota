@@ -301,6 +301,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             for _, field, _ in PROVIDERS.values():
                 data.pop(field, None)
             data.update(self.user_points(data))
+            try:
+                data["tercihler"] = json.loads(depo.get_setting("tercih:" + depo._safe(self.user)) or "{}")
+            except (OSError, ValueError):
+                data["tercihler"] = {}
             admin = is_admin(self.user)
             if not admin:
                 hints = {}  # anahtar ipuçları yalnızca yöneticiye (Yandex harita anahtarı tarayıcıda harita için zorunlu)
@@ -435,6 +439,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             fields = {'ykey', 'gkey', 'geminiKey'} | {spec[1] for spec in PROVIDERS.values()}
             if any(k in fields for k in new) and not is_admin(self.user):
                 return self.reply(403, {"error": "API anahtarlarını yalnızca yönetici değiştirebilir.", "code": "forbidden"})
+            if "tercihler" in new:  # kişiye özel tercihler (ör. arama takibi açık/kapalı)
+                pref = new.pop("tercihler")
+                if not isinstance(pref, dict) or len(json.dumps(pref)) > 2000 or not all(isinstance(v, (bool, int, str)) for v in pref.values()):
+                    raise ValueError()
+                key = "tercih:" + depo._safe(self.user)
+                saved = json.loads(depo.get_setting(key) or "{}")
+                saved.update(pref)
+                depo.set_setting(key, json.dumps(saved, ensure_ascii=False))
             points = {k: new.pop(k) for k in ("depot", "home") if k in new}
             if points and auth_enabled():
                 for v in points.values():

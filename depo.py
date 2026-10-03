@@ -351,7 +351,7 @@ def delete_user(ad, verileriyle=False):
         if verileriyle:
             for table in ("planlar", "rutlar", "evraklar", "yakitlar"):
                 _run("DELETE FROM %s WHERE kullanici = %%s" % table, (u,))
-            _run("DELETE FROM ayarlar WHERE anahtar = %s", ("noktalar:" + u,))
+            _run("DELETE FROM ayarlar WHERE anahtar IN (%s, %s)", ("noktalar:" + u, "tercih:" + u))
         return
     users = list_users()
     users.pop(ad, None)
@@ -359,5 +359,5 @@ def delete_user(ad, verileriyle=False):
         json.dump(users, f, ensure_ascii=False)
     if verileriyle:
         for name in os.listdir(PLAN_DIR):
-            if name in (u + ".json", "_rutlar_%s.json" % u, "_yakit_%s.json" % u, "_evrak_%s.json" % u, "_ayar_noktalar_%s.json" % u) or re.fullmatch(r"_evrak_%s_\d+\.bin" % re.escape(u), name):
+            if name in (u + ".json", "_rutlar_%s.json" % u, "_yakit_%s.json" % u, "_evrak_%s.json" % u, "_ayar_noktalar_%s.json" % u, "_ayar_tercih_%s.json" % u) or re.fullmatch(r"_evrak_%s_\d+\.bin" % re.escape(u), name):
                 os.remove(os.path.join(PLAN_DIR, name))

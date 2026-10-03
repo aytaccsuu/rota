@@ -95,3 +95,9 @@ Görsel kontrol için `python tests/preview_ui.py` komutu kişisel veri içermey
 - **Elle rut (evraksız gün):** Hesap → Gün'de kaydı olmayan bir tarih seçin; **Elle rut ekle** bölümüne müşteri sayısı, bölge (Anadolu / Avrupa 1 / Avrupa 2), ilçe sayısı (tek / 2+) ve isteğe bağlı ilçeleri girin. Aynı gün birden fazla rut yapıldıysa **Sefer ekle** ile her seferi ayrı girin; her sefer ayrı hesaplanır. Kaydedilen gün sonradan da düzenlenebilir.
 - **Rota sırasını elle düzeltme:** Rota hesaplandıktan sonra **Sırayı elle düzenle** → durakları oklarla yukarı/aşağı taşıyın; km, süre ve varış saatleri her değişiklikte yeniden hesaplanır ve sıra planla birlikte kaydedilir. **En kısa sıraya dön** otomatik sıralamaya geri getirir. Durak eklenir/çıkarılırsa elle sıra sıfırlanır.
 
+## Arama takibi ve tamamlanan duraklar (isteğe bağlı)
+
+- Rota sayfasında **Arama takibi** kutusunu işaretleyen kullanıcıda her durağın altında küçük düğmeler çıkar: **Açtı / Açmadı / Meşgul** (saatiyle kaydedilir; tekrar dokununca kalkar) ve **Tamamlandı**.
+- Tamamlanan durak tek satıra küçülür, **Sıradaki** müşteri vurgulanır ve sayfa ona kayar; üstte "Sıradaki · 3/20 tamamlandı" görünür. **Geri al** ile geri açılır.
+- Seçim kişiye özeldir ve hesapta kayıtlı kalır; kullanmayan kullanıcıda bu düğmeler görünmez. Arama ve tamamlandı bilgileri günün kaydına da geçer (Hesap → Gün).
+
