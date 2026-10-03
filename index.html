@@ -1311,6 +1311,15 @@ async function gunYaz(t,k){
 // Evrak yüklenip rota değiştikçe o günün kaydı otomatik güncellenir; elle yapılan düzeltmeler korunur
 let rotaGunTimer=null;
 function gunuRotadanGuncelle(){if(!planDate||!stops.length)return;clearTimeout(rotaGunTimer);rotaGunTimer=setTimeout(otoKaydet,1500)}
+const evDepoOnbellek={};
+async function evDepoKm(){
+  if(!validPoint(home)||!validPoint(depot))return null;
+  const key=[home.lat,home.lon,depot.lat,depot.lon].join(',');
+  if(key in evDepoOnbellek)return evDepoOnbellek[key];
+  try{const M=await getMatrix([{...home},{...depot}]);const d=M?.dist?.[0]?.[1];return evDepoOnbellek[key]=d>0?+(d/1000).toFixed(1):null}catch(e){return null}
+}
+// günün toplam km'si: ev → depo + depo → duraklar → ev
+const gunKm=r=>r?.rota?(r.rota.toplamKm??((+r.rota.km||0)+(+r.rota.evDepoKm||0)||null)):null;
 async function otoKaydet(){
   const t=planDate;if(!t||!stops.length)return;
   const eski=(await gunKaydi(t).catch(()=>null))||{};
@@ -1318,9 +1327,11 @@ async function otoKaydet(){
   const skipped=stops.filter(s=>s.skip).map(s=>fold(stopNames(s))+'|'+fold(s.raw));
   const k={durum:eski.durum||'calisti',neden:eski.neden||null,hammaliye:eski.hammaliye||0,ekKm:eski.ekKm||0,notu:eski.notu||'',
     haric:[...new Set([...(eski.haric||[]).filter(x=>keys.has(x)),...skipped])],
-    rota:{sira,km:lastRoute?+((lastRoute.dist||0)/1000).toFixed(1):null,sure:lastRoute?Math.round((lastRoute.dur||0)/60):null,
+    rota:{sira,km:delivered.length&&eski.rota?.km?eski.rota.km:lastRoute?+((lastRoute.dist||0)/1000).toFixed(1):null,sure:lastRoute?Math.round((lastRoute.dur||0)/60):null,
       gecikme:lastRoute?Math.round((lastRoute.legs||[]).reduce((a,l)=>a+(l.delay||0),0)/60):null,eve:lastRoute?.eta?.length?new Date(lastRoute.eta.at(-1)).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}):null,
       yandex:lastRoute?.seq?.length?'https://yandex.com.tr/harita/?rtt=auto&rtext='+lastRoute.seq.map(p=>p.lat.toFixed(6)+','+p.lon.toFixed(6)).join('~'):null,olusturma:new Date().toISOString()},evraklar:planEvraklar};
+  k.rota.evDepoKm=eski.rota?.evDepoKm??await evDepoKm();
+  if(k.rota.km!=null)k.rota.toplamKm=+((k.rota.km||0)+(k.rota.evDepoKm||0)).toFixed(1);
   try{await gunYaz(t,k);if(hesapSayfasiAcik()&&!$('hesapPage').contains(document.activeElement)&&!gunTimer)renderHesap()}catch(e){console.warn('gün kaydı',e)}
 }
 
@@ -1353,13 +1364,14 @@ async function renderYonetimOzet(){
   const satir=data.kullanicilar.map(u=>{
     const hs=u.rutlar.map(gunHesap).filter(Boolean),cal=u.rutlar.filter(r=>r.durum!=='gidilmedi').length,gid=u.rutlar.length-cal;
     const top=f=>hs.reduce((a,h)=>a+(+h[f]||0),0),yakit=u.yakitlar.reduce((a,y)=>a+(+y.tutar||0),0);
-    return {ad:u.ad,cal,gid,nokta:top('nokta'),rut:top('rutKat'),net:top('net'),toplam:top('toplam'),yakit,gunluk:cal?yakit/cal:0};
+    const kms=u.rutlar.filter(r=>r.durum!=='gidilmedi').map(gunKm).filter(Boolean),km=kms.reduce((a,x)=>a+x,0);
+    return {ad:u.ad,cal,gid,nokta:top('nokta'),rut:top('rutKat'),net:top('net'),toplam:top('toplam'),yakit,gunluk:cal?yakit/cal:0,km,ortKm:kms.length?km/kms.length:0};
   });
-  const T=satir.reduce((a,r)=>{for(const k of ['cal','gid','nokta','rut','net','toplam','yakit'])a[k]+=r[k];return a},{cal:0,gid:0,nokta:0,rut:0,net:0,toplam:0,yakit:0});
+  const T=satir.reduce((a,r)=>{for(const k of ['cal','gid','nokta','rut','net','toplam','yakit','km'])a[k]+=r[k];return a},{cal:0,gid:0,nokta:0,rut:0,net:0,toplam:0,yakit:0,km:0});
   $('yoTablo').innerHTML=`<div class="tiles"><div><b>${tl(T.toplam)}</b>toplam hakediş (KDV dahil)</div><div><b>${tl(T.yakit)}</b>toplam yakıt</div><div><b>${tl(T.toplam-T.yakit)}</b>hakediş − yakıt</div><div><b>${T.nokta.toLocaleString('tr-TR')}</b>toplam nokta</div></div>
-    <div class="otab-wrap"><table class="otab yotab"><tr><th>Kullanıcı</th><th>Çalışılan</th><th>Gidilmeyen</th><th>Müşteri</th><th>Rut</th><th>KDV’siz</th><th>KDV dahil</th><th>Yakıt</th><th>Günlük yakıt</th><th>Net</th></tr>
-    ${satir.map(r=>`<tr class="${r.cal||r.yakit?'':'bos'}"><td><b>${esc(r.ad)}</b></td><td>${r.cal||'—'}</td><td>${r.gid||'—'}</td><td>${r.nokta||'—'}</td><td>${r.rut?String(r.rut).replace('.',','):'—'}</td><td>${n(r.net)}</td><td><b>${n(r.toplam)}</b></td><td>${n(r.yakit)}</td><td>${n(r.gunluk)}</td><td>${r.toplam||r.yakit?n(r.toplam-r.yakit):'—'}</td></tr>`).join('')}
-    <tr class="tot"><td>Toplam</td><td>${T.cal}</td><td>${T.gid}</td><td>${T.nokta}</td><td>${String(T.rut).replace('.',',')}</td><td>${n(T.net)}</td><td>${n(T.toplam)}</td><td>${n(T.yakit)}</td><td></td><td>${n(T.toplam-T.yakit)}</td></tr></table></div>
+    <div class="otab-wrap"><table class="otab yotab"><tr><th>Kullanıcı</th><th>Çalışılan</th><th>Gidilmeyen</th><th>Müşteri</th><th>Rut</th><th>KDV’siz</th><th>KDV dahil</th><th>Yakıt</th><th>Günlük yakıt</th><th>Net</th><th>Km</th><th>Ort. km/gün</th></tr>
+    ${satir.map(r=>`<tr class="${r.cal||r.yakit?'':'bos'}"><td><b>${esc(r.ad)}</b></td><td>${r.cal||'—'}</td><td>${r.gid||'—'}</td><td>${r.nokta||'—'}</td><td>${r.rut?String(r.rut).replace('.',','):'—'}</td><td>${n(r.net)}</td><td><b>${n(r.toplam)}</b></td><td>${n(r.yakit)}</td><td>${n(r.gunluk)}</td><td>${r.toplam||r.yakit?n(r.toplam-r.yakit):'—'}</td><td>${n(r.km)}</td><td>${r.ortKm?r.ortKm.toFixed(1).replace('.',','):'—'}</td></tr>`).join('')}
+    <tr class="tot"><td>Toplam</td><td>${T.cal}</td><td>${T.gid}</td><td>${T.nokta}</td><td>${String(T.rut).replace('.',',')}</td><td>${n(T.net)}</td><td>${n(T.toplam)}</td><td>${n(T.yakit)}</td><td></td><td>${n(T.toplam-T.yakit)}</td><td>${n(T.km)}</td><td></td></tr></table></div>
     <div class="small">Tutarlar ₺. Günlük yakıt = kullanıcının ay içindeki yakıtı ÷ çalışılan gün. Her kullanıcı kendi ayrıntısını Hesap sayfasında görür.</div>`;
 }
 
@@ -1416,7 +1428,7 @@ function renderHesap(){
 const musteriDetay=m=>[m.mah,m.sip?.length?'Sip: '+m.sip.join(', '):'',m.koli?m.koli+' koli':'',m.firma,m.km!=null?String(m.km).replace('.',',')+' km / '+m.dk+' dk':'',m.varis?'varış ≈ '+m.varis:'',m.arama?({acti:'Açtı',acmadi:'Açmadı',mesgul:'Meşgul'}[m.arama]+(m.aramaZaman?' '+m.aramaZaman:'')):'',m.tamam?'tamamlandı'+(m.tamamZaman?' '+m.tamamZaman:''):'',m.teslim?'teslim edildi':'',m.atlandi?'atlandı':''].filter(Boolean).join(' · ');
 function rotaOzetHTML(r){
   if(!r)return '';
-  return `<div class="tiles">${r.sira?.length?`<div><b>${r.sira.length}</b>durak</div>`:''}${r.km!=null?`<div><b>${String(r.km).replace('.',',')} km</b>yol</div>`:''}${r.sure!=null?`<div><b>${fmtT(r.sure*60)}</b>sürüş</div>`:''}${r.gecikme?`<div><b>${fmtT(r.gecikme*60)}</b>trafik gecikmesi</div>`:''}${r.eve?`<div><b>${r.eve}</b>eve varış (tahmini)</div>`:''}</div>`;
+  return `<div class="tiles">${r.sira?.length?`<div><b>${r.sira.length}</b>durak</div>`:''}${r.km!=null?`<div><b>${String(gunKm({rota:r})).replace('.',',')} km</b>toplam yol${r.evDepoKm?`<span class="tnot">ev→depo ${String(r.evDepoKm).replace('.',',')} + dağıtım ve eve dönüş ${String(r.km).replace('.',',')}</span>`:''}</div>`:''}${r.sure!=null?`<div><b>${fmtT(r.sure*60)}</b>sürüş</div>`:''}${r.gecikme?`<div><b>${fmtT(r.gecikme*60)}</b>trafik gecikmesi</div>`:''}${r.eve?`<div><b>${r.eve}</b>eve varış (tahmini)</div>`:''}</div>`;
 }
 function evrakHTML(ev){return (ev||[]).length?`<div class="evraklar">${ev.map(e=>(e.mime||'').startsWith('image/')||!e.mime?`<a href="/api/evrak/${e.id}" target="_blank" rel="noopener"><img loading="lazy" src="/api/evrak/${e.id}" alt="${esc(e.ad)}"></a>`:`<a href="/api/evrak/${e.id}" target="_blank" rel="noopener">${esc(e.ad)}</a>`).join('')}</div>`:''}
 // PDF için bir gün: rota sırası + hakediş + evrak görselleri
@@ -1431,7 +1443,7 @@ function gunPdfHTML(t,r){
 }
 function pdfAc(baslik,govde){
   const w=window.open('','_blank');if(!w){alert('Açılır pencere engellendi; tarayıcıda izin verin.');return}
-  w.document.write(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(baslik)}</title><style>body{font:12px Segoe UI,Arial,sans-serif;margin:18px;color:#19322e}h2{margin:0 0 10px}h3{margin:18px 0 6px;border-bottom:2px solid #1a8f4c;padding-bottom:4px}table{border-collapse:collapse;width:100%;margin:6px 0}th,td{border:1px solid #ccc;padding:4px 6px;text-align:left;vertical-align:top}th{background:#f1f4f3}.otab td,.otab th{text-align:right}.otab td:nth-child(-n+2),.otab th:nth-child(-n+2){text-align:left}.tot td{font-weight:700;background:#f1f4f3}.bos td{color:#aaa}tr.off td{color:#b33;text-decoration:line-through}.tiles{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0}.tiles div{border:1px solid #ccc;border-radius:6px;padding:5px 9px;font-size:11px;color:#555}.tiles b{display:block;font-size:14px;color:#19322e}.small{display:none}.evr img{width:100%;max-width:700px;display:block;margin:8px 0;border:1px solid #ccc;break-inside:avoid}.gun{break-before:page}section.gun:first-of-type{break-before:auto}.ipucu{background:#fff7d6;padding:8px;border-radius:6px;margin-bottom:10px}@media print{.ipucu{display:none}}</style></head><body><div class="ipucu">PDF olarak kaydetmek için yazdır penceresinde hedef olarak <b>“PDF olarak kaydet”</b> seçin.</div><h2>${esc(baslik)}</h2>${govde}</body></html>`);
+  w.document.write(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(baslik)}</title><style>body{font:12px Segoe UI,Arial,sans-serif;margin:18px;color:#19322e}h2{margin:0 0 10px}h3{margin:18px 0 6px;border-bottom:2px solid #1a8f4c;padding-bottom:4px}table{border-collapse:collapse;width:100%;margin:6px 0}th,td{border:1px solid #ccc;padding:4px 6px;text-align:left;vertical-align:top}th{background:#f1f4f3}.otab td,.otab th{text-align:right}.otab td:nth-child(-n+2),.otab th:nth-child(-n+2){text-align:left}.tot td{font-weight:700;background:#f1f4f3}.bos td{color:#aaa}tr.off td{color:#b33;text-decoration:line-through}.tiles{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0}.tiles div{border:1px solid #ccc;border-radius:6px;padding:5px 9px;font-size:11px;color:#555}.tiles b{display:block;font-size:14px;color:#19322e}.small{display:none}.evr img{width:100%;max-width:700px;display:block;margin:8px 0;border:1px solid #ccc;break-inside:avoid}.gun{break-before:page}section.gun:first-of-type{break-before:auto}.ust{position:sticky;top:0;display:flex;gap:8px;align-items:center;background:#fff;padding:10px 0;margin-bottom:8px;border-bottom:1px solid #e1e8e5}.ust button{font:600 14px Segoe UI,Arial,sans-serif;padding:10px 16px;border-radius:10px;border:1px solid #dfe4ec;background:#fff;color:#19322e;cursor:pointer}.ust .p{background:#147d64;border-color:#147d64;color:#fff}.ust span{font-size:12px;color:#70817c}@media print{.ust{display:none}}</style></head><body><div class="ust"><button onclick="window.close();setTimeout(function(){history.length>1?history.back():location.href='${location.origin}/'},300)">← Geri</button><button class="p" onclick="print()">PDF / Yazdır</button><span>Hedef olarak “PDF olarak kaydet” seçin.</span></div><h2>${esc(baslik)}</h2>${govde}</body></html>`);
   w.document.close();
   const imgs=[...w.document.images];Promise.all(imgs.map(i=>i.complete?1:new Promise(r=>{i.onload=i.onerror=r}))).then(()=>{w.focus();w.print()});
 }
@@ -1637,26 +1649,27 @@ async function renderOzet(){
   let data;try{data=await ayYukle(ay,true)}catch(e){$('oTablo').textContent='Okunamadı: '+e.message;return}
   const [Y,M]=ay.split('-').map(Number),gunSay=new Date(Y,M,0).getDate();
   const byDay=Object.fromEntries(data.rutlar.map(r=>[r.tarih,r])),yakit={};data.yakitlar.forEach(y=>yakit[y.tarih]=(yakit[y.tarih]||0)+y.tutar);
-  const rows=[],T={nokta:0,rut:0,ekKm:0,ekKmTl:0,ham:0,net:0,kdv:0,top:0,yakit:0,calisti:0,gidilmedi:0};
+  const rows=[],T={nokta:0,rut:0,ekKm:0,ekKmTl:0,ham:0,net:0,kdv:0,top:0,yakit:0,calisti:0,gidilmedi:0,km:0,kmGun:0};
   for(let d=1;d<=gunSay;d++){
     const t=`${ay}-${String(d).padStart(2,'0')}`,r=byDay[t],h=r?gunHesap(r):null,yk=yakit[t]||0;
     if(r?.durum==='gidilmedi')T.gidilmedi++;else if(r)T.calisti++;
     if(h){T.nokta+=h.nokta;T.rut+=h.rutUcret+h.ekstraTl;T.ekKm+=h.ekKm;T.ekKmTl+=h.ekKmTl;T.ham+=h.hammaliye;T.net+=h.net;T.kdv+=h.kdv;T.top+=h.toplam}
-    T.yakit+=yk;rows.push({t,d,r,h,yk});
+    const km=r&&r.durum!=='gidilmedi'?gunKm(r):null;if(km){T.km+=km;T.kmGun++}
+    T.yakit+=yk;rows.push({t,d,r,h,yk,km});
   }
   const n=x=>x?Math.round(x).toLocaleString('tr-TR'):'',AY_ADI=['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
   const durum=r=>!r?'<span class="dim">—</span>':r.durum==='gidilmedi'?`<span class="no">✗ ${esc(r.neden||'Gidilmedi')}</span>`:'<span class="ok">✓</span>';
-  $('oTablo').innerHTML=`<div class="tiles"><div><b>${T.calisti}</b>çalışılan gün</div><div><b>${T.gidilmedi}</b>gidilmeyen gün</div><div><b>${tl(T.top)}</b>hakediş (KDV dahil)</div><div><b>${tl(T.yakit)}</b>yakıt</div><div><b>${T.calisti?tl(gunlukYakit(T.yakit,T.calisti)):'—'}</b>günlük tahmini yakıt${T.calisti?` <span class="tnot">(${tl(T.yakit)} ÷ ${T.calisti} gün)</span>`:''}</div><div><b>${tl(T.top-T.yakit)}</b>hakediş − yakıt</div></div>
-  <div class="otab-wrap"><table class="otab" id="ozetTablo"><tr><th>Gün</th><th>Durum</th><th>Müşteri</th><th>Bölge</th><th>Rut</th><th>Rut ücreti</th><th>Ek km</th><th>Hammaliye</th><th>KDV’siz</th><th>KDV</th><th>Toplam</th><th>Yakıt</th></tr>
-  ${rows.map(({t,d,r,h,yk})=>`<tr data-t="${t}" class="${!r?'bos':''}"><td>${String(d).padStart(2,'0')} ${GUN_ADI[new Date(Y,M-1,d).getDay()]}</td><td>${durum(r)}</td><td>${h?h.nokta:''}</td><td>${h?BOLGE_KISA[h.bolge]:''}</td><td>${h?String(h.rutTip).replace('.',','):''}</td><td>${n(h&&h.rutUcret+h.ekstraTl)}</td><td>${h&&h.ekKm?h.ekKm+' km / '+n(h.ekKmTl):''}</td><td>${n(h?.hammaliye)}</td><td>${n(h?.net)}</td><td>${n(h?.kdv)}</td><td><b>${n(h?.toplam)}</b></td><td>${n(yk)}</td></tr>`).join('')}
-  <tr class="tot"><td>Toplam</td><td>${T.calisti} ✓ / ${T.gidilmedi} ✗</td><td>${T.nokta||''}</td><td></td><td></td><td>${n(T.rut)}</td><td>${T.ekKm?T.ekKm+' km / '+n(T.ekKmTl):''}</td><td>${n(T.ham)}</td><td>${n(T.net)}</td><td>${n(T.kdv)}</td><td><b>${n(T.top)}</b></td><td>${n(T.yakit)}</td></tr></table></div>
+  $('oTablo').innerHTML=`<div class="tiles"><div><b>${T.calisti}</b>çalışılan gün</div><div><b>${T.gidilmedi}</b>gidilmeyen gün</div><div><b>${tl(T.top)}</b>hakediş (KDV dahil)</div><div><b>${tl(T.yakit)}</b>yakıt</div><div><b>${T.calisti?tl(gunlukYakit(T.yakit,T.calisti)):'—'}</b>günlük tahmini yakıt${T.calisti?` <span class="tnot">(${tl(T.yakit)} ÷ ${T.calisti} gün)</span>`:''}</div><div><b>${tl(T.top-T.yakit)}</b>hakediş − yakıt</div><div><b>${T.km?T.km.toLocaleString('tr-TR',{maximumFractionDigits:1})+' km':'—'}</b>toplam yol</div><div><b>${T.kmGun?(T.km/T.kmGun).toFixed(1).replace('.',',')+' km':'—'}</b>ortalama km / gün${T.kmGun?` <span class="tnot">(${T.kmGun} günün rotası)</span>`:''}</div></div>
+  <div class="otab-wrap"><table class="otab" id="ozetTablo"><tr><th>Gün</th><th>Durum</th><th>Müşteri</th><th>Bölge</th><th>Rut</th><th>Rut ücreti</th><th>Ek km</th><th>Hammaliye</th><th>KDV’siz</th><th>KDV</th><th>Toplam</th><th>Yakıt</th><th>Km</th></tr>
+  ${rows.map(({t,d,r,h,yk,km})=>`<tr data-t="${t}" class="${!r?'bos':''}"><td>${String(d).padStart(2,'0')} ${GUN_ADI[new Date(Y,M-1,d).getDay()]}</td><td>${durum(r)}</td><td>${h?h.nokta:''}</td><td>${h?BOLGE_KISA[h.bolge]:''}</td><td>${h?String(h.rutTip).replace('.',','):''}</td><td>${n(h&&h.rutUcret+h.ekstraTl)}</td><td>${h&&h.ekKm?h.ekKm+' km / '+n(h.ekKmTl):''}</td><td>${n(h?.hammaliye)}</td><td>${n(h?.net)}</td><td>${n(h?.kdv)}</td><td><b>${n(h?.toplam)}</b></td><td>${n(yk)}</td><td>${km?String(km).replace('.',','):''}</td></tr>`).join('')}
+  <tr class="tot"><td>Toplam</td><td>${T.calisti} ✓ / ${T.gidilmedi} ✗</td><td>${T.nokta||''}</td><td></td><td></td><td>${n(T.rut)}</td><td>${T.ekKm?T.ekKm+' km / '+n(T.ekKmTl):''}</td><td>${n(T.ham)}</td><td>${n(T.net)}</td><td>${n(T.kdv)}</td><td><b>${n(T.top)}</b></td><td>${n(T.yakit)}</td><td>${T.km?T.km.toLocaleString('tr-TR',{maximumFractionDigits:1}):''}</td></tr>${T.kmGun?`<tr class="tot"><td>Ortalama</td><td colspan="11"></td><td>${(T.km/T.kmGun).toFixed(1).replace('.',',')}</td></tr>`:''}</table></div>
   <div class="small">Bir güne dokunun: o günün rotası, müşterileri ve yüklenen evrakı açılır; eksik müşteri, hammaliye, ek km düzenlenebilir. <i class="ic" data-ic="file"></i> PDF: aylık tablo.</div>`;
   $('oTablo').querySelectorAll('tr[data-t]').forEach(tr=>tr.onclick=()=>{gunSecili=tr.dataset.t;hesapSekme('gun')});
   $('oCsv').onclick=()=>{
-    const head=['Tarih','Durum','Neden','Müşteri','Bölge','Rut','Rut ücreti','Ek km','Ek km ₺','Hammaliye','KDV’siz','KDV','Toplam','Yakıt','Not'];
-    const lines=rows.map(({t,r,h,yk})=>[trTarih(t),r?(r.durum==='gidilmedi'?'Gidilmedi':'Çalıştı'):'',r?.neden||'',h?h.nokta:'',h?BOLGE_ADI[h.bolge]:'',h?String(h.rutTip).replace('.',','):'',h?Math.round(h.rutUcret+h.ekstraTl):'',h?.ekKm||'',h?Math.round(h.ekKmTl):'',h?Math.round(h.hammaliye):'',h?Math.round(h.net):'',h?Math.round(h.kdv):'',h?Math.round(h.toplam):'',yk?Math.round(yk):'',r?.notu||'']);
-    lines.push(['TOPLAM',T.calisti+' çalışılan / '+T.gidilmedi+' gidilmeyen','',T.nokta,'','',Math.round(T.rut),T.ekKm,Math.round(T.ekKmTl),Math.round(T.ham),Math.round(T.net),Math.round(T.kdv),Math.round(T.top),Math.round(T.yakit),'']);
-    lines.push(['Günlük tahmini yakıt','','','','','','','','','','','','',T.calisti?Math.round(gunlukYakit(T.yakit,T.calisti)):'',T.calisti?'toplam yakıt ÷ '+T.calisti+' çalışılan gün':'']);
+    const head=['Tarih','Durum','Neden','Müşteri','Bölge','Rut','Rut ücreti','Ek km','Ek km ₺','Hammaliye','KDV’siz','KDV','Toplam','Yakıt','Rota km','Not'];
+    const lines=rows.map(({t,r,h,yk,km})=>[trTarih(t),r?(r.durum==='gidilmedi'?'Gidilmedi':'Çalıştı'):'',r?.neden||'',h?h.nokta:'',h?BOLGE_ADI[h.bolge]:'',h?String(h.rutTip).replace('.',','):'',h?Math.round(h.rutUcret+h.ekstraTl):'',h?.ekKm||'',h?Math.round(h.ekKmTl):'',h?Math.round(h.hammaliye):'',h?Math.round(h.net):'',h?Math.round(h.kdv):'',h?Math.round(h.toplam):'',yk?Math.round(yk):'',km||'',r?.notu||'']);
+    lines.push(['TOPLAM',T.calisti+' çalışılan / '+T.gidilmedi+' gidilmeyen','',T.nokta,'','',Math.round(T.rut),T.ekKm,Math.round(T.ekKmTl),Math.round(T.ham),Math.round(T.net),Math.round(T.kdv),Math.round(T.top),Math.round(T.yakit),T.km?Math.round(T.km):'','']);
+    lines.push(['Günlük tahmini yakıt','','','','','','','','','','','','',T.calisti?Math.round(gunlukYakit(T.yakit,T.calisti)):'',T.kmGun?+(T.km/T.kmGun).toFixed(1):'',T.calisti?'yakıt: toplam ÷ '+T.calisti+' gün; km: ortalama / gün':'']);
     const csv='﻿'+[head,...lines].map(l=>l.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(';')).join('\r\n');
     const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='ozet-'+ay+'.csv';a.click();
   };

@@ -249,6 +249,10 @@ async function main(){
   // Elle rut: bölge ve ilçe sayısı seçilir (24 nokta, Avrupa 1, 2+ ilçe → 1,5 rut 8.700)
   assert.equal(run(`gunHesap({durum:'calisti',nokta:24,bolge:'avrupa1',ilceSayisi:2,ilceler:[]}).net`),8700);
   assert.equal(run(`gunHesap({durum:'calisti',nokta:28,parcalar:[{nokta:24,bolge:'avrupa1',ilceSayisi:2},{nokta:4,bolge:'anadolu',ilceSayisi:1}]}).net`),13700);
+  // günün km'si: ev → depo + dağıtım ve eve dönüş
+  assert.equal(run(`gunKm({rota:{km:31.7,evDepoKm:18.5,toplamKm:50.2}})`),50.2);
+  assert.equal(run(`gunKm({rota:{km:31.7,evDepoKm:18.5}})`),50.2);
+  assert.equal(run(`gunKm({rota:null})`),null);
   console.log('OK: adres/AVM ayrıştırma, ücretsiz yer teyidi, 250 rota senaryosu, teslimat devamı ve eski yanıt koruması');
 }
 main().catch(e=>{console.error(e);process.exitCode=1});
