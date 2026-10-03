@@ -372,7 +372,7 @@ function refreshMarkers(){
     if(s.lat==null)return;
     const pos=routeOrder?routeOrder.indexOf(s)+1:0;
     const color=s.skip||delivered.includes(s)?'#999999':({Kapı:'#1a8f4c',Google:'#1a8f4c',OSM:'#1a8f4c',Sokak:'#2b8a9e',Elle:'#6f42c1'}[s.quality]||'#c77800');
-    setMarker('s'+s.id,[s.lat,s.lon],delivered.includes(s)?'✓':routeOrder?(pos||'–'):'?',color,geoBusy||delivered.includes(s)?null:(a,b)=>{s.lat=a;s.lon=b;s.quality='Elle';s.match=null;clearRoute();renderStops();refreshMarkers()},s.orders.map(o=>o.alici).join(', '));
+    setMarker('s'+s.id,[s.lat,s.lon],delivered.includes(s)?'✓':routeOrder?(pos||'–'):'?',color,geoBusy||delivered.includes(s)?null:(a,b)=>{s.lat=a;s.lon=b;s.quality='Elle';s.match=null;konumHatirla(s,'elle');clearRoute();renderStops();refreshMarkers()},s.orders.map(o=>o.alici).join(', '));
   });
 }
 let geoBusy=false,autoT=null;
@@ -770,6 +770,32 @@ async function locateCore(a){
 
 // ---------- durakları bul ----------
 let geoRun=0;
+// ---------- ortak konum hafızası ----------
+// Anahtar: ilçe | mahalle | sokak | kapı no (yazım farkları sadeleşir: "Sok."="Sokak", "No:"="no"). Sokak yoksa yer adı (AVM/site).
+function konumAnahtari(s){
+  const ilce=core(s.ilce||''),mah=core(s.mah||'');
+  if(s.street&&s.no)return ['adres',ilce,mah,core(s.street),normNo(s.no)].join('|');
+  if(s.place)return ['yer',ilce,core(s.place)].join('|');
+  return null;
+}
+async function konumHafizasi(liste){
+  const keys=[...new Set(liste.map(konumAnahtari).filter(Boolean))];if(!keys.length||!srv)return {};
+  try{return (await apiJSON('/api/konum-bul',{anahtarlar:keys})).konumlar||{}}catch(e){return {}}
+}
+function konumHatirla(s,kaynak,dogruluk){
+  const key=konumAnahtari(s);if(!key||!srv||!validPoint(s))return;
+  const lat=kaynak==='gps'?s._gps.lat:s.lat,lon=kaynak==='gps'?s._gps.lon:s.lon;
+  apiJSON('/api/konum-kaydet',{anahtar:key,lat,lon,kaynak,dogruluk,adres:s.raw}).catch(()=>{});
+}
+// Tamamlandı'da telefonun konumu: doğruluk ≤ 60 m ve durağa ≤ 800 m ise bina girişi olarak öğrenilir
+function gpsIleOgren(s){
+  if(!navigator.geolocation||!konumAnahtari(s))return;
+  navigator.geolocation.getCurrentPosition(p=>{
+    const g={lat:p.coords.latitude,lon:p.coords.longitude},acc=p.coords.accuracy;
+    if(acc>60||(validPoint(s)&&hav(g,s)>0.8))return;
+    s._gps=g;konumHatirla(s,'gps',Math.round(acc));
+  },()=>{},{enableHighAccuracy:true,timeout:15000,maximumAge:30000});
+}
 async function geocodeAll(force){
   const run=++geoRun;
   geoBusy=true;stopPick();closePicker();clearRoute();refreshMarkers();$('geoBtn').disabled=true;updateState();
@@ -779,19 +805,32 @@ async function geocodeAll(force){
     if(run!==geoRun)return;
     const todo=stops.filter(s=>!delivered.includes(s)&&(force?!s.match?.confirmed&&!['Elle','Google'].includes(s.quality):!readyStop(s)));
     let done=0;
+    // önce ortak hafıza: daha önce bulunmuş/düzeltilmiş adresler servise sorulmadan gelir
+    $('geoInfo').textContent='Konum hafızası kontrol ediliyor…';
+    const hafiza=await konumHafizasi(todo);
+    if(run!==geoRun)return;
+    let hafizadan=0;
+    for(const s of todo.slice()){
+      const m=hafiza[konumAnahtari(s)];if(!m)continue;
+      const kes=m.kaynak!=='arama';
+      Object.assign(s,{lat:m.lat,lon:m.lon,quality:kes?'Elle':'Kapı',match:{source:'Hafıza',kaynak:m.kaynak,road:s.street,no:s.no,mah:s.mah,ilce:s.ilce,confirmed:kes,name:{gps:'durakta telefon konumu',elle:'elle düzeltilmiş',arama:'daha önce bulunmuş'}[m.kaynak]||''}});
+      todo.splice(todo.indexOf(s),1);hafizadan++;done++;
+    }
+    if(hafizadan){renderStops();refreshMarkers()}
+    const toplam=todo.length+hafizadan;
     for(const s of todo){
       if(run!==geoRun)return;
-      $('geoInfo').textContent=`${done+1}/${todo.length} aranıyor…`;
+      $('geoInfo').textContent=`${done+1}/${toplam} aranıyor…${hafizadan?` (${hafizadan} hafızadan)`:''}`;
       s.quality='Aranıyor';renderStops();
       const r=await locate(s);
       if(run!==geoRun)return;
-      if(r)Object.assign(s,{lat:r.lat,lon:r.lon,quality:r.quality,match:r});
+      if(r){Object.assign(s,{lat:r.lat,lon:r.lon,quality:r.quality,match:r});if(r.quality==='Kapı')konumHatirla(s,'arama')}
       else Object.assign(s,{lat:null,lon:null,quality:'Bulunamadı',match:null});
-      done++;$('geoBar').firstChild.style.width=(done/todo.length*100)+'%';
+      done++;$('geoBar').firstChild.style.width=(done/toplam*100)+'%';
       renderStops();refreshMarkers();
     }
     const missing=pendingStops().filter(s=>!readyStop(s)).length;
-    $('geoInfo').textContent=missing?`${missing} adres teyit bekliyor. Adres kontrolü bölümünü açın.`:'Tüm aktif adresler doğrulandı.';
+    $('geoInfo').textContent=(missing?`${missing} adres teyit bekliyor. Adres kontrolü bölümünü açın.`:'Tüm aktif adresler doğrulandı.')+(hafizadan?` ${hafizadan} adres hafızadan geldi.`:'');
     if(missing)$('stopsCard').open=true;
     fitAll();
   }catch(e){$('geoInfo').textContent='Adres arama tamamlanamadı: '+(e.message||e)}
@@ -822,7 +861,7 @@ function renderStops(){
     <div class="row"><button data-a="fix">Düzelt / yeri teyit et</button><button data-a="pick" title="Haritadan seç"><i class="ic" data-ic="pin"></i></button><label style="width:auto"><input type="checkbox" ${s.skip?'checked':''}> atla</label></div>`;
     d.querySelectorAll('button,input').forEach(el=>el.disabled=geoBusy||delivered.includes(s));
     d.querySelector('[data-a=fix]').onclick=()=>openPicker(s);
-    d.querySelector('[data-a=pick]').onclick=()=>startPick('Durak '+(i+1)+' konumunu seçin',(lat,lon)=>{Object.assign(s,{lat,lon,quality:'Elle',match:null});clearRoute();renderStops();refreshMarkers();updateState()});
+    d.querySelector('[data-a=pick]').onclick=()=>startPick('Durak '+(i+1)+' konumunu seçin',(lat,lon)=>{Object.assign(s,{lat,lon,quality:'Elle',match:null});konumHatirla(s,'elle');clearRoute();renderStops();refreshMarkers();updateState()});
     d.querySelector('input[type=checkbox]').onchange=e=>{s.skip=e.target.checked;clearRoute();refreshMarkers();updateState()};
     d.querySelector('.who').onclick=()=>{if(s.lat!=null)mp.setView(s.lat,s.lon,17)};
     box.appendChild(d);
@@ -878,7 +917,7 @@ async function pkSave(){
 }
 function confirmPlace(s,c){
   if(!validPoint(c))return;
-  Object.assign(s,{lat:c.lat,lon:c.lon,quality:c.source==='OpenStreetMap'?'OSM':c.source==='Google'?'Google':'Elle',match:{...c,confirmed:true},placeError:''});
+  Object.assign(s,{lat:c.lat,lon:c.lon,quality:c.source==='OpenStreetMap'?'OSM':c.source==='Google'?'Google':'Elle',match:{...c,confirmed:true},placeError:''});konumHatirla(s,'elle');
   closePicker();clearRoute();renderStops();refreshMarkers();updateState();
 }
 function renderPlaceCandidates(candidates,message){
@@ -917,7 +956,7 @@ $('pkStreet').onkeydown=$('pkIlce').onkeydown=e=>{if(e.key==='Enter')pkSearch()}
 $('pkSave').onclick=pkSave;
 $('pkNo').onkeydown=e=>{if(e.key==='Enter')pkSave()};
 $('pkClose').onclick=closePicker;
-$('pkMap').onclick=()=>{const s=pkStop;closePicker();startPick('Durak konumunu seçin',(lat,lon)=>{Object.assign(s,{lat,lon,quality:'Elle',match:null});clearRoute();renderStops();refreshMarkers();updateState()})};
+$('pkMap').onclick=()=>{const s=pkStop;closePicker();startPick('Durak konumunu seçin',(lat,lon)=>{Object.assign(s,{lat,lon,quality:'Elle',match:null});konumHatirla(s,'elle');clearRoute();renderStops();refreshMarkers();updateState()})};
 
 function updateState(){
   const act=pendingStops(),ok=act.filter(readyStop),located=act.filter(validPoint),msgs=[];
@@ -1184,7 +1223,7 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
   $('result').querySelectorAll('button.copy').forEach(b=>b.onclick=()=>copyText(b.dataset.copy,b));
   $('rotaSilBtn').onclick=()=>rotaSil(planDate||todayISO());
   $('result').querySelectorAll('[data-tk]').forEach(b=>b.onclick=()=>{const s=routeOrder[+b.dataset.tk],v=b.dataset.v;if(s.arama===v){s.arama=null;s.aramaZaman=null}else{s.arama=v;s.aramaZaman=saatNow()}renderResult(...sonRender)});
-  $('result').querySelectorAll('[data-tm]').forEach(b=>b.onclick=()=>{const s=routeOrder[+b.dataset.tm];s.tamam=!s.tamam;s.tamamZaman=s.tamam?saatNow():null;renderResult(...sonRender);if(s.tamam)setTimeout(()=>document.getElementById('siradakiDurak')?.scrollIntoView({behavior:'smooth',block:'center'}),60)});
+  $('result').querySelectorAll('[data-tm]').forEach(b=>b.onclick=()=>{const s=routeOrder[+b.dataset.tm];s.tamam=!s.tamam;s.tamamZaman=s.tamam?saatNow():null;if(s.tamam)gpsIleOgren(s);renderResult(...sonRender);if(s.tamam)setTimeout(()=>document.getElementById('siradakiDurak')?.scrollIntoView({behavior:'smooth',block:'center'}),60)});
   $('siraBtn').onclick=()=>{siraDuzenle=!siraDuzenle;renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison)};
   if($('otoSiraBtn'))$('otoSiraBtn').onclick=()=>{elleSira=null;siraDuzenle=false;buildRoute()};
   $('result').querySelectorAll('[data-tas]').forEach(b=>b.onclick=()=>{

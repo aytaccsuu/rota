@@ -416,6 +416,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.manage_user(path.endswith("sil"))
         if path == "/api/yonetim/aktar":
             return self.import_records()
+        if path in ("/api/konum-bul", "/api/konum-kaydet"):
+            return self.location_memory(path.endswith("kaydet"))
         if path == "/api/fiyat" and not is_admin(self.user):
             self.drain_body()
             return self.reply(403, {"error": "Fiyat tablosunu yalnızca yönetici değiştirebilir.", "code": "forbidden"})
@@ -488,6 +490,33 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         rows += [{"ad": n, "sabit": False, "yonetici": n in admins(), "olusturma": v.get("olusturma")}
                  for n, v in db_users(fresh=True).items() if n not in USERS]
         return rows
+
+    def location_memory(self, save):
+        """Ortak konum hafızası. POST /api/konum-bul {anahtarlar:[...]} → {konumlar:{...}};
+        POST /api/konum-kaydet {anahtar, lat, lon, kaynak: arama|elle|gps, adres?, dogruluk?} → {yazildi}."""
+        try:
+            size = int(self.headers.get("Content-Length", 0))
+            if size <= 0 or size > 128 * 1024:
+                raise ValueError()
+            body = json.loads(self.rfile.read(size))
+            if not save:
+                keys = body.get("anahtarlar")
+                if not isinstance(keys, list) or len(keys) > 500 or not all(isinstance(k, str) and 3 <= len(k) <= 300 for k in keys):
+                    raise ValueError()
+                return self.reply(200, {"konumlar": depo.konum_bul(keys)})
+            key, kaynak = str(body.get("anahtar", "")), str(body.get("kaynak", ""))
+            lat, lon = float(body["lat"]), float(body["lon"])
+            dogruluk = None if body.get("dogruluk") in (None, "") else float(body["dogruluk"])
+            # İstanbul ve çevresi dışındaki konumlar kabul edilmez
+            if not 3 <= len(key) <= 300 or kaynak not in ("arama", "elle", "gps") or not (40.3 <= lat <= 41.8 and 27.9 <= lon <= 30.0):
+                raise ValueError()
+            if kaynak == "gps" and (dogruluk is None or dogruluk > 100):
+                raise ValueError()
+            return self.reply(200, {"yazildi": depo.konum_kaydet(key, lat, lon, kaynak, str(body.get("adres") or ""), self.user, dogruluk)})
+        except (ValueError, TypeError, KeyError, AttributeError):
+            return self.reply(400, {"error": "Geçersiz konum.", "code": "invalid_request"})
+        except OSError:
+            return self.reply(502, {"error": "Konum hafızasına ulaşılamadı (veritabanı).", "code": "storage"})
 
     def import_records(self):
         """Yönetici: başka bir kullanıcının hesabına günlük kayıt ve yakıt aktarır (ör. RutPro dışa aktarımı).

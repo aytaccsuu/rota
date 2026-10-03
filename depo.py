@@ -55,6 +55,18 @@ SCHEMA = [
         olusturma  TIMESTAMPTZ NOT NULL DEFAULT now()
     )""",
     "CREATE INDEX IF NOT EXISTS yakitlar_kullanici_tarih ON yakitlar (kullanici, tarih)",
+    # Ortak konum hafızası: adres anahtarı → doğrulanmış konum (bütün kullanıcılar yararlanır)
+    """CREATE TABLE IF NOT EXISTS konumlar (
+        anahtar    TEXT PRIMARY KEY,
+        lat        DOUBLE PRECISION NOT NULL,
+        lon        DOUBLE PRECISION NOT NULL,
+        kaynak     TEXT NOT NULL,
+        dogruluk   REAL,
+        adres      TEXT,
+        kullanici  TEXT,
+        sayac      INTEGER NOT NULL DEFAULT 1,
+        guncelleme TIMESTAMPTZ NOT NULL DEFAULT now()
+    )""",
     # Yöneticinin eklediği kullanıcılar (ROTA_KULLANICILAR'dakiler ayrıca geçerlidir); şifre PBKDF2 özeti
     """CREATE TABLE IF NOT EXISTS kullanicilar (
         ad         TEXT PRIMARY KEY,
@@ -361,3 +373,62 @@ def delete_user(ad, verileriyle=False):
         for name in os.listdir(PLAN_DIR):
             if name in (u + ".json", "_rutlar_%s.json" % u, "_yakit_%s.json" % u, "_evrak_%s.json" % u, "_ayar_noktalar_%s.json" % u, "_ayar_tercih_%s.json" % u) or re.fullmatch(r"_evrak_%s_\d+\.bin" % re.escape(u), name):
                 os.remove(os.path.join(PLAN_DIR, name))
+
+
+# ---------- konum hafızası ----------
+# Kaynaklar: "arama" (servislerden bina bulundu), "elle" (kullanıcı düzeltti/teyit etti), "gps" (durakta Tamamlandı'da telefon konumu).
+# Arama hiçbir zaman var olanı ezmez; elle her zaman ezer; gps aramayı ve önceki gps'i ezer, elle düzeltmeyi ezmez.
+def _ezer(yeni, eski):
+    if not eski:
+        return True
+    return yeni == "elle" or (yeni == "gps" and eski in ("arama", "gps"))
+
+
+def konum_bul(anahtarlar):
+    """{anahtar: {lat, lon, kaynak, dogruluk, sayac}}"""
+    anahtarlar = [a for a in anahtarlar if isinstance(a, str)][:500]
+    if not anahtarlar:
+        return {}
+    if _url():
+        rows = _fetchall("SELECT anahtar, lat, lon, kaynak, dogruluk, sayac FROM konumlar WHERE anahtar = ANY(%s)", (anahtarlar,))
+        return {r[0]: {"lat": r[1], "lon": r[2], "kaynak": r[3], "dogruluk": r[4], "sayac": r[5]} for r in rows}
+    path = _file("_konumlar.json")
+    data = json.load(open(path, encoding="utf-8")) if os.path.exists(path) else {}
+    return {a: {k: data[a].get(k) for k in ("lat", "lon", "kaynak", "dogruluk", "sayac")} for a in anahtarlar if a in data}
+
+
+_konum_kilidi = threading.Lock()
+
+
+def konum_kaydet(anahtar, lat, lon, kaynak, adres="", kullanici="", dogruluk=None):
+    """Konumu hafızaya yazar; kural gereği yazılmadıysa False döner (sayaç yine artar).
+    Aynı anda gelen kayıtlar sırayla işlenir (oku-karar ver-yaz arasında başka kayıt araya girmesin)."""
+    with _konum_kilidi:
+        return _konum_kaydet(anahtar, lat, lon, kaynak, adres, kullanici, dogruluk)
+
+
+def _konum_kaydet(anahtar, lat, lon, kaynak, adres, kullanici, dogruluk):
+    eski = konum_bul([anahtar]).get(anahtar)
+    yaz = _ezer(kaynak, eski and eski["kaynak"])
+    if _url():
+        if yaz:
+            _run("""INSERT INTO konumlar (anahtar, lat, lon, kaynak, dogruluk, adres, kullanici, sayac, guncelleme)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, 1, now())
+                    ON CONFLICT (anahtar) DO UPDATE SET lat = EXCLUDED.lat, lon = EXCLUDED.lon, kaynak = EXCLUDED.kaynak,
+                    dogruluk = EXCLUDED.dogruluk, adres = EXCLUDED.adres, kullanici = EXCLUDED.kullanici,
+                    sayac = konumlar.sayac + 1, guncelleme = now()""",
+                 (anahtar, lat, lon, kaynak, dogruluk, adres[:300], _safe(kullanici)))
+        else:
+            _run("UPDATE konumlar SET sayac = sayac + 1 WHERE anahtar = %s", (anahtar,))
+        return yaz
+    path = _file("_konumlar.json")
+    data = json.load(open(path, encoding="utf-8")) if os.path.exists(path) else {}
+    item = data.get(anahtar) or {"sayac": 0}
+    item["sayac"] = item.get("sayac", 0) + 1
+    if yaz:
+        item.update({"lat": lat, "lon": lon, "kaynak": kaynak, "dogruluk": dogruluk, "adres": adres[:300], "kullanici": _safe(kullanici)})
+    data[anahtar] = item
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False)
+    return yaz
+

@@ -101,3 +101,10 @@ Görsel kontrol için `python tests/preview_ui.py` komutu kişisel veri içermey
 - Tamamlanan durak tek satıra küçülür, **Sıradaki** müşteri vurgulanır ve sayfa ona kayar; üstte "Sıradaki · 3/20 tamamlandı" görünür. **Geri al** ile geri açılır.
 - Seçim kişiye özeldir ve hesapta kayıtlı kalır; kullanmayan kullanıcıda bu düğmeler görünmez. Arama ve tamamlandı bilgileri günün kaydına da geçer (Hesap → Gün).
 
+## Konum hafızası
+
+- Bir adres binasıyla bulunduğunda, elle düzeltildiğinde/teyit edildiğinde konumu **ortak hafızaya** yazılır. Sonraki günlerde aynı adres (yazımı farklı olsa da: "Sok./Sokak", "No:/no/N:") servislere sorulmadan anında gelir; ilerleme çubuğunda "… hafızadan" yazar.
+- Arama takibini kullananlarda **Tamamlandı**'ya basınca telefonun konumu (doğruluk ≤ 60 m ve durağa ≤ 800 m ise) bina girişi olarak öğrenilir. Telefon ilk seferde konum izni sorar.
+- Öncelik: elle düzeltme > durakta telefon konumu > servis araması. Servis araması hafızadaki bir konumu hiçbir zaman değiştirmez; yanlış bir konum elle düzeltilince hafıza da düzelir.
+- Hafızada yalnızca adres anahtarı ve konum tutulur; müşteri adı ve kişiye ait kayıt paylaşılmaz.
+

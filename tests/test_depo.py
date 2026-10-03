@@ -237,6 +237,29 @@ class PlanEndpointTests(unittest.TestCase):
         finally:
             del app.USERS['veli']
 
+    def test_konum_hafizasi(self):
+        mesut = 'rota_oturum=' + app.make_token('mesut')
+        ali = 'rota_oturum=' + app.make_token('ali')
+        k = 'adres|kadikoy|bostanci|bahce|334'
+        self.assertEqual(self.req('POST', '/api/konum-bul', {'anahtarlar': [k]}, mesut)[1], {'konumlar': {}})
+        self.assertTrue(self.req('POST', '/api/konum-kaydet', {'anahtar': k, 'lat': 40.95, 'lon': 29.09, 'kaynak': 'arama'}, mesut)[1]['yazildi'])
+        # ortak: başka kullanıcı da görür
+        got = self.req('POST', '/api/konum-bul', {'anahtarlar': [k, 'yok|x']}, ali)[1]['konumlar']
+        self.assertEqual((got[k]['lat'], got[k]['kaynak']), (40.95, 'arama'))
+        # elle düzeltme aramayı ezer; arama elleyi ezmez; gps elleyi ezmez
+        self.assertTrue(self.req('POST', '/api/konum-kaydet', {'anahtar': k, 'lat': 40.951, 'lon': 29.091, 'kaynak': 'elle'}, ali)[1]['yazildi'])
+        self.assertFalse(self.req('POST', '/api/konum-kaydet', {'anahtar': k, 'lat': 40.9, 'lon': 29.0, 'kaynak': 'arama'}, mesut)[1]['yazildi'])
+        self.assertFalse(self.req('POST', '/api/konum-kaydet', {'anahtar': k, 'lat': 40.9, 'lon': 29.0, 'kaynak': 'gps', 'dogruluk': 12}, mesut)[1]['yazildi'])
+        got = self.req('POST', '/api/konum-bul', {'anahtarlar': [k]}, mesut)[1]['konumlar'][k]
+        self.assertEqual((got['lat'], got['kaynak'], got['sayac']), (40.951, 'elle', 4))
+        # gps aramayı ezer; doğruluğu kötü gps ve İstanbul dışı reddedilir
+        k2 = 'adres|kadikoy|goztepe|tepegoz|53'
+        self.req('POST', '/api/konum-kaydet', {'anahtar': k2, 'lat': 40.97, 'lon': 29.06, 'kaynak': 'arama'}, mesut)
+        self.assertTrue(self.req('POST', '/api/konum-kaydet', {'anahtar': k2, 'lat': 40.9701, 'lon': 29.0601, 'kaynak': 'gps', 'dogruluk': 8}, mesut)[1]['yazildi'])
+        self.assertEqual(self.req('POST', '/api/konum-kaydet', {'anahtar': k2, 'lat': 40.97, 'lon': 29.06, 'kaynak': 'gps', 'dogruluk': 500}, mesut)[0], 400)
+        self.assertEqual(self.req('POST', '/api/konum-kaydet', {'anahtar': k2, 'lat': 39.9, 'lon': 32.8, 'kaynak': 'elle'}, mesut)[0], 400)
+        self.assertEqual(self.req('POST', '/api/konum-bul', {'anahtarlar': [k]})[0], 401)
+
 
 class YoneticiTests(unittest.TestCase):
     def test_aytac_yonetici(self):

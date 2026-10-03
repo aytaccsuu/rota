@@ -253,6 +253,10 @@ async function main(){
   assert.equal(run(`gunKm({rota:{km:31.7,evDepoKm:18.5,toplamKm:50.2}})`),50.2);
   assert.equal(run(`gunKm({rota:{km:31.7,evDepoKm:18.5}})`),50.2);
   assert.equal(run(`gunKm({rota:null})`),null);
+  // konum hafızası anahtarı: yazım farkları aynı anahtara iner
+  const k1=run(`konumAnahtari({...parseAddress('Bostancı mah. Bahçe sok. No:334','Kadıköy')})`),k2=run(`konumAnahtari({...parseAddress('Bostancı Mahallesi Bahçe Sokak no 334','KADIKÖY')})`);
+  assert.equal(k1,k2);assert.ok(k1.startsWith('adres|kadikoy|bostanci|bahce|334'));
+  assert.equal(run(`konumAnahtari({ilce:'Kadıköy',mah:'Bostancı',street:'Bahçe Sokak',no:''})`),null,'kapı no yoksa hafızaya alınmaz');
   console.log('OK: adres/AVM ayrıştırma, ücretsiz yer teyidi, 250 rota senaryosu, teslimat devamı ve eski yanıt koruması');
 }
 main().catch(e=>{console.error(e);process.exitCode=1});
