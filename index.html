@@ -1440,7 +1440,7 @@ async function renderKullanicilar(liste){
   if(!OTURUM.authOn){el.innerHTML='<div class="small">Giriş kapalı (yerel kullanım). Kullanıcılar yayındaki sitede yönetilir.</div>';return}
   if(!liste){el.innerHTML='<div class="small">Yükleniyor…</div>';try{liste=(await apiJSON('/api/kullanicilar')).kullanicilar}catch(e){el.innerHTML='<div class="small">Okunamadı: '+esc(e.message)+'</div>';return}}
   el.innerHTML=`<div class="small" style="margin:6px 0">Her kullanıcı yalnızca kendi rotalarını, hakedişini, evraklarını, yakıtını ve depo/ev konumunu görür.</div>
-    <div class="kul">${liste.map(u=>`<div class="kul-r" data-ad="${esc(u.ad)}"><b>${esc(u.ad)}</b>${u.yonetici?'<span class="rozet">YÖNETİCİ</span>':''}${u.sabit?'<span class="rozet gri">RENDER AYARI</span>':`<span class="small">${u.olusturma?'eklendi '+esc(u.olusturma):''}</span>`}
+    <div class="kul">${liste.map(u=>`<div class="kul-r" data-ad="${esc(u.ad)}"><b>${esc(u.ad)}</b>${u.yonetici?'<span class="rozet">YÖNETİCİ</span>':''}${u.sabit?'<span class="rozet gri">SUNUCU AYARI</span>':`<span class="small">${u.olusturma?'eklendi '+esc(u.olusturma):''}</span>`}
       ${u.sabit?'':`<div class="acts"><button data-a="sifre"><i class="ic" data-ic="edit"></i> Şifre</button><button class="danger" data-a="sil"><i class="ic" data-ic="trash"></i> Sil</button></div>`}</div>`).join('')}</div>
     <div class="kul-ekle"><input type="text" id="kAd" autocomplete="off" autocapitalize="none" placeholder="Kullanıcı adı"><input type="password" id="kSifre" autocomplete="new-password" placeholder="Şifre (en az 6 karakter)"><button class="p" id="kEkle"><i class="ic" data-ic="user"></i> Kullanıcı ekle</button></div>
     <div class="small" id="kMsg"></div>`;

@@ -1,0 +1,35 @@
+# Rota Planı — Cloudflare Workers sürümü (Render/Python sürümüyle aynı arayüz ve uç noktalar)
+name = "rota-plani"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+compatibility_flags = ["nodejs_compat"]
+
+# index.html ve giris.html (npm run build ile ana klasörden kopyalanır). Giriş kontrolü için önce Worker çalışır.
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = true
+
+# Veritabanı (planlar, hakediş, yakıt, kullanıcılar, konum hafızası, ayarlar)
+[[d1_databases]]
+binding = "DB"
+database_name = "rota-plani"
+database_id = "BURAYA-D1-KIMLIGI"   # wrangler d1 create rota-plani çıktısından
+migrations_dir = "migrations"
+
+# Evrak görselleri: R2 (isteğe bağlı). Bu bölüm yoksa görseller D1'de saklanır.
+# [[r2_buckets]]
+# binding = "EVRAK"
+# bucket_name = "rota-evrak"
+
+# Workers AI: Gemini kotası bittiğinde evrak okuma ve adres düzeltme yedeği
+[ai]
+binding = "AI"
+
+[vars]
+# Gizli olmayan ayarlar. Anahtar ve şifreler "wrangler secret put" ile girilir:
+#   ROTA_KULLANICILAR, ROTA_GIZLI, YANDEX_MAPS_JS_KEY, YANDEX_GEOCODER_API_KEY, TOMTOM_API_KEY,
+#   MAPTILER_API_KEY, GEOAPIFY_API_KEY, GEMINI_API_KEY, ORS_API_KEY, GOOGLE_MAPS_API_KEY
+ROTA_YONETICI = "aytac"
+DEPO_KOORDINAT = ""
+EV_KOORDINAT = ""

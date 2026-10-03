@@ -1,0 +1,15 @@
+{
+  "name": "rota-plani-cloudflare",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/kopyala.mjs",
+    "dev": "npm run build && wrangler dev --local --port 8787",
+    "db:local": "wrangler d1 migrations apply rota-plani --local",
+    "db:remote": "wrangler d1 migrations apply rota-plani --remote",
+    "deploy": "npm run build && wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}
