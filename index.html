@@ -106,6 +106,7 @@ html:not(.yonetici) .yonetici-only{display:none!important}
 .yotab td:first-child,.yotab th:first-child{text-align:left}.yotab th:nth-child(2),.yotab td:nth-child(2){text-align:right}
 .sira>.sira-tas{display:flex;flex-direction:column;gap:4px;flex:none;min-width:0}.sira-tas button{width:34px;height:30px;padding:0;display:grid;place-items:center;border-radius:8px}.sira.duzen{background:var(--surf2);border-radius:10px;padding-left:6px;padding-right:6px}.sira.duzen:before{display:none}
 .sira-not{margin:10px 0 4px;padding:9px 12px;border-radius:10px;background:var(--warnbg);color:var(--warnink);font-size:12px}
+.gidilecek{display:flex;gap:6px;align-items:flex-start;font-size:13px;margin:2px 0 6px;color:var(--ok)}.gidilecek.no{color:var(--bad)}.gidilecek span{color:var(--ink)}.gidilecek.no span{color:var(--bad)}
 .ai-uyari{display:flex;gap:8px;align-items:flex-start;margin:6px 0;padding:8px 10px;border-radius:10px;font-size:13px;line-height:1.4;background:var(--warnbg);color:var(--warnink)}.ai-uyari.hatali{background:var(--badbg);color:var(--bad)}.ai-uyari>span{flex:1}.ai-uyari .small{display:block;color:inherit;opacity:.85;margin-top:2px}.ai-uyari button{padding:5px 10px;font-size:12px;flex:none}
 #bildirim{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#19322e;color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;box-shadow:0 8px 24px #0004;opacity:0;pointer-events:none;transition:.2s;z-index:100;max-width:90vw}#bildirim.acik{opacity:1;transform:translateX(-50%)}
 .ichips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.ichip{padding:7px 11px;border-radius:20px;font-size:13px;font-weight:600;border:1px solid var(--line);background:var(--card);color:var(--ink)}.ichip.on,html[data-theme="dark"] .ichip.on{background:var(--pri);border-color:var(--pri);color:#fff}
@@ -460,9 +461,11 @@ function parseAddress(raw,ilceRaw){
   const pick=(numIdx>=0?cands.filter(c=>c.i<numIdx).at(-1):null)||cands[0];
   let street=pick?.street||'',no=pick?.no||'';
   if(!no){const n=rest.match(/\b(?:no|nu|nr|numara|n)\s*[:.]?\s*(\d+[A-Za-z]?(?:[-/]\d+[A-Za-z]?)?)/i);if(n)no=n[1]}
+  // "Tepegöz sk Nil apt 53": No yazılmadan apartman/site adından sonra gelen numara kapı numarasıdır
+  if(!no&&street){const n=rest.match(/(?:apt\.?|apartman[ıi]?|sitesi|site|evleri|konutlar[ıi]|plaza|rezidans)\s+(\d+[A-Za-z]?(?:\/\d+)?)(?=\s|[.,]|$)/i);if(n)no=n[1]}
   const ilce=ilceMap[fold(ilceRaw)]||matchIlce(ilceRaw||'')||ILCELER.find(x=>new RegExp('(?:^|[^a-z])'+fold(x)+'(?:$|[^a-z])').test(fold(s)))||String(ilceRaw||'').trim();
   // AVM/site/apartman adını sokaktan bağımsız koru; yalnızca isim girilmişse de ara.
-  const placeParts=s.split(/(?:mah(?:allesi)?\.?|sokak|sokağı|sok\.?\b|sk\.|caddesi|cad\.|cd\.)\s*/i);
+  const placeParts=s.split(/(?:mah(?:allesi)?\.?|sokak|sokağı|sok\.?\b|sk\.|sk\b|caddesi|cad\.|cd\.)\s*/i);
   const pm=placeParts.map(part=>part.replace(/\b(?:no|kat|daire|blok)\s*[:.]?\s*[\w/-]+/gi,' ')
     .match(/([A-Za-zÇĞİÖŞÜçğıöşü0-9][A-Za-zÇĞİÖŞÜçğıöşü0-9 '&.-]*?\s+(?:avm|alışveriş merkezi|apt\.?|apartmanı|apartman|sitesi|rezidans|residence|plaza|yerleşkesi|kampüsü))(?=\s|[.,/]|$)/i)).find(Boolean);
   let place=pm?pm[1].replace(/^\d+[A-Za-z]?\s+/,'').trim():'';
@@ -602,7 +605,7 @@ async function findHouse(st,no){
 // Sokak adı küçük farklarla yazılmış olabilir ("Cami Sokak" ↔ "Suadiye Camii Sok."): kelimelerden biri 1 harf farkla tutarsa.
 function sameLoose(x,y){
   if(same(x,y))return true;
-  const w=t=>fold(t).replace(/(sokagi|sokak|sok|sk|caddesi|cadde|cad|cd|bulvari|bulvar|blv|cikmazi|cikmaz)\.?/g,' ').split(/[^a-z0-9]+/).filter(v=>v.length>=4);
+  const w=t=>fold(t).replace(/\b(sokagi|sokak|sok|sk|caddesi|cadde|cad|cd|bulvari|bulvar|blv|cikmazi|cikmaz)\b\.?/g,' ').split(/[^a-z0-9]+/).filter(v=>v.length>=4);
   const close=(p,q)=>p===q||(Math.abs(p.length-q.length)===1&&(p.startsWith(q)||q.startsWith(p)))||(p.length===q.length&&p.length>=5&&lev(p,q)===1);
   const A=w(x),B=w(y);return A.some(p=>B.some(q=>close(p,q)));
 }
@@ -808,8 +811,9 @@ let geoRun=0;
 // Anahtar: ilçe | mahalle | sokak | kapı no (yazım farkları sadeleşir: "Sok."="Sokak", "No:"="no"). Sokak yoksa yer adı (AVM/site).
 function konumAnahtari(s){
   const ilce=core(s.ilce||''),mah=core(s.mah||'');
-  if(s.street&&s.no)return ['adres',ilce,mah,core(s.street),normNo(s.no)].join('|');
-  if(s.place)return ['yer',ilce,core(s.place)].join('|');
+  // 'adres2/yer2': sokak karşılaştırma hatası düzeltildikten sonraki kayıtlar (öncekiler güvenilir değil, kullanılmaz)
+  if(s.street&&s.no)return ['adres2',ilce,mah,core(s.street),normNo(s.no)].join('|');
+  if(s.place)return ['yer2',ilce,core(s.place)].join('|');
   return null;
 }
 async function konumHafizasi(liste){
@@ -868,6 +872,12 @@ function oneriyleDuzelt(s){
   const a=parseAddress(o,s.ilce);
   if(a.street){$('pkStreet').value=a.street;if(a.no)$('pkNo').value=a.no;if(a.ilce)$('pkIlce').value=a.ilce;pkSearch()}
   $('pkInfo').innerHTML=`<i class="ic" data-ic="spark"></i> Yapay zekâ önerisi: <b>${esc(o)}</b>${s.mah?` · evraktaki mahalle: <b>${esc(s.mah)}</b>`:''}`;
+}
+// Navigasyonun gideceği yer evrak adresinin altında açıkça yazılır; doğrulanmamışsa uyarıyla
+function gidilecekHTML(s){
+  const m=s.match||{},adr=m.yandexAddress||m.address||[m.road&&(m.road+(m.no?' No:'+m.no:'')),m.mah,m.ilce].filter(Boolean).join(', ');
+  const ok=readyStop(s),metin=adr||(s.quality==='Elle'?'elle seçilen konum':'yaklaşık konum');
+  return `<div class="gidilecek ${ok?'ok':'no'}"><i class="ic" data-ic="${ok?'check':'alert'}"></i> <span><b>Gidilecek:</b> ${esc(metin)}${ok?'':' — <b>teyit edilmedi</b>'}</span></div>`;
 }
 const denetimHTML=(s,i)=>s.aiDenetim?`<div class="ai-uyari ${s.aiDenetim.durum}"><i class="ic" data-ic="alert"></i> <span><b>${s.aiDenetim.durum==='hatali'?'Muhtemelen yanlış konum':'Kontrol edin'}:</b> ${esc(s.aiDenetim.neden)}${s.aiDenetim.oneri?` <span class="small">Öneri: ${esc(s.aiDenetim.oneri)}</span>`:''}</span><button class="hide-print" data-denetim="${i}">Öneriyle düzelt</button></div>`:'';
 async function geocodeAll(force){
@@ -1300,7 +1310,7 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
     const tas=siraDuzenle?`<div class="sira-tas hide-print"><button data-tas="${i}" data-y="-1" ${i?'':'disabled'} aria-label="Yukarı taşı"><i class="ic" data-ic="up"></i></button><button data-tas="${i}" data-y="1" ${i<routeOrder.length-1?'':'disabled'} aria-label="Aşağı taşı"><i class="ic" data-ic="down"></i></button></div>`:'';
     if(takip&&s.tamam&&!siraDuzenle){h+=`<div class="sira bitti"><span class="n"><i class="ic" data-ic="check"></i></span><div><div class="ad">${i+1+delivered.length}. ${names(s)} <span class="tk-zaman">tamamlandı ${esc(s.tamamZaman||'')}${s.arama?' · '+ARAMA[s.arama][1]:''}</span> <button class="tk-geri hide-print" data-tm="${i}">Geri al</button></div></div></div>`;return}
     const tk=takip&&!siraDuzenle?`<div class="takip hide-print">${Object.entries(ARAMA).map(([v,[icn,ad]])=>`<button class="tk ${s.arama===v?'on '+v:''}" data-tk="${i}" data-v="${v}"><i class="ic" data-ic="${icn}"></i> ${ad}</button>`).join('')}${s.arama?`<span class="tk-zaman">${esc(s.aramaZaman||'')}</span>`:''}<button class="tk tamam" data-tm="${i}"><i class="ic" data-ic="check"></i> Tamamlandı</button></div>`:'';
-    h+=`<div class="sira${siraDuzenle?' duzen':''}${takip&&i===siradaki?' siradaki':''}"${takip&&i===siradaki?' id="siradakiDurak"':''}>${tas}<span class="n">${i+1+delivered.length}</span><div><div class="ad">${names(s)} <button class="copy hide-print" data-copy="${esc(stopNames(s))}" title="İsmi kopyala" aria-label="İsmi kopyala"><i class="ic" data-ic="copy"></i></button>${warn}</div><div class="adr">${esc(s.raw)}</div>${denetimHTML(s,stops.indexOf(s))}${tk}${ya}<div class="small">${esc(neighborhoodLabel(s))} · ${(legs[i].d/1000).toFixed(1)} km / ${fmtT(legs[i].t)}${legs[i].delay>60?` (<i class="ic" data-ic="traffic"></i> +${fmtT(legs[i].delay)})`:''} · <b>varış ≈ ${clock(eta[i])}</b></div><div class="small">${[s.orders.length>1?s.orders.length+' sipariş':'',k?k+' koli':'',geri?'<i class="ic" data-ic="undo"></i> GERİ ALIM':'',[...new Set(s.orders.map(o=>o.musteri).filter(Boolean))].join(', ')].filter(Boolean).join(' · ')}</div></div></div>`;
+    h+=`<div class="sira${siraDuzenle?' duzen':''}${takip&&i===siradaki?' siradaki':''}"${takip&&i===siradaki?' id="siradakiDurak"':''}>${tas}<span class="n">${i+1+delivered.length}</span><div><div class="ad">${names(s)} <button class="copy hide-print" data-copy="${esc(stopNames(s))}" title="İsmi kopyala" aria-label="İsmi kopyala"><i class="ic" data-ic="copy"></i></button>${warn}</div><div class="adr">${esc(s.raw)}</div>${gidilecekHTML(s)}${denetimHTML(s,stops.indexOf(s))}${tk}${ya}<div class="small">${esc(neighborhoodLabel(s))} · ${(legs[i].d/1000).toFixed(1)} km / ${fmtT(legs[i].t)}${legs[i].delay>60?` (<i class="ic" data-ic="traffic"></i> +${fmtT(legs[i].delay)})`:''} · <b>varış ≈ ${clock(eta[i])}</b></div><div class="small">${[s.orders.length>1?s.orders.length+' sipariş':'',k?k+' koli':'',geri?'<i class="ic" data-ic="undo"></i> GERİ ALIM':'',[...new Set(s.orders.map(o=>o.musteri).filter(Boolean))].join(', ')].filter(Boolean).join(' · ')}</div></div></div>`;
   });
   h+=`<div class="sira"><span class="n" style="background:#1c2430">E</span><div><div class="ad">Eve dönüş</div></div></div>`;
   const out=stops.filter(s=>s.skip);

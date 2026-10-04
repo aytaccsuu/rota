@@ -68,6 +68,25 @@ async function main(){
   }
   assert.equal(run(`buildStops([{sip:'162409262477306',alici:'NAZİF ÖCAL',ilce:'Kadıköy',raw:'Göztepe mah. Arı apartmanı no: 171'},{sip:'162609262477306',alici:'NAZİF ÖCAL',ilce:'Kadıköy',raw:'Göztepe mah. Arı apartmanı no: 171'}]).reduce((a,s)=>a+s.orders.length,0)`),1,'sipariş no farklı okunsa da aynı alıcı+adres tek sipariş');
   // Ayrıştırma: virgül sınırı ve numaradan önceki yol
+  // farklı sokaklar "Sokak/Cadde" kelimesi ortak diye aynı sayılmamalı (görünmez karakter hatası: Tepegöz ≈ Acun)
+  assert.equal(run(`sameLoose('Acun Sokak','Tepegöz Sokak')`),false);
+  assert.equal(run(`sameLoose('Moda Caddesi','Bahariye Caddesi')`),false);
+  assert.equal(run(`sameLoose('Cami Sokak','Suadiye Camii Sok.')`),true);
+  assert.equal(run(`sameLoose('Tepegöz Sk.','Tepegöz Sokak')`),true);
+  // son doğrulama: evrakla tutmayan konum asla kesin sayılmaz (Tepegöz yazıp Acun'a götürmemeli)
+  {
+    const a=`{street:'Tepegöz Sokak',no:'53',mah:'Göztepe',ilce:'Kadıköy'}`;
+    assert.equal(run(`kesinlikDenetimi(${a},{quality:'Kapı',road:'Acun Sokak',no:'53',areas:['Göztepe'],ilce:'Kadıköy'}).quality`),'Kontrol','başka sokak');
+    assert.equal(run(`kesinlikDenetimi(${a},{quality:'Kapı',road:'Tepegöz Sokak',no:'47',areas:['Göztepe']}).quality`),'Kontrol','başka kapı no');
+    assert.equal(run(`kesinlikDenetimi(${a},{quality:'Kapı',road:'Tepegöz Sokak',no:'53',areas:['Esenyurt','Saadetdere'],ilce:'Esenyurt'}).quality`),'Kontrol','başka ilçe/mahalle');
+    assert.equal(run(`kesinlikDenetimi(${a},{quality:'Kapı',road:'Tepegöz Sk.',no:'No:53',areas:['Göztepe Mahallesi','Kadıköy'],ilce:'Kadıköy'}).quality`),'Kapı','yazım farkı sorun değil');
+  }
+  // apartman/site adı geçen adreslerde sokak esas alınır, kapı no doğru okunur
+  for(const [ham,sokak,no] of [['Göztepe mah. Tepegöz sok. Yılmaz Apt. No:5 D:3','Tepegöz Sokak','5'],['Göztepe mah. Tepegöz sokak Gül Sitesi B blok no 12 kat 2','Tepegöz Sokak','12'],
+    ['Caferağa mah. Moda cad. Deniz apt. kat 3 daire 5 no 34','Moda Caddesi','34'],['Suadiye mah. Acun sok. Park Evleri Sitesi A Blok No: 2 Daire 8','Acun Sokak','2'],
+    ['Erenköy mah. Ethem Efendi cad. no 45 Sedef apt d 9','Ethem Efendi Caddesi','45'],['Göztepe mah. Tepegöz sk Nil apt 53','Tepegöz Sokak','53']]){
+    const r=run(`parseAddress(${JSON.stringify(ham)},'Kadıköy')`);assert.equal(r.street+'|'+r.no,sokak+'|'+no,ham);
+  }
   // kapı numarası farklı yazımlarla: "No 334", "N:334", "Nu 334", "numara 334", ":" olmadan
   for(const t of ['no 334','No334','No.334 D:5','N:334','N 334','Nu:334','Nr 334','numara 334','No :334','334'])
     assert.equal(run(`parseAddress('Bostancı mah. Bahçe sok ${t}','Kadıköy').no`),'334',t);
@@ -255,7 +274,7 @@ async function main(){
   assert.equal(run(`gunKm({rota:null})`),null);
   // konum hafızası anahtarı: yazım farkları aynı anahtara iner
   const k1=run(`konumAnahtari({...parseAddress('Bostancı mah. Bahçe sok. No:334','Kadıköy')})`),k2=run(`konumAnahtari({...parseAddress('Bostancı Mahallesi Bahçe Sokak no 334','KADIKÖY')})`);
-  assert.equal(k1,k2);assert.ok(k1.startsWith('adres|kadikoy|bostanci|bahce|334'));
+  assert.equal(k1,k2);assert.ok(k1.startsWith('adres2|kadikoy|bostanci|bahce|334'));
   assert.equal(run(`konumAnahtari({ilce:'Kadıköy',mah:'Bostancı',street:'Bahçe Sokak',no:''})`),null,'kapı no yoksa hafızaya alınmaz');
   console.log('OK: adres/AVM ayrıştırma, ücretsiz yer teyidi, 250 rota senaryosu, teslimat devamı ve eski yanıt koruması');
 }
