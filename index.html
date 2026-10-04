@@ -618,7 +618,7 @@ async function directHouse(a){
     const rank=c=>(same(c.road,a.street)?0:1);
     const hits=pool.filter(ok).sort((x,y)=>rank(x)-rank(y));
     const h=hits.find(c=>noOk(c.no,v.no))||hits.find(c=>baseNoOk(c.no,v.no));
-    if(h)return {...h,quality:'Kapı',daire:v.daire,road:h.road||a.street};
+    if(h)return {...h,quality:same(h.road,a.street)?'Kapı':'Kontrol',daire:v.daire,road:h.road||a.street};
   }
   return null;
 }
@@ -743,10 +743,28 @@ async function snapToYandex(a,r){
   const hs=items.filter(c=>c.type==='house'&&c.precision==='exact'&&sameLoose(c.road,road)&&(!a.mah||mahOk(c,a.mah)||dist(c,r)<300)&&dist(c,r)<(r.quality==='Kapı'||r.quality==='OSM'?300:1500));
   const h=hs.find(c=>nos.some(n=>noOk(c.no,n)))||hs.find(c=>nos.some(n=>baseNoOk(c.no,n)));
   if(!h)return r;
-  return {...r,lat:h.lat,lon:h.lon,no:h.no,road:h.road||road,source:'Yandex',yandexAddress:h.address,
-    quality:r.quality==='Kontrol'&&r.conflict?'Kontrol':'Kapı'};
+  // Kesinlik yalnızca sokak adı birebir, mahalle ve kapı no tam tutuyorsa yükselir; aksi halde önceki kesinlik korunur
+  const tam=same(h.road,road)&&(!a.mah||mahOk(h,a.mah))&&nos.some(n=>noOk(h.no,n));
+  return {...r,lat:h.lat,lon:h.lon,no:h.no,road:h.road||road,source:'Yandex',yandexAddress:h.address,areas:h.areas||r.areas,
+    quality:tam&&!r.conflict&&['Kapı','OSM','Sokak'].includes(r.quality)?'Kapı':r.quality==='OSM'?'OSM':r.quality};
 }
-async function locate(a){return snapToYandex(a,await locateAll(a))}
+async function locate(a){return kesinlikDenetimi(a,await snapToYandex(a,await locateAll(a)))}
+// Son güvenlik kontrolü: "kesin" (Kapı/OSM) sayılan konumda sokak, kapı no, mahalle ve ilçe evrakla tutmalı.
+// Tutmayan konum navigasyona kesin diye verilmez; teyit ister (sürücü yanlış yere gitmesin).
+function kesinlikDenetimi(a,r){
+  if(!r||!['Kapı','OSM'].includes(r.quality)||a.mall)return r;
+  const sokak=r.arananSokak||a.street,sorun=[];
+  if(sokak&&r.road&&!sameLoose(r.road,sokak))sorun.push(`sokak tutmuyor (evrak: ${sokak}, bulunan: ${r.road})`);
+  else if(sokak&&!r.road&&r.quality==='Kapı')sorun.push('bulunan yerde sokak adı yok');
+  if(a.no&&r.no&&!noVariants(a.no).some(v=>noOk(r.no,v.no)||baseNoOk(r.no,v.no)))sorun.push(`kapı no tutmuyor (evrak: ${a.no}, bulunan: ${r.no})`);
+  else if(a.no&&!r.no&&r.quality==='Kapı')sorun.push('bulunan yerde kapı no yok');
+  const alanlar=[...(r.areas||[]),r.mah].filter(Boolean);
+  if(a.mah&&alanlar.length&&!alanlar.some(x=>same(x,a.mah)))sorun.push(`mahalle tutmuyor (evrak: ${a.mah}${r.mah?', bulunan: '+r.mah:''})`);
+  if(a.ilce&&r.ilce&&!same(r.ilce,a.ilce))sorun.push(`ilçe tutmuyor (evrak: ${a.ilce}, bulunan: ${r.ilce})`);
+  if(!sorun.length)return r;
+  a.placeError='Konum doğrulanamadı: '+sorun.join('; ')+'. Doğru binayı teyit edin.';
+  return {...r,quality:'Kontrol',dogrulama:sorun};
+}
 async function locateAll(a){
   if(a.mall||!a.parsed)return locateCore(a);
   const good=r=>r&&['Kapı','OSM','Sokak'].includes(r.quality);
@@ -757,7 +775,17 @@ async function locateAll(a){
     const b={...a,street,no:street===a.parsed.street&&!a.ai?.kapi_no?a.parsed.no:a.no};
     const r=await locateCore(b);
     if(!first)first=r;
-    if(good(r)){if(street!==tries[0])a.aiFix=[...(a.aiFix||[]),'haritada bulunan: '+street];Object.assign(a,{placeCandidates:b.placeCandidates,placeError:b.placeError});return r}
+    if(good(r)){
+      Object.assign(a,{placeCandidates:b.placeCandidates,placeError:b.placeError});
+      r.arananSokak=street;
+      if(street!==tries[0]){
+        a.aiFix=[...(a.aiFix||[]),'haritada bulunan: '+street];
+        // "Tünelc"→"Tünek" gibi yazım düzeltmesi kabul; tamamen başka bir sokak (Tepegöz → Acun) asla kendiliğinden kesin olmaz
+        // evrakta kapı numarasının hemen önünde yazan yol (ayrıştırıcının seçtiği) güvenilirdir; yapay zekânın önerdiği farklı yol değildir
+        if(street!==a.parsed.street&&!sameLoose(street,tries[0])&&!(Math.min(core(street).length,core(tries[0]).length)>=5&&lev(core(street),core(tries[0]))<=2)){a.placeError=`Evraktaki “${tries[0]}” bulunamadı; adreste geçen “${street}” üzerinde bulundu. Doğru yer olduğunu teyit edin.`;return {...r,quality:'Kontrol'}}
+      }
+      return r;
+    }
   }
   return first;
 }
@@ -822,7 +850,12 @@ async function adresDenetimi(){
   try{
     const j=await apiJSON('/api/adres-denetle',{items});if(run!==denetimRun)return;
     const byId=new Map((j.items||[]).map(r=>[r.id,r]));
-    let supheli=0;for(const s of liste){const r=byId.get(String(s.id));s.aiDenetim=r&&r.durum!=='uygun'?r:null;if(s.aiDenetim)supheli++}
+    let supheli=0,dusen=0;
+    for(const s of liste){
+      const r=byId.get(String(s.id));s.aiDenetim=r&&r.durum!=='uygun'?r:null;if(s.aiDenetim)supheli++;
+      if(r?.durum==='hatali'&&['Kapı','OSM'].includes(s.quality)){s.quality='Kontrol';s.placeError='Yapay zekâ: '+r.neden;dusen++}
+    }
+    if(dusen){clearRoute();refreshMarkers();updateState()}
     $('geoInfo').textContent=$('geoInfo').textContent.replace(' Yapay zekâ adresleri denetliyor…','')+(supheli?` Yapay zekâ ${supheli} adresi şüpheli buldu (Adres kontrolü).`:' Yapay zekâ denetimi: adresler tutarlı.');
     if(supheli)$('stopsCard').open=true;
     renderStops();if(sonRender&&routeOrder?.length)renderResult(...sonRender);

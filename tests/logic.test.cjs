@@ -44,7 +44,7 @@ async function main(){
   // Yapay zekâ düzeltmesi: harita doğrulamazsa sıradaki aday, en son evraktaki yazım denenir
   {
     const ai=app();
-    ai.run(`var tried=[];locateCore=async a=>{tried.push(a.street);return a.street==='Tünek Sokak'?{lat:41,lon:29,quality:'Kapı'}:{lat:41,lon:29,quality:'Mahalle'}};`);
+    ai.run(`var tried=[];locateCore=async a=>{tried.push(a.street);return a.street==='Tünek Sokak'?{lat:41,lon:29,quality:'Kapı',road:'Tünek Sokak',no:'17',areas:['Göztepe']}:{lat:41,lon:29,quality:'Mahalle'}};`);
     const r=await ai.run(`locate({raw:'x',street:'Tünelc Sokak',no:'17',mah:'Göztepe',parsed:{street:'Tünelc Sok.',no:'17'},ai:{sokak_adaylari:['Tünek Sokak'],kapi_no:'17'}})`);
     assert.equal(r.quality,'Kapı');
     assert.deepEqual(plain(ai.run('tried')),['Tünelc Sokak','Tünek Sokak']);
