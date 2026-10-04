@@ -36,11 +36,15 @@ def koy(ad, deger):
 
 def main():
     ayar = json.load(open(AYAR, encoding="utf-8")) if os.path.exists(AYAR) else {}
-    kullanicilar = getpass.getpass('ROTA_KULLANICILAR (ör. aytac:şifre, baran:şifre, esat:şifre): ').strip()
-    if ":" not in kullanicilar:
-        sys.exit("Kullanıcı listesi gerekli (ad:şifre biçiminde).")
+    print("Kullanıcı listesi (ör. aytac:123456, baran:123456, esat:123456).")
+    print("Panelde zaten girdiyseniz boş bırakıp Enter'a basın.")
+    kullanicilar = getpass.getpass("Kullanıcılar (yazarken görünmez): ").strip()
+    if kullanicilar and ":" not in kullanicilar:
+        sys.exit("Biçim: ad:şifre, ad:şifre")
     print("Cloudflare'e yükleniyor…")
-    ok = koy("ROTA_KULLANICILAR", kullanicilar) and koy("ROTA_GIZLI", secrets.token_urlsafe(40))
+    ok = True
+    if kullanicilar:
+        ok = koy("ROTA_KULLANICILAR", kullanicilar) and koy("ROTA_GIZLI", secrets.token_urlsafe(40))
     for alan, ad in ESLEME.items():
         if isinstance(ayar.get(alan), str) and ayar[alan].strip():
             ok = koy(ad, ayar[alan].strip()) and ok
