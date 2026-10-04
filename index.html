@@ -433,7 +433,9 @@ const STOPW=/^(mah|mahallesi|mahalle|no|apt|apartman|apartmanı|sitesi|site|sit|
 function parseAddress(raw,ilceRaw){
   const s=String(raw).replace(/\s+/g,' ').trim();
   const mm=[...s.matchAll(/(?:^|[,;])\s*([A-Za-zÇĞİÖŞÜçğıöşü0-9]+(?:\s+[A-Za-zÇĞİÖŞÜçğıöşü0-9]+){0,3})\s+mah(?:allesi)?(?=[\s.,/]|$)/gi)].map(x=>x[1]).filter(x=>!/^mah/i.test(x));
-  const fallbackMah=[...s.matchAll(/([A-Za-zÇĞİÖŞÜçğıöşü]{3,})\s+mah(?:allesi)?(?=[\s.,/]|$)/gi)].map(x=>x[1]).find(x=>!/^mah/i.test(x));
+  // "19 Mayıs Mah." rakamla başlayabilir; ama "No:5 GÖZTEPE MAH."daki 5 kapı numarasıdır, mahalle adına girmez
+  const fallbackMah=[...s.matchAll(/((?:\d+\s+)?[A-Za-zÇĞİÖŞÜçğıöşü]{3,})\s+mah(?:allesi)?(?=[\s.,/]|$)/gi)]
+    .map(x=>/(?:\bno|\bnu|\bnr|\bn|numara|:)\s*[:.]?\s*$/i.test(s.slice(0,x.index))?x[1].replace(/^\d+\s+/,''):x[1]).find(x=>!/^mah/i.test(x));
   const mah=mm[0]||fallbackMah||'';
   // bitişik yazımları ayır: "KadıköyBostancı" → "Kadıköy Bostancı", "Apartmanı24/A" → "Apartmanı 24/A"
   const rest=s.replace(/([a-zçğıöşü])([A-ZÇĞİÖŞÜ])/g,'$1 $2').replace(/([A-Za-zÇĞİÖŞÜçğıöşü]{3,})(\d)/g,'$1 $2');
@@ -758,11 +760,24 @@ async function snapToYandex(a,r){
   const nos=noVariants(no).map(v=>v.no);
   const hs=items.filter(c=>c.type==='house'&&c.precision==='exact'&&sameLoose(c.road,road)&&(!a.mah||mahOk(c,a.mah)||dist(c,r)<300)&&dist(c,r)<(r.quality==='Kapı'||r.quality==='OSM'?300:1500));
   const h=hs.find(c=>nos.some(n=>noOk(c.no,n)))||hs.find(c=>nos.some(n=>baseNoOk(c.no,n)));
-  if(!h)return r;
+  if(!h)return yandexTersKontrol(a,r,road,nos);
   // Kesinlik yalnızca sokak adı birebir, mahalle ve kapı no tam tutuyorsa yükselir; aksi halde önceki kesinlik korunur
   const tam=same(h.road,road)&&(!a.mah||mahOk(h,a.mah))&&nos.some(n=>noOk(h.no,n));
   return {...r,lat:h.lat,lon:h.lon,no:h.no,road:h.road||road,source:'Yandex',yandexAddress:h.address,areas:h.areas||r.areas,
     quality:tam&&!r.conflict&&['Kapı','OSM','Sokak'].includes(r.quality)?'Kapı':r.quality==='OSM'?'OSM':r.quality};
+}
+// Bina Yandex'te kayıtlı değilse (konum başka servisten): bulunan noktayı Yandex'e sor.
+// Navigasyon Yandex'le yapıldığı için orada başka bir sokak/kapı no görünüyorsa konum kesin sayılmaz.
+async function yandexTersKontrol(a,r,road,nos){
+  if(!['Kapı','OSM'].includes(r.quality)||!validPoint(r))return r;
+  let items=null;try{items=await providerSearch('yandex',`${(+r.lon).toFixed(6)},${(+r.lat).toFixed(6)}`,'reverse')}catch(e){}
+  const yakin=(items||[]).filter(c=>c.type==='house'&&c.no&&dist(c,r)<40).sort((x,y)=>dist(x,r)-dist(y,r))[0];
+  if(!yakin)return r; // Yandex'te o noktada bina yok: çelişki de yok
+  const sokakAyni=sameLoose(yakin.road,road),noAyni=nos.some(n=>noOk(yakin.no,n)||baseNoOk(yakin.no,n));
+  if(sokakAyni&&noAyni)return {...r,yandexAddress:yakin.address||r.yandexAddress};
+  const goster=`${yakin.road||''} ${yakin.no}`.trim();
+  a.placeError=`Bina Yandex'te kayıtlı değil; Yandex bu noktayı “${goster}” olarak gösteriyor. Doğru binayı teyit edin.`;
+  return {...r,quality:'Kontrol',notu:`Yandex bu noktayı ${goster} olarak gösteriyor`};
 }
 async function locate(a){return kesinlikDenetimi(a,await snapToYandex(a,await locateAll(a)))}
 // Son güvenlik kontrolü: "kesin" (Kapı/OSM) sayılan konumda sokak, kapı no, mahalle ve ilçe evrakla tutmalı.
@@ -775,7 +790,9 @@ function kesinlikDenetimi(a,r){
   if(a.no&&r.no&&!noVariants(a.no).some(v=>noOk(r.no,v.no)||baseNoOk(r.no,v.no)))sorun.push(`kapı no tutmuyor (evrak: ${a.no}, bulunan: ${r.no})`);
   else if(a.no&&!r.no&&r.quality==='Kapı')sorun.push('bulunan yerde kapı no yok');
   const alanlar=[...(r.areas||[]),r.mah].filter(Boolean);
-  if(a.mah&&alanlar.length&&!r.tekSokak&&!alanlar.some(x=>same(x,a.mah)))sorun.push(`mahalle tutmuyor (evrak: ${a.mah}${r.mah?', bulunan: '+r.mah:''})`);
+  // mahalle yalnızca bulunan yerde mahalle bilgisi varsa karşılaştırılır (Yandex bazı binalarda mahalle vermiyor)
+  const mahBilgisi=!!r.mah||alanlar.some(x=>/\bmah(\.|allesi|\b)/i.test(x));
+  if(a.mah&&mahBilgisi&&!r.tekSokak&&!alanlar.some(x=>same(x,a.mah)))sorun.push(`mahalle tutmuyor (evrak: ${a.mah}${r.mah?', bulunan: '+r.mah:''})`);
   if(a.ilce&&r.ilce&&!same(r.ilce,a.ilce))sorun.push(`ilçe tutmuyor (evrak: ${a.ilce}, bulunan: ${r.ilce})`);
   if(!sorun.length)return r;
   a.placeError='Konum doğrulanamadı: '+sorun.join('; ')+'. Doğru binayı teyit edin.';

@@ -370,7 +370,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             provider = args.get('provider', [''])[0]
             query = args.get('q', [''])[0].strip()
             mode = args.get('mode', ['address'])[0]
-            if provider not in PROVIDERS or not 3 <= len(query) <= 500 or mode not in ('address', 'place'):
+            if provider not in PROVIDERS or not 3 <= len(query) <= 500 or mode not in ('address', 'place', 'reverse'):
                 return self.reply(400, {'error': 'Geçersiz servis veya adres.', 'code': 'invalid_request'})
             with LOCK:
                 key = key_for(provider, read_settings())

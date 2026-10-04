@@ -53,7 +53,9 @@ def candidate(source, lat, lon, *, name='', road='', no='', areas=(), address=''
 def provider_search(provider, query, key, mode='address'):
     out = []
     if provider == 'yandex':
-        data = get_json('https://geocode-maps.yandex.ru/v1/', dict(apikey=key, geocode=query, lang='tr_TR', format='json', results=10, bbox='27.9,40.7~29.95,41.6', rspn=1))
+        # mode='reverse': query "boylam,enlem"; o noktadaki binalar (kind=house) en yakından başlayarak
+        params = dict(apikey=key, geocode=query, lang='tr_TR', format='json', results=10, kind='house') if mode == 'reverse' else dict(apikey=key, geocode=query, lang='tr_TR', format='json', results=10, bbox='27.9,40.7~29.95,41.6', rspn=1)
+        data = get_json('https://geocode-maps.yandex.ru/v1/', params)
         for item in data['response']['GeoObjectCollection']['featureMember']:
             g = item['GeoObject']; md = g['metaDataProperty']['GeocoderMetaData']
             parts = md.get('Address', {}).get('Components', [])

@@ -84,7 +84,7 @@ async function get(env, request, url, user) {
   }
   if (yol === '/api/location-search') {
     const p = q.get('provider') || '', sorgu = (q.get('q') || '').trim(), mode = q.get('mode') || 'address';
-    if (!PROVIDERS[p] || sorgu.length < 3 || sorgu.length > 500 || !['address', 'place'].includes(mode)) throw new HttpHata(400, 'Geçersiz servis veya adres.');
+    if (!PROVIDERS[p] || sorgu.length < 3 || sorgu.length > 500 || !['address', 'place', 'reverse'].includes(mode)) throw new HttpHata(400, 'Geçersiz servis veya adres.');
     const key = servisAnahtari(env, await ayarlar(env), p);
     if (!key) return yanit(503, { error: 'Bu servis için Ayarlar’dan API anahtarı ekleyin.', code: 'missing_key' });
     try { return yanit(200, { candidates: await adresAra(p, sorgu, key, mode) }); }

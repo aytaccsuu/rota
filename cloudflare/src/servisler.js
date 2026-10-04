@@ -36,10 +36,11 @@ function aday(source, lat, lon, { name = '', road = '', no = '', areas = [], add
   };
 }
 
-export async function adresAra(p, sorgu, key) {
+export async function adresAra(p, sorgu, key, mode = 'address') {
   const out = [];
   if (p === 'yandex') {
-    const d = await getJson('https://geocode-maps.yandex.ru/v1/', { apikey: key, geocode: sorgu, lang: 'tr_TR', format: 'json', results: 10, bbox: '27.9,40.7~29.95,41.6', rspn: 1 });
+    // mode='reverse': sorgu "boylam,enlem"; o noktadaki binalar (kind=house)
+    const d = await getJson('https://geocode-maps.yandex.ru/v1/', mode === 'reverse' ? { apikey: key, geocode: sorgu, lang: 'tr_TR', format: 'json', results: 10, kind: 'house' } : { apikey: key, geocode: sorgu, lang: 'tr_TR', format: 'json', results: 10, bbox: '27.9,40.7~29.95,41.6', rspn: 1 });
     for (const item of d.response.GeoObjectCollection.featureMember) {
       const g = item.GeoObject, md = g.metaDataProperty.GeocoderMetaData, parts = md.Address?.Components || [];
       const by = k => parts.find(c => c.kind === k)?.name || '';
