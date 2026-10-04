@@ -8,7 +8,7 @@ function app() {
   function element() { return {style:{},children:[],value:'5',innerHTML:'',textContent:'',firstChild:{style:{}},
     addEventListener(){}, appendChild(x){this.children.push(x)}, querySelector(){return element()}, querySelectorAll(){return []},focus(){},classList:{add(){},remove(){}}}; }
   const context = vm.createContext({document:{getElementById(id){if(!elements.has(id))elements.set(id,element());return elements.get(id)},addEventListener(){},createElement:element,querySelectorAll(){return []},querySelector(){return element()},body:element()},
-    location:{protocol:'file:'},localStorage:{getItem(){return null},setItem(){}},window:{},setTimeout(){return 1},clearTimeout(){},fetch:async()=>({ok:true,json:async()=>({})}),AbortSignal,console});
+    location:{protocol:'file:'},localStorage:{getItem(){return null},setItem(){}},window:{},setTimeout(){return 1},clearTimeout(){},setInterval(){return 1},fetch:async()=>({ok:true,json:async()=>({})}),AbortSignal,console});
   vm.runInContext(source.replace(/renderPts\(\);updateState\(\);initMap\(\);\r?\nrefreshGoogleStatus\(\);/,'').replace(/uygulamaBaslat\(\);\r?\n/,''),context);
   return {run:code=>vm.runInContext(code,context),elements};
 }

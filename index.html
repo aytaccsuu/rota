@@ -1354,7 +1354,8 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
   if($('simdiBtn'))$('simdiBtn').onclick=()=>{planCikis=Date.now();cikisGoster();buildRoute()};
   $('result').querySelectorAll('[data-denetim]').forEach(b=>b.onclick=()=>oneriyleDuzelt(stops[+b.dataset.denetim]));
   $('result').querySelectorAll('[data-tk]').forEach(b=>b.onclick=()=>{const s=routeOrder[+b.dataset.tk],v=b.dataset.v;if(s.arama===v){s.arama=null;s.aramaZaman=null}else{s.arama=v;s.aramaZaman=saatNow()}renderResult(...sonRender)});
-  $('result').querySelectorAll('[data-tm]').forEach(b=>b.onclick=()=>{const s=routeOrder[+b.dataset.tm];s.tamam=!s.tamam;s.tamamZaman=s.tamam?saatNow():null;if(s.tamam)gpsIleOgren(s);renderResult(...sonRender);if(s.tamam)setTimeout(()=>document.getElementById('siradakiDurak')?.scrollIntoView({behavior:'smooth',block:'center'}),60)});
+  $('result').querySelectorAll('[data-tm]').forEach(b=>b.onclick=()=>{const s=routeOrder[+b.dataset.tm];s.tamam=!s.tamam;s.tamamZaman=s.tamam?saatNow():null;if(s.tamam)gpsIleOgren(s);renderResult(...sonRender);
+    if(s.tamam&&routeOrder.length&&routeOrder.every(x=>x.tamam)){clearTimeout(window._bitisZ);window._bitisZ=setTimeout(()=>{if(routeOrder?.length&&routeOrder.every(x=>x.tamam))planiKapat('Bütün duraklar tamamlandı; rota Özet’e kaydedildi.')},4000)}if(s.tamam)setTimeout(()=>document.getElementById('siradakiDurak')?.scrollIntoView({behavior:'smooth',block:'center'}),60)});
   $('siraBtn').onclick=()=>{siraDuzenle=!siraDuzenle;renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison)};
   if($('otoSiraBtn'))$('otoSiraBtn').onclick=()=>{elleSira=null;siraDuzenle=false;buildRoute()};
   $('result').querySelectorAll('[data-tas]').forEach(b=>b.onclick=()=>{
@@ -1727,6 +1728,28 @@ async function rotaSil(t){
   return true;
 }
 
+// Gün bitince (00:00 geçince ya da bütün duraklar tamamlanınca) rota Özet'e kaydedilir, rota sayfası boşaltılır
+let planKapaniyor=false;
+async function planiKapat(mesaj){
+  if(planKapaniyor||!planDate||!stops.length)return;
+  planKapaniyor=true;
+  try{
+    clearTimeout(rotaGunTimer);clearTimeout(planTimer);
+    await otoKaydet();
+    await clearPlan();
+    delete ayCache[planDate.slice(0,7)];
+    planDate=null;planEvraklar=[];stops=[];delivered=[];lastRoute=null;elleSira=null;planEvrakZamani=null;planCikis=null;
+    $('fileInfo').innerHTML='';$('deliveryInfo').innerHTML='';$('geoInfo').textContent='';
+    clearRoute();renderStops();updateState();if(typeof refreshMarkers==='function')refreshMarkers();
+    $('planStatus').textContent=mesaj;bildirim(mesaj,4000);
+    if(hesapSayfasiAcik())renderHesap();
+  }finally{planKapaniyor=false}
+}
+const planEskiMi=()=>!!planDate&&planDate<todayISO();
+function gunDegistiMi(){if(planEskiMi())planiKapat(trTarih(planDate)+' rotası Özet’e kaydedildi; yeni gün için rota sayfası boşaltıldı.')}
+setInterval(gunDegistiMi,60000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)gunDegistiMi()});
+
 // ---------- elle rut: evrak olmadan müşteri sayısı + bölge ----------
 const bolgeSec=(id,v,oto)=>`<select ${id}>${oto?`<option value="">Otomatik (ilçelerden)</option>`:''}${['anadolu','avrupa1','avrupa2'].map(b=>`<option value="${b}" ${b===v?'selected':''}>${BOLGE_ADI[b]}</option>`).join('')}</select>`;
 const ilceSSec=(id,v,oto)=>`<select ${id}>${oto?`<option value="">Otomatik</option>`:''}<option value="1" ${+v===1?'selected':''}>Tek ilçe</option><option value="2" ${+v>=2?'selected':''}>2 ve üzeri ilçe</option></select>`;
@@ -1960,6 +1983,12 @@ async function restorePlan(){
     renderStops();refreshMarkers();updateState();
     const r=plan.route,order=r?.order?.map(id=>byId.get(id))||null;
     if(dusen){$('stopsCard').open=true;$('geoInfo').textContent=`${dusen} durağın konumu yeniden doğrulanamadı (evraktaki sokak/kapı no tutmuyor). Adres kontrolünden teyit edin ya da “Adresleri tekrar ara”ya basın.`}
+    if(planEskiMi()){
+      if(r&&order&&order.every(Boolean)&&order.length){routeOrder=order;lastRoute=r}
+      const kayit=await gunKaydi(planDate).catch(()=>null);
+      if(kayit?.rota?.sira?.length){clearTimeout(rotaGunTimer);clearTimeout(planTimer);await clearPlan();planDate=null;stops=[];delivered=[];planEvraklar=[];lastRoute=null;routeOrder=null;$('fileInfo').innerHTML='';renderStops();updateState();refreshMarkers();return}
+      planRestoring=false;await planiKapat(trTarih(planDate)+' rotası Özet’e kaydedildi; yeni gün için rota sayfası boşaltıldı.');return;
+    }
     if(r&&order&&order.every(Boolean)&&order.length&&!dusen){
       routeOrder=order;lastRoute=r;lastCoords=r.lastCoords||null;trafficInfo=r.trafficInfo||null;
       refreshMarkers();drawRouteLine();
