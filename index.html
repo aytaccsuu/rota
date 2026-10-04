@@ -175,7 +175,6 @@ html[data-theme="dark"] .tk.on.acti,html[data-theme="dark"] .tk.on.acmadi,html[d
   <div class="card hide-print" id="setCard" style="display:none">
     <h2><i class="ic" data-ic="settings"></i> Ayarlar</h2>
     <div class="ayar-bolum row" style="align-items:center;gap:8px"><b style="font-size:14px"><i class="ic" data-ic="clock"></i> Çıkış saati</b><span class="small">Evrak okutulduktan</span><input type="number" id="cikisDkIn" min="0" max="600" step="5" style="width:80px"><span class="small">dk sonra (rota o saatin trafiğine göre)</span><span class="small" id="cikisDkMsg"></span></div>
-    <div class="ayar-bolum row" style="align-items:center;gap:8px"><b style="font-size:14px"><i class="ic" data-ic="nav"></i> Yandex uygulaması</b><select id="yxUygulamaSec" style="width:auto"><option value="">Yandex (otomatik)</option><option value="navi">Yandex Navigasyon</option><option value="harita">Yandex Haritalar</option></select></div>
     <details id="ptCard" class="ayar-bolum" open>
       <summary><b><i class="ic" data-ic="pin"></i> Başlangıç (depo) ve bitiş (ev)</b> <small id="ptOzet"></small></summary>
       <p class="card-caption" style="margin:8px 0">Bir kez kaydet, her gün kullan. Koordinatı Yandex Haritalar’da noktaya basılı tutup kopyalayabilirsiniz.</p>
@@ -1631,38 +1630,11 @@ const html2pdfYukle=()=>html2pdfYuk||(html2pdfYuk=new Promise((ok,no)=>{const sc
 // Yandex web bağlantısını uygulama bağlantısına çevirir (yandex.com.tr/harita/?... → yandexmaps://maps.yandex.ru/?...)
 const yandexUygulama=web=>{try{const u=new URL(web);return 'yandexmaps://maps.yandex.ru/'+u.search}catch(e){return ''}};
 const mobilMi=()=>/Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'');
-// Telefonda Yandex bağlantıları: kullanıcının seçtiği uygulamayla açılır (yüklü olmayan uygulamanın adresi Safari'de "adres geçersiz" hatası verir)
-const yxTercih=()=>{try{return localStorage.getItem('rota_yx_uygulama')||''}catch(e){return ''}};
-const yxTercihKaydet=v=>{try{localStorage.setItem('rota_yx_uygulama',v)}catch(e){}};
-function yxUygulamaLinki(web,tip){
-  try{
-    const u=new URL(web),rt=u.searchParams.get('rtext');
-    if(tip==='harita')return 'yandexmaps://maps.yandex.ru/'+u.search;
-    if(tip!=='navi')return '';
-    if(rt){
-      const pts=rt.split('~').map(p=>p.split(',')),q=new URLSearchParams();
-      const bas=pts.shift(),son=pts.pop()||bas;
-      if(bas&&bas[0]&&son!==bas){q.set('lat_from',bas[0]);q.set('lon_from',bas[1])}
-      q.set('lat_to',son[0]);q.set('lon_to',son[1]);
-      pts.filter(p=>p[0]).forEach((p,i)=>{q.set('lat_via_'+i,p[0]);q.set('lon_via_'+i,p[1])});
-      return 'yandexnavi://build_route_on_map?'+q;
-    }
-    const ll=(u.searchParams.get('ll')||'').split(',');
-    if(ll.length<2)return '';
-    const q=new URLSearchParams({lat:ll[1],lon:ll[0],zoom:'18'});const t=u.searchParams.get('text');if(t)q.set('desc',t);
-    return 'yandexnavi://show_point_on_map?'+q;
-  }catch(e){return ''}
-}
-function yxAc(web,tip){
-  const app=yxUygulamaLinki(web,tip);
-  if(app)location.href=app;else window.open(web,'_blank','noopener');
-}
+// Telefonda Yandex bağlantıları: yandex.com.tr/harita adresi aynı sekmede açılır. iOS/Android bu adresi Yandex Haritalar
+// uygulamasına doğrudan verir (soru sormaz); yandexmaps:// gibi özel adresler Safari'de "açılsın mı?" sorusu çıkarır, kullanılmaz.
+try{localStorage.removeItem('rota_yx_uygulama')}catch(e){}
 document.addEventListener('click',e=>{
-  const a=e.target.closest?.('a[data-app]');if(!a||!mobilMi())return;
-  const tip=yxTercih();
-  // varsayılan: Yandex'in kendi https bağlantısı aynı sekmede (uygulama yüklüyse iOS/Android doğrudan uygulamada açar, yoksa Yandex web)
-  if(!tip||tip==='web'){a.removeAttribute('target');return}
-  e.preventDefault();yxAc(a.href,tip);
+  const a=e.target.closest?.('a[data-app]');if(a&&mobilMi())a.removeAttribute('target');
 },true);
 function bildirim(metin,sure=2500){let t=document.getElementById('bildirim');if(!t){t=document.createElement('div');t.id='bildirim';document.body.appendChild(t)}t.textContent=metin;t.classList.add('acik');clearTimeout(t._z);if(sure)t._z=setTimeout(()=>t.classList.remove('acik'),sure)}
 async function pdfAc(baslik,govde){
@@ -2162,7 +2134,6 @@ $('takipOn').checked=takipAcik();
 $('takipOn').onchange=()=>{OTURUM.tercih={...OTURUM.tercih,arama:$('takipOn').checked};
   fetch('/ayarlar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tercihler:{arama:OTURUM.tercih.arama}})}).catch(()=>{});
   if(sonRender&&routeOrder?.length)renderResult(...sonRender)};
-if($('yxUygulamaSec')){$('yxUygulamaSec').value=yxTercih();$('yxUygulamaSec').onchange=e=>yxTercihKaydet(e.target.value)}
 $('temaBtn').onclick=()=>{const t=document.documentElement.dataset.theme==='dark'?'light':'dark';temaUygula(t);try{localStorage.setItem('rota_tema',t)}catch(e){}};
 $('setBtn').onclick=()=>{const c=$('setCard');c.style.display=c.style.display==='none'?'block':'none'};
 $('yKeyIn').value=yKey;
