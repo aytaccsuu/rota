@@ -224,3 +224,39 @@ def normalize_addresses(items, key):
             row["sokak_adaylari"] = [str(x).strip() for x in (r.get("sokak_adaylari") or []) if x][:3]
             clean.append(row)
     return clean
+
+
+DENETIM_PROMPT = """Sen İstanbul'da kargo dağıtımı yapan bir sürücünün rota asistanısın.
+Her durak için evrakta yazan adres ile haritada bulunan konum verilmiştir. Bulunan konumun gerçekten evraktaki adres olup olmadığını denetle.
+
+durum:
+- "hatali": bulunan yer başka bir ilçe (ilce_tutuyor=false) ya da açıkça başka bir mahalle/sokak; kapı numarası çok farklı (no_tutuyor=false).
+- Uzaklık (en_yakin_km, merkez_km) tek başına hata sebebi DEĞİLDİR; yalnızca ilçe/mahalle de tutmuyorsa nedeni güçlendirir.
+- ilce_tutuyor, mahalle_tutuyor ve no_tutuyor true ise durum her zaman "uygun"dur.
+- "kontrol": yalnızca sokak/mahalle düzeyinde (bina değil) bulunmuş; kapı numarası yok ya da tutmuyor; sokak adı benzer ama farklı yazılmış; AVM/site adı kesin eşleşmemiş.
+- "uygun": ilçe, mahalle, sokak ve kapı numarası tutarlı (yazım farkları önemsiz: "Sok."="Sokak", "No:4"="4").
+
+neden: Türkçe, en fazla 90 karakter, somut (ör. "Evrak Bostancı mah., bulunan Göztepe mah. ve 3 km uzakta").
+oneri: yalnızca "hatali" ya da "kontrol" ise, haritada aranacak düzeltilmiş adres: "Sokak adı No, Mahalle, İlçe". Yalnızca evraktaki bilgiyi kullan, bariz yazım hatalarını düzelt, bilgi UYDURMA. "uygun" ise boş.
+Yanıtı yalnızca JSON olarak ver."""
+
+DENETIM_SCHEMA = {"type": "object", "properties": {"items": {"type": "array", "items": {"type": "object", "properties": {
+    "id": {"type": "string"}, "durum": {"type": "string", "enum": ["uygun", "kontrol", "hatali"]}, "neden": {"type": "string"}, "oneri": {"type": "string"}},
+    "required": ["id", "durum", "neden", "oneri"]}}}, "required": ["items"]}
+
+
+def check_addresses(items, key):
+    """Evraktaki adres ↔ haritada bulunan konum karşılaştırması: [{id, durum: uygun|kontrol|hatali, neden, oneri}]."""
+    text = _generate([{"type": "text", "text": DENETIM_PROMPT + "\n\nDuraklar (JSON):\n" + json.dumps(items, ensure_ascii=False)}], DENETIM_SCHEMA, key)
+    try:
+        out = _loose_json(text, "items")
+    except (ValueError, KeyError, TypeError, IndexError):
+        raise OkumaHatasi("Gemini yanıtı anlaşılamadı.", "response")
+    ids = {str(i.get("id")) for i in items}
+    clean = []
+    for r in out:
+        if isinstance(r, dict) and str(r.get("id")) in ids:
+            durum = r.get("durum") if r.get("durum") in ("uygun", "kontrol", "hatali") else "kontrol"
+            clean.append({"id": str(r["id"]), "durum": durum, "neden": str(r.get("neden") or "").strip()[:140],
+                          "oneri": "" if durum == "uygun" else str(r.get("oneri") or "").strip()[:200]})
+    return clean

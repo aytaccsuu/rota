@@ -154,6 +154,8 @@ class Sozlesme(unittest.TestCase):
         self.assertEqual(req("POST", "/api/trafik-matris", {"points": [[1, 2]]}, self.aytac)[0], 400)
         self.assertEqual(req("POST", "/api/yol-matris", {"points": [[41, 29], [41.01, 29.01]]}, self.aytac)[0], 503, "anahtar yokken yedek yok")
         self.assertEqual(req("GET", "/api/location-search?provider=yok&q=abc", cookie=self.aytac)[0], 400)
+        self.assertEqual(req("POST", "/api/adres-denetle", {"items": []}, self.aytac)[0], 400)
+        self.assertEqual(req("POST", "/api/adres-denetle", {"items": [{"x": 1}]}, self.aytac)[0], 400)
         self.assertEqual(req("GET", "/api/location-search?provider=tomtom&q=Kadikoy", cookie=self.aytac)[0], 503)
 
 

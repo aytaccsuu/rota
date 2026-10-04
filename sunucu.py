@@ -14,7 +14,7 @@ import urllib.parse
 import urllib.request
 import webbrowser
 from providers import PROVIDERS, SSL_CONTEXT, key_for, provider_search
-from evrak_okuma import OkumaHatasi, normalize_addresses, read_document
+from evrak_okuma import OkumaHatasi, check_addresses, normalize_addresses, read_document
 import trafik
 import depo
 
@@ -416,6 +416,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.ocr()
         if path == "/api/adres-duzelt":
             return self.fix_addresses()
+        if path == "/api/adres-denetle":
+            return self.check_addresses()
         if path == "/api/plan":
             return self.save_plan()
         if path in ("/api/kullanici", "/api/kullanici-sil"):
@@ -773,6 +775,28 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return self.reply(502, {"error": "TomTom’a ulaşılamadı.", "code": "network"})
         except (ValueError, KeyError, TypeError, IndexError):
             return self.reply(502, {"error": "TomTom yanıtı anlaşılamadı.", "code": "response"})
+
+    def check_addresses(self):
+        """Yapay zekâ adres denetimi (Gemini): evraktaki adres ile bulunan konumu karşılaştırır."""
+        try:
+            size = int(self.headers.get("Content-Length", 0))
+            if size <= 0 or size > 512 * 1024:
+                raise ValueError()
+            items = json.loads(self.rfile.read(size)).get("items")
+            if not isinstance(items, list) or not 1 <= len(items) <= 150 or not all(isinstance(i, dict) and "id" in i for i in items):
+                raise ValueError()
+        except (ValueError, TypeError, AttributeError):
+            return self.reply(400, {"error": "Geçersiz durak listesi.", "code": "invalid_request"})
+        with LOCK:
+            key = gemini_key(read_settings())
+        if not key:
+            return self.reply(503, {"error": "Adres denetimi için yapay zekâ anahtarı gerekli.", "code": "missing_key"})
+        try:
+            return self.reply(200, {"items": check_addresses(items, key), "kaynak": "Gemini"})
+        except OkumaHatasi as error:
+            return self.reply(502, {"error": str(error), "code": error.code})
+        except (urllib.error.URLError, TimeoutError):
+            return self.reply(502, {"error": "Gemini’ye ulaşılamadı.", "code": "network"})
 
     def fix_addresses(self):
         """Adres listesini Gemini ile düzeltir (yazım hataları, sokak/no ayrımı)."""

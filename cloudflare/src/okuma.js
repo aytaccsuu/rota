@@ -182,3 +182,44 @@ export async function adresDuzelt(env, items, key) {
   if (geminiHata) throw geminiHata instanceof OkumaHatasi ? geminiHata : new OkumaHatasi('Gemini yanıtı anlaşılamadı.', 'response');
   throw new OkumaHatasi('Adres düzeltme için Gemini anahtarı gerekli.', 'missing_key');
 }
+
+// ---------- Yapay zekâ adres denetimi ----------
+// Evraktaki adres ile haritada bulunan konumu karşılaştırır; yanlış/şüpheli durakları ve düzeltilmiş arama önerisini döndürür.
+export const DENETIM_PROMPT = `Sen İstanbul'da kargo dağıtımı yapan bir sürücünün rota asistanısın.
+Her durak için evrakta yazan adres ile haritada bulunan konum verilmiştir. Bulunan konumun gerçekten evraktaki adres olup olmadığını denetle.
+
+durum:
+- "hatali": bulunan yer başka bir ilçe (ilce_tutuyor=false) ya da açıkça başka bir mahalle/sokak; kapı numarası çok farklı (no_tutuyor=false).
+- Uzaklık (en_yakin_km, merkez_km) tek başına hata sebebi DEĞİLDİR; yalnızca ilçe/mahalle de tutmuyorsa nedeni güçlendirir.
+- ilce_tutuyor, mahalle_tutuyor ve no_tutuyor true ise durum her zaman "uygun"dur.
+- "kontrol": yalnızca sokak/mahalle düzeyinde (bina değil) bulunmuş; kapı numarası yok ya da tutmuyor; sokak adı benzer ama farklı yazılmış (ör. "Tepegöz" ↔ "Tepeüstü"); AVM/site adı kesin eşleşmemiş.
+- "uygun": ilçe, mahalle, sokak ve kapı numarası tutarlı (yazım farkları önemsiz: "Sok."="Sokak", "No:4"="4").
+
+neden: Türkçe, en fazla 90 karakter, somut (ör. "Evrak Bostancı mah., bulunan Göztepe mah. ve 3 km uzakta").
+oneri: yalnızca "hatali" ya da "kontrol" ise, haritada aranacak düzeltilmiş adres: "Sokak adı No, Mahalle, İlçe". Yalnızca evraktaki bilgiyi kullan, bariz yazım hatalarını düzelt, bilgi UYDURMA. "uygun" ise boş.
+Yanıtı yalnızca JSON olarak ver.`;
+export const DENETIM_SCHEMA = { type: 'object', properties: { items: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' }, durum: { type: 'string', enum: ['uygun', 'kontrol', 'hatali'] }, neden: { type: 'string' }, oneri: { type: 'string' } }, required: ['id', 'durum', 'neden', 'oneri'] } } }, required: ['items'] };
+
+function denetimTemizle(out, ids) {
+  return out.filter(r => r && ids.has(String(r.id))).map(r => ({
+    id: String(r.id), durum: ['uygun', 'kontrol', 'hatali'].includes(r.durum) ? r.durum : 'kontrol',
+    neden: String(r.neden || '').trim().slice(0, 140), oneri: r.durum === 'uygun' ? '' : String(r.oneri || '').trim().slice(0, 200),
+  }));
+}
+
+export async function adresDenetle(env, items, geminiKey) {
+  const ids = new Set(items.map(i => String(i.id)));
+  const veri = 'Duraklar (JSON):\n' + JSON.stringify(items);
+  let hata = null;
+  if (env.AI) {
+    try {
+      const r = await env.AI.run(AI_METIN, { messages: [{ role: 'system', content: DENETIM_PROMPT }, { role: 'user', content: veri }], response_format: { type: 'json_schema', json_schema: DENETIM_SCHEMA }, max_tokens: 4000 });
+      return { items: denetimTemizle(gevsekJson(r.response ?? r, 'items'), ids), kaynak: 'Workers AI' };
+    } catch (e) { hata = e; }
+  }
+  if (geminiKey) {
+    try { return { items: denetimTemizle(gevsekJson(await uret(env, [{ type: 'text', text: DENETIM_PROMPT + '\n\n' + veri }], DENETIM_SCHEMA, geminiKey), 'items'), ids), kaynak: 'Gemini' }; }
+    catch (e) { hata = e; }
+  }
+  throw new OkumaHatasi('Adres denetimi yapılamadı' + (hata ? ': ' + hata.message : ' (yapay zekâ yok).'), hata ? 'upstream' : 'missing_key');
+}

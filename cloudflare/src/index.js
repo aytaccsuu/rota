@@ -3,7 +3,7 @@ import { HttpHata, yanit, bos, yonlendir, safe, GUN, AY, govde, sayi, noktaListe
 import * as G from './giris.js';
 import * as depo from './depo.js';
 import { PROVIDERS, anahtar as servisAnahtari, adresAra, googleAra, matris, rota, yolMatrisi, cikisSaati, ServisHatasi } from './servisler.js';
-import { evrakOku, adresDuzelt, OkumaHatasi } from './okuma.js';
+import { evrakOku, adresDuzelt, adresDenetle, OkumaHatasi } from './okuma.js';
 
 const ANAHTAR_ALANLARI = ['ykey', 'gkey', 'geminiKey', 'orsKey', ...Object.values(PROVIDERS).map(p => p[1])];
 
@@ -192,6 +192,14 @@ async function post(env, request, url, user) {
     if (typeof image !== 'string' || image.length < 100 || !['image/jpeg', 'image/png', 'image/webp'].includes(mime)) throw new HttpHata(400, 'Geçersiz fotoğraf.');
     try { return yanit(200, await evrakOku(env, image, mime, geminiAnahtari(env, await ayarlar(env)))); }
     catch (e) { if (e instanceof OkumaHatasi) return yanit(e.code === 'missing_key' ? 503 : 502, { error: e.message, code: e.code }); return yanit(502, { error: 'Gemini’ye ulaşılamadı veya zaman aşımı oluştu.', code: 'network' }); }
+  }
+  if (yol === '/api/adres-denetle') {
+    const items = (await govde(request, 512 * 1024)).items;
+    if (!Array.isArray(items) || items.length < 1 || items.length > 150) throw new HttpHata(400, 'Geçersiz durak listesi.');
+    const temiz = items.map(i => JSON.parse(JSON.stringify(i, (k, v) => typeof v === 'string' ? v.slice(0, 300) : v)));
+    if (temiz.some(i => !i || i.id === undefined)) throw new HttpHata(400, 'Geçersiz durak listesi.');
+    try { return yanit(200, await adresDenetle(env, temiz, geminiAnahtari(env, await ayarlar(env)))); }
+    catch (e) { return yanit(e.code === 'missing_key' ? 503 : 502, { error: e.message, code: e.code || 'upstream' }); }
   }
   if (yol === '/api/adres-duzelt') {
     const items = (await govde(request, 512 * 1024)).items;

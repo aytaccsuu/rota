@@ -106,6 +106,8 @@ html:not(.yonetici) .yonetici-only{display:none!important}
 .yotab td:first-child,.yotab th:first-child{text-align:left}.yotab th:nth-child(2),.yotab td:nth-child(2){text-align:right}
 .sira>.sira-tas{display:flex;flex-direction:column;gap:4px;flex:none;min-width:0}.sira-tas button{width:34px;height:30px;padding:0;display:grid;place-items:center;border-radius:8px}.sira.duzen{background:var(--surf2);border-radius:10px;padding-left:6px;padding-right:6px}.sira.duzen:before{display:none}
 .sira-not{margin:10px 0 4px;padding:9px 12px;border-radius:10px;background:var(--warnbg);color:var(--warnink);font-size:12px}
+.ai-uyari{display:flex;gap:8px;align-items:flex-start;margin:6px 0;padding:8px 10px;border-radius:10px;font-size:13px;line-height:1.4;background:var(--warnbg);color:var(--warnink)}.ai-uyari.hatali{background:var(--badbg);color:var(--bad)}.ai-uyari>span{flex:1}.ai-uyari .small{display:block;color:inherit;opacity:.85;margin-top:2px}.ai-uyari button{padding:5px 10px;font-size:12px;flex:none}
+#bildirim{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#19322e;color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;box-shadow:0 8px 24px #0004;opacity:0;pointer-events:none;transition:.2s;z-index:100;max-width:90vw}#bildirim.acik{opacity:1;transform:translateX(-50%)}
 .ichips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.ichip{padding:7px 11px;border-radius:20px;font-size:13px;font-weight:600;border:1px solid var(--line);background:var(--card);color:var(--ink)}.ichip.on,html[data-theme="dark"] .ichip.on{background:var(--pri);border-color:var(--pri);color:#fff}
 .erut-ilce{grid-column:2/-1}
 .erut-kutu .row{margin-top:12px}.erut-kutu{border:1px solid var(--line);border-radius:14px;padding:4px 14px 12px;margin:12px 0}.erut{display:grid;grid-template-columns:70px repeat(3,1fr);gap:10px;align-items:end;padding:8px 0;border-bottom:1px dashed var(--line)}.erut b{align-self:center;font-size:13px}.erut .fl{margin:0}.erut .fl input,.erut .fl select{height:42px}
@@ -800,6 +802,41 @@ function gpsIleOgren(s){
     s._gps=g;konumHatirla(s,'gps',Math.round(acc));
   },()=>{},{enableHighAccuracy:true,timeout:15000,maximumAge:30000});
 }
+// ---------- yapay zekâ adres denetimi ----------
+// Okuma bittiğinde evraktaki adres ile bulunan konum karşılaştırılır; konumun diğer duraklara uzaklığı da verilir.
+let denetimRun=0;
+async function adresDenetimi(){
+  if(!srv)return;
+  const liste=pendingStops().filter(s=>validPoint(s)&&s.quality!=='Elle'); // elle seçilen/teyit edilen konumlar denetlenmez
+  if(!liste.length)return;
+  const run=++denetimRun,merkez={lat:liste.map(s=>+s.lat).sort((a,b)=>a-b)[liste.length>>1],lon:liste.map(s=>+s.lon).sort((a,b)=>a-b)[liste.length>>1]};
+  const items=liste.map(s=>{
+    const m=s.match||{},diger=liste.filter(x=>x!==s);
+    return {id:String(s.id),evrak_adresi:s.raw,evrak_ilce:s.ilce||'',okunan:{mahalle:s.mah||'',sokak:s.street||'',no:s.no||'',yer:s.place||''},
+      bulunan:{kaynak:m.source||s.quality||'',adres:m.yandexAddress||m.address||'',sokak:m.road||'',no:m.no||'',mahalle:m.mah||'',ilce:m.ilce||'',kesinlik:s.quality},
+      // kesin eşleşmeler (yazım farkları sadeleştirilmiş); bilinmiyorsa null
+      ilce_tutuyor:m.ilce&&s.ilce?core(m.ilce)===core(s.ilce):null,mahalle_tutuyor:m.mah&&s.mah?core(m.mah)===core(s.mah):null,no_tutuyor:m.no&&s.no?normNo(m.no)===normNo(s.no)||normNo(m.no)===normNo(s.no).split('/')[0]:null,
+      en_yakin_km:diger.length>=3?+Math.min(...diger.map(x=>hav(s,x))).toFixed(1):null,merkez_km:liste.length>=4?+hav(s,merkez).toFixed(1):null};
+  });
+  $('geoInfo').textContent+=' Yapay zekâ adresleri denetliyor…';
+  try{
+    const j=await apiJSON('/api/adres-denetle',{items});if(run!==denetimRun)return;
+    const byId=new Map((j.items||[]).map(r=>[r.id,r]));
+    let supheli=0;for(const s of liste){const r=byId.get(String(s.id));s.aiDenetim=r&&r.durum!=='uygun'?r:null;if(s.aiDenetim)supheli++}
+    $('geoInfo').textContent=$('geoInfo').textContent.replace(' Yapay zekâ adresleri denetliyor…','')+(supheli?` Yapay zekâ ${supheli} adresi şüpheli buldu (Adres kontrolü).`:' Yapay zekâ denetimi: adresler tutarlı.');
+    if(supheli)$('stopsCard').open=true;
+    renderStops();if(sonRender&&routeOrder?.length)renderResult(...sonRender);
+  }catch(e){if(run===denetimRun)$('geoInfo').textContent=$('geoInfo').textContent.replace(' Yapay zekâ adresleri denetliyor…','')}
+}
+// öneriyle düzeltme penceresi: önerilen sokak/no ile aranır
+function oneriyleDuzelt(s){
+  openPicker(s);
+  const o=s.aiDenetim?.oneri;if(!o)return;
+  const a=parseAddress(o,s.ilce);
+  if(a.street){$('pkStreet').value=a.street;if(a.no)$('pkNo').value=a.no;if(a.ilce)$('pkIlce').value=a.ilce;pkSearch()}
+  $('pkInfo').innerHTML=`<i class="ic" data-ic="spark"></i> Yapay zekâ önerisi: <b>${esc(o)}</b>${s.mah?` · evraktaki mahalle: <b>${esc(s.mah)}</b>`:''}`;
+}
+const denetimHTML=(s,i)=>s.aiDenetim?`<div class="ai-uyari ${s.aiDenetim.durum}"><i class="ic" data-ic="alert"></i> <span><b>${s.aiDenetim.durum==='hatali'?'Muhtemelen yanlış konum':'Kontrol edin'}:</b> ${esc(s.aiDenetim.neden)}${s.aiDenetim.oneri?` <span class="small">Öneri: ${esc(s.aiDenetim.oneri)}</span>`:''}</span><button class="hide-print" data-denetim="${i}">Öneriyle düzelt</button></div>`:'';
 async function geocodeAll(force){
   const run=++geoRun;
   geoBusy=true;stopPick();closePicker();clearRoute();refreshMarkers();$('geoBtn').disabled=true;updateState();
@@ -839,7 +876,7 @@ async function geocodeAll(force){
     fitAll();
   }catch(e){$('geoInfo').textContent='Adres arama tamamlanamadı: '+(e.message||e)}
   finally{
-    if(run===geoRun){geoBusy=false;$('geoBar').style.display='none';$('geoBtn').disabled=false;renderStops();refreshMarkers();updateState();autoRoute()}
+    if(run===geoRun){geoBusy=false;$('geoBar').style.display='none';$('geoBtn').disabled=false;renderStops();refreshMarkers();updateState();autoRoute();adresDenetimi()}
   }
 }
 
@@ -860,12 +897,13 @@ function renderStops(){
     d.innerHTML=`<div class="top"><span class="small" style="min-width:62px">Kayıt ${i+1}</span><span class="who" title="${esc(s.orders.map(o=>o.alici).join(', '))}">${esc(s.orders.map(o=>o.alici).join(', '))}</span><span class="small">${s.orders.length>1?s.orders.length+' sipariş':''}${adet?(s.orders.length>1?' · ':'')+adet+' koli':''}${geri}</span><span class="tag t-${s.quality}">${s.quality}</span></div>
     <div class="raw">${esc(s.raw)}</div>
     <div class="small">Okunan: ${esc([s.place,s.mah&&s.mah+' Mah.',s.street,s.no&&'No:'+s.no,s.ilce].filter(Boolean).join(' · ')||'—')}</div>${s.aiFix?.length?`<div class="small" style="color:#6f42c1"><i class="ic" data-ic="spark"></i> ${esc(s.aiFix.join(' · '))}</div>`:''}
-    <div class="found">${found}</div>
+    <div class="found">${found}</div>${denetimHTML(s,i)}
     <div class="small">${s.match?.source?esc(s.match.source)+' · '+esc(s.match.name||'')+' · '+esc(s.match.address||''):''}${!readyStop(s)?esc(s.placeError||'Bina konumu teyit bekliyor.'):''}${delivered.includes(s)?' ✓ Teslim edildi':''}</div>
     <div class="row"><button data-a="fix">Düzelt / yeri teyit et</button><button data-a="pick" title="Haritadan seç"><i class="ic" data-ic="pin"></i></button><label style="width:auto"><input type="checkbox" ${s.skip?'checked':''}> atla</label></div>`;
     d.querySelectorAll('button,input').forEach(el=>el.disabled=geoBusy||delivered.includes(s));
     d.querySelector('[data-a=fix]').onclick=()=>openPicker(s);
-    d.querySelector('[data-a=pick]').onclick=()=>startPick('Durak '+(i+1)+' konumunu seçin',(lat,lon)=>{Object.assign(s,{lat,lon,quality:'Elle',match:null});konumHatirla(s,'elle');clearRoute();renderStops();refreshMarkers();updateState()});
+    d.querySelector('[data-denetim]')?.addEventListener('click',()=>oneriyleDuzelt(s));
+    d.querySelector('[data-a=pick]').onclick=()=>startPick('Durak '+(i+1)+' konumunu seçin',(lat,lon)=>{Object.assign(s,{lat,lon,quality:'Elle',match:null,aiDenetim:null});konumHatirla(s,'elle');clearRoute();renderStops();refreshMarkers();updateState()});
     d.querySelector('input[type=checkbox]').onchange=e=>{s.skip=e.target.checked;clearRoute();refreshMarkers();updateState()};
     d.querySelector('.who').onclick=()=>{if(s.lat!=null)mp.setView(s.lat,s.lon,17)};
     box.appendChild(d);
@@ -921,7 +959,7 @@ async function pkSave(){
 }
 function confirmPlace(s,c){
   if(!validPoint(c))return;
-  Object.assign(s,{lat:c.lat,lon:c.lon,quality:c.source==='OpenStreetMap'?'OSM':c.source==='Google'?'Google':'Elle',match:{...c,confirmed:true},placeError:''});konumHatirla(s,'elle');
+  Object.assign(s,{lat:c.lat,lon:c.lon,quality:c.source==='OpenStreetMap'?'OSM':c.source==='Google'?'Google':'Elle',match:{...c,confirmed:true},placeError:'',aiDenetim:null});konumHatirla(s,'elle');
   closePicker();clearRoute();renderStops();refreshMarkers();updateState();
 }
 function renderPlaceCandidates(candidates,message){
@@ -960,7 +998,7 @@ $('pkStreet').onkeydown=$('pkIlce').onkeydown=e=>{if(e.key==='Enter')pkSearch()}
 $('pkSave').onclick=pkSave;
 $('pkNo').onkeydown=e=>{if(e.key==='Enter')pkSave()};
 $('pkClose').onclick=closePicker;
-$('pkMap').onclick=()=>{const s=pkStop;closePicker();startPick('Durak konumunu seçin',(lat,lon)=>{Object.assign(s,{lat,lon,quality:'Elle',match:null});konumHatirla(s,'elle');clearRoute();renderStops();refreshMarkers();updateState()})};
+$('pkMap').onclick=()=>{const s=pkStop;closePicker();startPick('Durak konumunu seçin',(lat,lon)=>{Object.assign(s,{lat,lon,quality:'Elle',match:null,aiDenetim:null});konumHatirla(s,'elle');clearRoute();renderStops();refreshMarkers();updateState()})};
 
 function updateState(){
   const act=pendingStops(),ok=act.filter(readyStop),located=act.filter(validPoint),msgs=[];
@@ -1201,7 +1239,7 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
   const links=[];
   // tüm rota tek bağlantıda: depo → duraklar (sırayla) → ev
   const yx=`https://yandex.com.tr/harita/?rtt=auto&rtext=${seq.map(p=>(+p.lat).toFixed(6)+','+(+p.lon).toFixed(6)).join('~')}`;
-  if(!draft)links.push(`<a href="${yx}" target="_blank" rel="noopener"><button class="p"><i class="ic" data-ic="nav"></i> Rotayı Yandex'te aç</button></a>`);
+  if(!draft)links.push(`<a href="${yx}" target="_blank" rel="noopener" data-app="${esc(yandexUygulama(yx))}"><button class="p"><i class="ic" data-ic="nav"></i> Rotayı Yandex'te aç</button></a>`);
   const names=s=>esc(stopNames(s));
   const delayTot=legs.reduce((a,l)=>a+(l.delay||0),0),withTraffic=legs.some(l=>'delay' in l);
   // Tahmini varış saatleri: şimdi yola çıkılıyor, her durakta bekleme süresi eklenir
@@ -1225,11 +1263,11 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
     const ll=(+s.lon).toFixed(6)+','+(+s.lat).toFixed(6);
     const m=s.match||{},adrText=m.yandexAddress||(m.road&&m.no?[m.road+' '+m.no,(m.mah||s.mah)&&String(m.mah||s.mah).replace(/\s*(mah\.?|mahallesi)$/i,'')+' Mahallesi',s.ilce,'İstanbul'].filter(Boolean).join(', '):'');
     const yhref=adrText?`https://yandex.com.tr/harita/?ll=${ll}&z=18&text=${encodeURIComponent(adrText)}`:`https://yandex.com.tr/harita/?ll=${ll}&z=18&whatshere%5Bpoint%5D=${ll}&whatshere%5Bzoom%5D=18`;
-    const ya=`<div class="yx-actions hide-print"><a class="yx" href="${yhref}" target="_blank" rel="noopener"><i class="ic" data-ic="star"></i> Yandex’te aç / kaydet</a><a class="yx" href="yandexnavi://build_route_on_map?lat_to=${(+s.lat).toFixed(6)}&lon_to=${(+s.lon).toFixed(6)}"><i class="ic" data-ic="nav"></i> Git</a></div>`;
+    const ya=`<div class="yx-actions hide-print"><a class="yx" href="${yhref}" target="_blank" rel="noopener" data-app="${esc(yandexUygulama(yhref))}"><i class="ic" data-ic="star"></i> Yandex’te aç / kaydet</a><a class="yx" href="https://yandex.com.tr/harita/?rtt=auto&rtext=~${(+s.lat).toFixed(6)},${(+s.lon).toFixed(6)}" target="_blank" rel="noopener" data-app="yandexnavi://build_route_on_map?lat_to=${(+s.lat).toFixed(6)}&lon_to=${(+s.lon).toFixed(6)}"><i class="ic" data-ic="nav"></i> Git</a></div>`;
     const tas=siraDuzenle?`<div class="sira-tas hide-print"><button data-tas="${i}" data-y="-1" ${i?'':'disabled'} aria-label="Yukarı taşı"><i class="ic" data-ic="up"></i></button><button data-tas="${i}" data-y="1" ${i<routeOrder.length-1?'':'disabled'} aria-label="Aşağı taşı"><i class="ic" data-ic="down"></i></button></div>`:'';
     if(takip&&s.tamam&&!siraDuzenle){h+=`<div class="sira bitti"><span class="n"><i class="ic" data-ic="check"></i></span><div><div class="ad">${i+1+delivered.length}. ${names(s)} <span class="tk-zaman">tamamlandı ${esc(s.tamamZaman||'')}${s.arama?' · '+ARAMA[s.arama][1]:''}</span> <button class="tk-geri hide-print" data-tm="${i}">Geri al</button></div></div></div>`;return}
     const tk=takip&&!siraDuzenle?`<div class="takip hide-print">${Object.entries(ARAMA).map(([v,[icn,ad]])=>`<button class="tk ${s.arama===v?'on '+v:''}" data-tk="${i}" data-v="${v}"><i class="ic" data-ic="${icn}"></i> ${ad}</button>`).join('')}${s.arama?`<span class="tk-zaman">${esc(s.aramaZaman||'')}</span>`:''}<button class="tk tamam" data-tm="${i}"><i class="ic" data-ic="check"></i> Tamamlandı</button></div>`:'';
-    h+=`<div class="sira${siraDuzenle?' duzen':''}${takip&&i===siradaki?' siradaki':''}"${takip&&i===siradaki?' id="siradakiDurak"':''}>${tas}<span class="n">${i+1+delivered.length}</span><div><div class="ad">${names(s)} <button class="copy hide-print" data-copy="${esc(stopNames(s))}" title="İsmi kopyala" aria-label="İsmi kopyala"><i class="ic" data-ic="copy"></i></button>${warn}</div><div class="adr">${esc(s.raw)}</div>${tk}${ya}<div class="small">${esc(neighborhoodLabel(s))} · ${(legs[i].d/1000).toFixed(1)} km / ${fmtT(legs[i].t)}${legs[i].delay>60?` (<i class="ic" data-ic="traffic"></i> +${fmtT(legs[i].delay)})`:''} · <b>varış ≈ ${clock(eta[i])}</b></div><div class="small">${[s.orders.length>1?s.orders.length+' sipariş':'',k?k+' koli':'',geri?'<i class="ic" data-ic="undo"></i> GERİ ALIM':'',[...new Set(s.orders.map(o=>o.musteri).filter(Boolean))].join(', ')].filter(Boolean).join(' · ')}</div></div></div>`;
+    h+=`<div class="sira${siraDuzenle?' duzen':''}${takip&&i===siradaki?' siradaki':''}"${takip&&i===siradaki?' id="siradakiDurak"':''}>${tas}<span class="n">${i+1+delivered.length}</span><div><div class="ad">${names(s)} <button class="copy hide-print" data-copy="${esc(stopNames(s))}" title="İsmi kopyala" aria-label="İsmi kopyala"><i class="ic" data-ic="copy"></i></button>${warn}</div><div class="adr">${esc(s.raw)}</div>${denetimHTML(s,stops.indexOf(s))}${tk}${ya}<div class="small">${esc(neighborhoodLabel(s))} · ${(legs[i].d/1000).toFixed(1)} km / ${fmtT(legs[i].t)}${legs[i].delay>60?` (<i class="ic" data-ic="traffic"></i> +${fmtT(legs[i].delay)})`:''} · <b>varış ≈ ${clock(eta[i])}</b></div><div class="small">${[s.orders.length>1?s.orders.length+' sipariş':'',k?k+' koli':'',geri?'<i class="ic" data-ic="undo"></i> GERİ ALIM':'',[...new Set(s.orders.map(o=>o.musteri).filter(Boolean))].join(', ')].filter(Boolean).join(' · ')}</div></div></div>`;
   });
   h+=`<div class="sira"><span class="n" style="background:#1c2430">E</span><div><div class="ad">Eve dönüş</div></div></div>`;
   const out=stops.filter(s=>s.skip);
@@ -1238,6 +1276,7 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
   $('result').querySelectorAll('button.copy').forEach(b=>b.onclick=()=>copyText(b.dataset.copy,b));
   $('rotaSilBtn').onclick=()=>rotaSil(planDate||todayISO());
   if($('simdiBtn'))$('simdiBtn').onclick=()=>{planCikis=Date.now();cikisGoster();buildRoute()};
+  $('result').querySelectorAll('[data-denetim]').forEach(b=>b.onclick=()=>oneriyleDuzelt(stops[+b.dataset.denetim]));
   $('result').querySelectorAll('[data-tk]').forEach(b=>b.onclick=()=>{const s=routeOrder[+b.dataset.tk],v=b.dataset.v;if(s.arama===v){s.arama=null;s.aramaZaman=null}else{s.arama=v;s.aramaZaman=saatNow()}renderResult(...sonRender)});
   $('result').querySelectorAll('[data-tm]').forEach(b=>b.onclick=()=>{const s=routeOrder[+b.dataset.tm];s.tamam=!s.tamam;s.tamamZaman=s.tamam?saatNow():null;if(s.tamam)gpsIleOgren(s);renderResult(...sonRender);if(s.tamam)setTimeout(()=>document.getElementById('siradakiDurak')?.scrollIntoView({behavior:'smooth',block:'center'}),60)});
   $('siraBtn').onclick=()=>{siraDuzenle=!siraDuzenle;renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison)};
@@ -1500,11 +1539,46 @@ function gunPdfHTML(t,r){
     ${sira.length?`<table><tr><th>#</th><th>Müşteri</th><th>Adres</th><th>Ayrıntı</th></tr>${sira.map((m,i)=>`<tr class="${haric.has(musteriKey(m))?'off':''}"><td>${i+1}</td><td>${esc(m.ad)}${haric.has(musteriKey(m))?' (teslim edilmedi)':''}</td><td>${esc(m.adres)}</td><td>${esc(musteriDetay(m))}</td></tr>`).join('')}</table>`:''}
     ${(r.evraklar||[]).length?`<div class="evr">${r.evraklar.filter(e=>(e.mime||'image/').startsWith('image/')).map(e=>`<img src="${location.origin}/api/evrak/${e.id}">`).join('')}</div>`:''}</section>`;
 }
-function pdfAc(baslik,govde){
-  const w=window.open('','_blank');if(!w){alert('Açılır pencere engellendi; tarayıcıda izin verin.');return}
-  w.document.write(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(baslik)}</title><style>body{font:12px Segoe UI,Arial,sans-serif;margin:18px;color:#19322e}h2{margin:0 0 10px}h3{margin:18px 0 6px;border-bottom:2px solid #1a8f4c;padding-bottom:4px}table{border-collapse:collapse;width:100%;margin:6px 0}th,td{border:1px solid #ccc;padding:4px 6px;text-align:left;vertical-align:top}th{background:#f1f4f3}.otab td,.otab th{text-align:right}.otab td:nth-child(-n+2),.otab th:nth-child(-n+2){text-align:left}.tot td{font-weight:700;background:#f1f4f3}.bos td{color:#aaa}tr.off td{color:#b33;text-decoration:line-through}.tiles{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0}.tiles div{border:1px solid #ccc;border-radius:6px;padding:5px 9px;font-size:11px;color:#555}.tiles b{display:block;font-size:14px;color:#19322e}.small{display:none}.evr img{width:100%;max-width:700px;display:block;margin:8px 0;border:1px solid #ccc;break-inside:avoid}.gun{break-before:page}section.gun:first-of-type{break-before:auto}.ust{position:sticky;top:0;display:flex;gap:8px;align-items:center;background:#fff;padding:10px 0;margin-bottom:8px;border-bottom:1px solid #e1e8e5}.ust button{font:600 14px Segoe UI,Arial,sans-serif;padding:10px 16px;border-radius:10px;border:1px solid #dfe4ec;background:#fff;color:#19322e;cursor:pointer}.ust .p{background:#147d64;border-color:#147d64;color:#fff}.ust span{font-size:12px;color:#70817c}@media print{.ust{display:none}}</style></head><body><div class="ust"><button onclick="window.close();setTimeout(function(){history.length>1?history.back():location.href='${location.origin}/'},300)">← Geri</button><button class="p" onclick="print()">PDF / Yazdır</button><span>Hedef olarak “PDF olarak kaydet” seçin.</span></div><h2>${esc(baslik)}</h2>${govde}</body></html>`);
-  w.document.close();
-  const imgs=[...w.document.images];Promise.all(imgs.map(i=>i.complete?1:new Promise(r=>{i.onload=i.onerror=r}))).then(()=>{w.focus();w.print()});
+// PDF: sayfa açmadan doğrudan dosya olarak iner (html2pdf; ilk kullanımda yüklenir)
+const PDF_CSS=`.pdf-kap{font:11px "Segoe UI",Arial,sans-serif;color:#19322e;background:#fff;padding:4px}
+.pdf-kap h2{margin:0 0 10px;color:#19322e;font-size:20px}.pdf-kap h3{margin:16px 0 6px;border-bottom:2px solid #1a8f4c;padding-bottom:4px;color:#19322e}
+.pdf-kap table{border-collapse:collapse;width:100%;margin:6px 0}.pdf-kap th,.pdf-kap td{border:1px solid #ccc;padding:4px 6px;text-align:left;vertical-align:top;color:#19322e;background:#fff;white-space:normal;position:static}
+.pdf-kap th{background:#f1f4f3}.pdf-kap .otab td,.pdf-kap .otab th{text-align:right}.pdf-kap .otab td:nth-child(-n+2),.pdf-kap .otab th:nth-child(-n+2){text-align:left}
+.pdf-kap .tot td{font-weight:700;background:#f1f4f3}.pdf-kap .bos td{color:#aaa}.pdf-kap tr.off td{color:#b33;text-decoration:line-through}
+.pdf-kap .tiles{display:flex;flex-wrap:wrap;gap:10px;margin:8px 0}.pdf-kap .tiles div{border:1px solid #ccc;border-radius:6px;padding:5px 9px;font-size:11px;color:#555;background:#fff}.pdf-kap .tiles b{display:block;font-size:14px;color:#19322e}.pdf-kap .tnot{color:#777}
+.pdf-kap .small{display:none}.pdf-kap .otab-wrap{overflow:visible}.pdf-kap .ok{color:#147d64}.pdf-kap .no{color:#b33}.pdf-kap .dim{color:#aaa}
+.pdf-kap .hesap-ozet{border:1px solid #ccc;border-radius:8px;margin:8px 0;background:#fff;overflow:hidden}.pdf-kap .ho-satir{display:flex;justify-content:space-between;padding:6px 10px;border-bottom:1px solid #ddd;background:#fff;color:#19322e}.pdf-kap .ho-satir.sonuc{background:#e5f1eb;border-bottom:0}.pdf-kap .ho-satir.sonuc b{color:#147d64;font-size:16px}.pdf-kap .ho-satir.eksi b{color:#b33}
+.pdf-kap .evr img{width:100%;max-width:700px;display:block;margin:8px 0;border:1px solid #ccc}.pdf-kap .ic{display:inline-block;width:12px;height:12px;vertical-align:-2px}`;
+const PDF_AYAR=ad=>({margin:8,filename:ad,image:{type:'jpeg',quality:0.92},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',scrollX:0,scrollY:0},jsPDF:{unit:'mm',format:'a4',orientation:'landscape'},pagebreak:{mode:['avoid-all','css']}});
+let html2pdfYuk=null;
+const html2pdfYukle=()=>html2pdfYuk||(html2pdfYuk=new Promise((ok,no)=>{const sc=document.createElement('script');sc.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';sc.onload=()=>ok(window.html2pdf);sc.onerror=()=>{html2pdfYuk=null;no(new Error('PDF aracı yüklenemedi (internet bağlantısını kontrol edin)'))};document.head.appendChild(sc)}));
+// Yandex web bağlantısını uygulama bağlantısına çevirir (yandex.com.tr/harita/?... → yandexmaps://maps.yandex.ru/?...)
+const yandexUygulama=web=>{try{const u=new URL(web);return 'yandexmaps://maps.yandex.ru/'+u.search}catch(e){return ''}};
+const mobilMi=()=>/Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'');
+// Telefonda: uygulama aynı sekmeden açılır (sayfa yerinde kalır); uygulama yoksa 1,5 sn sonra web sayfası açılır
+document.addEventListener('click',e=>{
+  const a=e.target.closest?.('a[data-app]');if(!a||!mobilMi()||!a.dataset.app)return;
+  e.preventDefault();
+  const web=a.href;let gitti=false;const izle=()=>{if(document.hidden)gitti=true};
+  document.addEventListener('visibilitychange',izle);
+  location.href=a.dataset.app;
+  setTimeout(()=>{document.removeEventListener('visibilitychange',izle);if(!gitti&&!document.hidden)window.open(web,'_blank')},1500);
+},true);
+function bildirim(metin,sure=2500){let t=document.getElementById('bildirim');if(!t){t=document.createElement('div');t.id='bildirim';document.body.appendChild(t)}t.textContent=metin;t.classList.add('acik');clearTimeout(t._z);if(sure)t._z=setTimeout(()=>t.classList.remove('acik'),sure)}
+async function pdfAc(baslik,govde){
+  bildirim('PDF hazırlanıyor…',0);
+  const kap=document.createElement('div');
+  try{
+    const h2p=await html2pdfYukle();
+    // görünmeyen kapsayıcı; html2pdf yalnızca içteki .pdf-kap'ı kopyalar (konum stili kopyaya geçmesin)
+    kap.style.cssText='position:fixed;left:-12000px;top:0';
+    const ic=document.createElement('div');ic.className='pdf-kap';ic.innerHTML=`<style>${PDF_CSS}</style><h2>${esc(baslik)}</h2>${govde}`;kap.appendChild(ic);document.body.appendChild(kap);
+    await Promise.all([...kap.querySelectorAll('img')].map(i=>i.complete?1:new Promise(r=>{i.onload=i.onerror=r})));
+    const ad=baslik.replace(/[·:/\\]+/g,' ').replace(/[^\wçğıöşüÇĞİÖŞÜ .-]+/g,'').trim().replace(/\s+/g,'-')+'.pdf';
+    await h2p().set(PDF_AYAR(ad)).from(ic).save();
+    bildirim('PDF indirildi: '+ad);
+  }catch(e){bildirim('PDF oluşturulamadı: '+e.message,5000)}
+  finally{kap.remove()}
 }
 
 // "1.250,50", "350 tl", "25 km" gibi yazımları sayıya çevirir
@@ -1638,7 +1712,7 @@ async function renderGun(){
     ${!sira.length&&k.nokta&&!(k.parcalar?.length>1)?`<div class="grid2"><label>Müşteri sayısı<input type="text" inputmode="numeric" autocomplete="off" id="gNokta" value="${k.nokta}"></label><label>Bölge${bolgeSec('id="gBolge"',k.bolge||'',true)}</label><label>İlçe sayısı${ilceSSec('id="gIlceS"',k.ilceSayisi||'',true)}</label></div>
     <div class="fl">İlçeler <span class="small">(dokunarak seçin)</span><div class="ichips" id="gIlce">${ilceSecHTML(k.bolge||bolgeBul(k.ilceler||[])||'',k.ilceler||[])}</div></div><div class="small" style="margin-top:4px">Bu günün müşteri listesi yok${k.kaynak?' ('+esc(k.kaynak==='Elle'?'elle girilen':k.kaynak)+' kaydı)':''}; hesap müşteri sayısı, bölge ve ilçe sayısıyla yapılır.</div>`:''}
     <div id="gHesap"></div>
-    ${k.rota?`<div class="mlist-h"><b><i class="ic" data-ic="map"></i> Rota</b>${k.rota.olusturma?` <span class="small">${new Date(k.rota.olusturma).toLocaleString('tr-TR',{dateStyle:'short',timeStyle:'short'})} itibarıyla</span>`:''}</div>${rotaOzetHTML(k.rota)}${k.rota.yandex?`<div class="row"><a href="${k.rota.yandex}" target="_blank" rel="noopener"><button><i class="ic" data-ic="nav"></i> Bu rotayı Yandex’te aç</button></a></div>`:''}`:''}
+    ${k.rota?`<div class="mlist-h"><b><i class="ic" data-ic="map"></i> Rota</b>${k.rota.olusturma?` <span class="small">${new Date(k.rota.olusturma).toLocaleString('tr-TR',{dateStyle:'short',timeStyle:'short'})} itibarıyla</span>`:''}</div>${rotaOzetHTML(k.rota)}${k.rota.yandex?`<div class="row"><a href="${k.rota.yandex}" target="_blank" rel="noopener" data-app="${esc(yandexUygulama(k.rota.yandex))}"><button><i class="ic" data-ic="nav"></i> Bu rotayı Yandex’te aç</button></a></div>`:''}`:''}
     ${sira.length?`<div class="mlist-h"><b>Müşteriler</b> <span class="small">Teslim edilemeyen veya evrakta olup alınmayan müşterinin işaretini kaldırın.</span></div>
     <div class="mlist">${sira.map((m,i)=>`<label class="${haric.has(musteriKey(m))?'off':''}"><input type="checkbox" data-k="${esc(musteriKey(m))}" ${haric.has(musteriKey(m))?'':'checked'}><span><b>${i+1}. ${esc(m.ad)}</b><br><span class="small">${esc(m.adres)}</span>${musteriDetay(m)?`<br><span class="small">${esc(musteriDetay(m))}</span>`:''}</span></label>`).join('')}</div>`:''}`}
     <label class="fl">Not<input type="text" id="gNot" value="${esc(k.notu||'')}" placeholder="isteğe bağlı"></label>
