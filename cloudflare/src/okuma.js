@@ -76,23 +76,27 @@ const bugun = () => new Date().toISOString().slice(0, 10);
 async function doluModeller(env) { try { return new Set(JSON.parse(await depo.ayarOku(env, 'gemini_kota:' + bugun()) || '[]')); } catch { return new Set(); } }
 async function doluIsaretle(env, model) { try { const s = await doluModeller(env); s.add(model); await depo.ayarYaz(env, 'gemini_kota:' + bugun(), JSON.stringify([...s])); } catch { /* yok say */ } }
 
-async function geminiPost(body, key) {
+async function geminiPost(body, key, sonTarih = Date.now() + 90000) {
   for (let deneme = 0; deneme < 2; deneme++) {
-    const r = await fetch(URL_, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify(body), signal: AbortSignal.timeout(90000) });
+    const kalan = Math.min(60000, sonTarih - Date.now());
+    if (kalan < 8000) { const e = new Error('süre doldu'); e.name = 'TimeoutError'; throw e; }
+    const r = await fetch(URL_, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify(body), signal: AbortSignal.timeout(kalan) });
     if (r.ok) return r.json();
     if (![500, 502, 503, 504].includes(r.status) || deneme === 1) { const e = new Error('gemini ' + r.status); e.status = r.status; throw e; }
     await new Promise(res => setTimeout(res, 2000));
   }
 }
 
-async function uret(env, parts, schema, key) {
+// sonTarih: bu süre dolunca Gemini bırakılır (evrak okumada yedek okuyucuya zaman kalsın, telefon beklerken bağlantı kopmasın)
+async function uret(env, parts, schema, key, sonTarih = Date.now() + 120000) {
   let son = null;
   const dolu = await doluModeller(env);
   for (const model of MODELLER(env).filter(m => !dolu.has(m))) {
+    if (sonTarih - Date.now() < 8000) break;
     const body = { model, input: parts, response_format: { type: 'text', mime_type: 'application/json', schema }, generation_config: { thinking_level: 'low' } };
     try {
       let data;
-      try { data = await geminiPost(body, key); } catch (e) { if (e.status !== 400) throw e; delete body.generation_config; data = await geminiPost(body, key); }
+      try { data = await geminiPost(body, key, sonTarih); } catch (e) { if (e.status !== 400) throw e; delete body.generation_config; data = await geminiPost(body, key, sonTarih); }
       return [...metinler(data.steps || data.outputs || data)].join('');
     } catch (e) {
       if (e.status === 401 || e.status === 403) throw new OkumaHatasi('Gemini anahtarı reddedildi. Anahtarı kontrol edin.', 'auth');
@@ -141,7 +145,7 @@ export async function evrakOku(env, b64, mime, key) {
   let geminiHata = null;
   if (key) {
     try {
-      const metin = await uret(env, [{ type: 'text', text: PROMPT }, { type: 'image', data: b64, mime_type: mime, resolution: 'ultra_high' }], SCHEMA, key);
+      const metin = await uret(env, [{ type: 'text', text: PROMPT }, { type: 'image', data: b64, mime_type: mime, resolution: 'ultra_high' }], SCHEMA, key, Date.now() + 70000);
       return { rows: satirlariTemizle(gevsekJson(metin, 'rows')), kaynak: 'Gemini' };
     } catch (e) {
       if (e instanceof OkumaHatasi && e.code === 'auth') throw e;
@@ -192,6 +196,7 @@ durum:
 - "hatali": bulunan yer başka bir ilçe (ilce_tutuyor=false) ya da açıkça başka bir mahalle/sokak; kapı numarası çok farklı (no_tutuyor=false).
 - Uzaklık (en_yakin_km, merkez_km) tek başına hata sebebi DEĞİLDİR; yalnızca ilçe/mahalle de tutmuyorsa nedeni güçlendirir.
 - ilce_tutuyor, mahalle_tutuyor ve no_tutuyor true ise durum her zaman "uygun"dur.
+- Evrakta mahalle adının iki kez yazılması ("Caddebostan mah. Caddebostan Mahallesi"), mahallenin adresin başında ya da sonunda yazılması, ilçenin "Kadıköy Mah." gibi yazılması ve apartman/site adı HATA DEĞİLDİR. Yalnızca bulunan konum ile evraktaki sokak/kapı no/ilçe arasındaki gerçek farkları değerlendir.
 - "kontrol": yalnızca sokak/mahalle düzeyinde (bina değil) bulunmuş; kapı numarası yok ya da tutmuyor; sokak adı benzer ama farklı yazılmış (ör. "Tepegöz" ↔ "Tepeüstü"); AVM/site adı kesin eşleşmemiş.
 - "uygun": ilçe, mahalle, sokak ve kapı numarası tutarlı (yazım farkları önemsiz: "Sok."="Sokak", "No:4"="4").
 

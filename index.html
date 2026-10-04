@@ -869,7 +869,9 @@ function gpsIleOgren(s){
 let denetimRun=0;
 async function adresDenetimi(){
   if(!srv)return;
-  const liste=pendingStops().filter(s=>validPoint(s)&&s.quality!=='Elle'); // elle seçilen/teyit edilen konumlar denetlenmez
+  // elle seçilen/teyit edilen ve Yandex'te aynı sokak+kapı no ile doğrulanmış konumlar denetlenmez (gereksiz uyarı olmasın)
+  const yandexDogrulandi=s=>s.quality==='Kapı'&&(s.match?.source==='Yandex'||!!s.match?.yandexAddress||s.match?.source==='Hafıza');
+  const liste=pendingStops().filter(s=>validPoint(s)&&s.quality!=='Elle'&&!yandexDogrulandi(s));
   if(!liste.length)return;
   const run=++denetimRun,merkez={lat:liste.map(s=>+s.lat).sort((a,b)=>a-b)[liste.length>>1],lon:liste.map(s=>+s.lon).sort((a,b)=>a-b)[liste.length>>1]};
   const items=liste.map(s=>{
@@ -1938,6 +1940,13 @@ async function restorePlan(){
     delivered=(plan.delivered||[]).map(id=>byId.get(id)).filter(Boolean);
     // Eski sürümde "kesin" kaydedilmiş konumlar bugünkü kurallarla yeniden doğrulanır (ör. Kaptan Arif yerine Taşmektep)
     let dusen=0;
+    // Yandex'le doğrulanmış duraklardaki eski yapay zekâ uyarıları (ör. "mahalle iki kez yazılmış") kaldırılır
+    for(const s of stops){
+      if(!s.aiDenetim||!s.match||!(s.match.source==='Yandex'||s.match.yandexAddress))continue;
+      const r=kesinlikDenetimi({...s},{...s.match,quality:'Kapı'});
+      s.aiDenetim=null;
+      if(r.quality==='Kapı'&&s.quality==='Kontrol'&&/^Yapay zekâ/.test(s.placeError||'')){s.quality='Kapı';s.placeError=''}
+    }
     for(const s of stops){
       if(!['Kapı','OSM'].includes(s.quality)||!s.match||s.match.source==='Hafıza'||s.match.confirmed)continue;
       const r=kesinlikDenetimi(s,{...s.match,quality:s.quality});
@@ -1987,7 +1996,13 @@ async function aiReadImage(f,n,tot){
   const c=document.createElement('canvas');c.width=Math.round(img.width*k);c.height=Math.round(img.height*k);
   c.getContext('2d').drawImage(img,0,0,c.width,c.height);
   const image=c.toDataURL('image/jpeg',0.9).split(',')[1];
-  const r=await fetch('/api/ocr',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image,mime:'image/jpeg'}),signal:AbortSignal.timeout(150000)});
+  // Bağlantı koparsa (ör. iPhone'da "Load failed") iki kez daha denenir; sunucu aynı fotoğrafın sonucunu sakladığı için tekrar hızlıdır
+  let r=null,hata=null;
+  for(let deneme=0;deneme<3&&!r;deneme++){
+    try{r=await fetch('/api/ocr',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({image,mime:'image/jpeg'}),signal:AbortSignal.timeout(150000)})}
+    catch(e){hata=e;$('fileInfo').textContent=`Fotoğraf ${n}/${tot}: bağlantı koptu, tekrar deneniyor (${deneme+2}/3)…`;await new Promise(z=>setTimeout(z,2500))}
+  }
+  if(!r)throw hata||new Error('bağlantı kurulamadı');
   const j=await r.json().catch(()=>({}));
   bar.firstChild.style.width='100%';
   if(!r.ok)throw new Error(j.error||'sunucu hatası');
@@ -2065,7 +2080,19 @@ async function loadFiles(files){
     try{
       if(/^image\//.test(f.type)||/\.(jpe?g|png|webp|bmp)$/i.test(f.name)){
         let o=null,note='';
-        if(aiOcr){try{o=await aiReadImage(f,i+1,files.length);note=' (yapay zekâ)'}catch(e){note=' (yapay zekâ okuyamadı: '+e.message+' — yerel okuyucu kullanıldı)'}}
+        // yapay zekâ okuyamazsa satır kaçırabilen basit okuyucuya kullanıcıya sormadan geçilmez
+        while(aiOcr&&!o){
+          try{o=await aiReadImage(f,i+1,files.length);note=' (yapay zekâ)'}
+          catch(e){
+            if(confirm(`Fotoğraf ${i+1} yapay zekâ ile okunamadı (${e.message}).
+
+Tekrar denensin mi?
+
+Tamam: tekrar dene
+İptal: basit okuyucuyla devam et (bazı satırları kaçırabilir, listeyi evrakla karşılaştırın)`))continue;
+            note=' (⚠ yapay zekâ okuyamadı: '+e.message+' — basit okuyucu kullanıldı, satırları evrakla karşılaştırın)';break;
+          }
+        }
         if(!o)o=await ocrImage(f,i+1,files.length);
         orders.push(...o);msgs.push(`${f.name}: ${o.length} satır${note}`)}
       else if(/\.(xlsx|xls|csv)$/i.test(f.name)){

@@ -190,7 +190,15 @@ async function post(env, request, url, user) {
   if (yol === '/api/ocr') {
     const b = await govde(request, 12 * 1024 * 1024), image = b.image, mime = b.mime || 'image/jpeg';
     if (typeof image !== 'string' || image.length < 100 || !['image/jpeg', 'image/png', 'image/webp'].includes(mime)) throw new HttpHata(400, 'Geçersiz fotoğraf.');
-    try { return yanit(200, await evrakOku(env, image, mime, geminiAnahtari(env, await ayarlar(env)))); }
+    const ozet = 'ocr:' + [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(image)))].map(x => x.toString(16).padStart(2, '0')).join('').slice(0, 32);
+    const onceki = await depo.ayarOku(env, ozet).catch(() => null);
+    if (onceki) return yanit(200, { ...JSON.parse(onceki), onbellek: true });
+    try {
+      const sonuc = await evrakOku(env, image, mime, geminiAnahtari(env, await ayarlar(env)));
+      await depo.ayarYaz(env, ozet, JSON.stringify(sonuc)).catch(() => {});
+      await env.DB.prepare("DELETE FROM ayarlar WHERE anahtar LIKE 'ocr:%' AND guncelleme < datetime('now', '-2 days')").run().catch(() => {});
+      return yanit(200, sonuc);
+    }
     catch (e) { if (e instanceof OkumaHatasi) return yanit(e.code === 'missing_key' ? 503 : 502, { error: e.message, code: e.code }); return yanit(502, { error: 'Gemini’ye ulaşılamadı veya zaman aşımı oluştu.', code: 'network' }); }
   }
   if (yol === '/api/adres-denetle') {

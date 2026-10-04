@@ -233,6 +233,7 @@ durum:
 - "hatali": bulunan yer başka bir ilçe (ilce_tutuyor=false) ya da açıkça başka bir mahalle/sokak; kapı numarası çok farklı (no_tutuyor=false).
 - Uzaklık (en_yakin_km, merkez_km) tek başına hata sebebi DEĞİLDİR; yalnızca ilçe/mahalle de tutmuyorsa nedeni güçlendirir.
 - ilce_tutuyor, mahalle_tutuyor ve no_tutuyor true ise durum her zaman "uygun"dur.
+- Evrakta mahalle adının iki kez yazılması ("Caddebostan mah. Caddebostan Mahallesi"), mahallenin adresin başında ya da sonunda yazılması, ilçenin "Kadıköy Mah." gibi yazılması ve apartman/site adı HATA DEĞİLDİR. Yalnızca bulunan konum ile evraktaki sokak/kapı no/ilçe arasındaki gerçek farkları değerlendir.
 - "kontrol": yalnızca sokak/mahalle düzeyinde (bina değil) bulunmuş; kapı numarası yok ya da tutmuyor; sokak adı benzer ama farklı yazılmış; AVM/site adı kesin eşleşmemiş.
 - "uygun": ilçe, mahalle, sokak ve kapı numarası tutarlı (yazım farkları önemsiz: "Sok."="Sokak", "No:4"="4").
 
