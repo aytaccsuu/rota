@@ -106,6 +106,7 @@ html:not(.yonetici) .yonetici-only{display:none!important}
 .yotab td:first-child,.yotab th:first-child{text-align:left}.yotab th:nth-child(2),.yotab td:nth-child(2){text-align:right}
 .sira>.sira-tas{display:flex;flex-direction:column;gap:4px;flex:none;min-width:0}.sira-tas button{width:34px;height:30px;padding:0;display:grid;place-items:center;border-radius:8px}.sira.duzen{background:var(--surf2);border-radius:10px;padding-left:6px;padding-right:6px}.sira.duzen:before{display:none}
 .sira-not{margin:10px 0 4px;padding:9px 12px;border-radius:10px;background:var(--warnbg);color:var(--warnink);font-size:12px}
+.gidilecek .gnot{display:block;font-size:12px;color:var(--warnink);margin-top:2px}
 .gidilecek{display:flex;gap:6px;align-items:flex-start;font-size:13px;margin:2px 0 6px;color:var(--ok)}.gidilecek.no{color:var(--bad)}.gidilecek span{color:var(--ink)}.gidilecek.no span{color:var(--bad)}
 .ai-uyari{display:flex;gap:8px;align-items:flex-start;margin:6px 0;padding:8px 10px;border-radius:10px;font-size:13px;line-height:1.4;background:var(--warnbg);color:var(--warnink)}.ai-uyari.hatali{background:var(--badbg);color:var(--bad)}.ai-uyari>span{flex:1}.ai-uyari .small{display:block;color:inherit;opacity:.85;margin-top:2px}.ai-uyari button{padding:5px 10px;font-size:12px;flex:none}
 #bildirim{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#19322e;color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;box-shadow:0 8px 24px #0004;opacity:0;pointer-events:none;transition:.2s;z-index:100;max-width:90vw}#bildirim.acik{opacity:1;transform:translateX(-50%)}
@@ -434,7 +435,8 @@ function parseAddress(raw,ilceRaw){
   const mm=[...s.matchAll(/(?:^|[,;])\s*([A-Za-zÇĞİÖŞÜçğıöşü0-9]+(?:\s+[A-Za-zÇĞİÖŞÜçğıöşü0-9]+){0,3})\s+mah(?:allesi)?(?=[\s.,/]|$)/gi)].map(x=>x[1]).filter(x=>!/^mah/i.test(x));
   const fallbackMah=[...s.matchAll(/([A-Za-zÇĞİÖŞÜçğıöşü]{3,})\s+mah(?:allesi)?(?=[\s.,/]|$)/gi)].map(x=>x[1]).find(x=>!/^mah/i.test(x));
   const mah=mm[0]||fallbackMah||'';
-  const rest=s.replace(/([a-zçğıöşü])([A-ZÇĞİÖŞÜ])/g,'$1 $2');
+  // bitişik yazımları ayır: "KadıköyBostancı" → "Kadıköy Bostancı", "Apartmanı24/A" → "Apartmanı 24/A"
+  const rest=s.replace(/([a-zçğıöşü])([A-ZÇĞİÖŞÜ])/g,'$1 $2').replace(/([A-Za-zÇĞİÖŞÜçğıöşü]{3,})(\d)/g,'$1 $2');
   // Virgül sokak adının sınırıdır ("Baytur Konutları, Şakacı Sokak"): virgül bilgisini koruyarak böl
   const toks=rest.split(/\s+/).filter(Boolean),bare=t=>t.replace(/[,;]+$/,'');
   // kapı numarası yazımları: "No:334", "no 334", "No.334", "N:334", "Nu 334", "Nr 334", "numara 334"
@@ -462,7 +464,7 @@ function parseAddress(raw,ilceRaw){
   let street=pick?.street||'',no=pick?.no||'';
   if(!no){const n=rest.match(/\b(?:no|nu|nr|numara|n)\s*[:.]?\s*(\d+[A-Za-z]?(?:[-/]\d+[A-Za-z]?)?)/i);if(n)no=n[1]}
   // "Tepegöz sk Nil apt 53": No yazılmadan apartman/site adından sonra gelen numara kapı numarasıdır
-  if(!no&&street){const n=rest.match(/(?:apt\.?|apartman[ıi]?|sitesi|site|evleri|konutlar[ıi]|plaza|rezidans)\s+(\d+[A-Za-z]?(?:\/\d+)?)(?=\s|[.,]|$)/i);if(n)no=n[1]}
+  if(!no&&street){const n=rest.match(/(?:apt\.?|apartman[ıi]?|sitesi|site|evleri|konutlar[ıi]|plaza|rezidans)\s+(\d+[A-Za-z]?(?:\/[A-Za-z0-9]+)?)(?=\s|[.,]|$)/i);if(n)no=n[1]}
   const ilce=ilceMap[fold(ilceRaw)]||matchIlce(ilceRaw||'')||ILCELER.find(x=>new RegExp('(?:^|[^a-z])'+fold(x)+'(?:$|[^a-z])').test(fold(s)))||String(ilceRaw||'').trim();
   // AVM/site/apartman adını sokaktan bağımsız koru; yalnızca isim girilmişse de ara.
   const placeParts=s.split(/(?:mah(?:allesi)?\.?|sokak|sokağı|sok\.?\b|sk\.|sk\b|caddesi|cad\.|cd\.)\s*/i);
@@ -645,13 +647,24 @@ async function locateStreet(a){
   if(a.street){
     const cands=await streetCandidates(a.street,a.ilce,a.mah);
     let st=cands.find(c=>mahOk(c,a.mah));
-    let quality=null;
+    let quality=null,tekSokak=false;
     if(st)quality='Sokak';
-    else if(cands.length&&cands.every(c=>dist(c,cands[0])<1500)){st=cands[0];quality='Kontrol'} // tek sokak var ama mahalle doğrulanamadı
+    else{
+      // ilçede bu adda tek sokak var ama mahalle tutmadı: ilçesi tutan adaylar birbirine yakınsa tek sokaktır;
+      // ilçesi bilinmeyen ama çok uzaktaki (başka ilçedeki aynı adlı) sokaklar bu kararı bozmaz
+      const ilceli=a.ilce?cands.filter(c=>c.ilce&&same(c.ilce,a.ilce)):[];
+      const ana=ilceli[0]||cands[0];
+      const tek=ana&&(ilceli.length?ilceli:cands).every(c=>dist(c,ana)<1500)&&cands.filter(c=>!ilceli.includes(c)).every(c=>dist(c,ana)<1500||(!c.ilce&&dist(c,ana)>8000));
+      if(tek){st=ana;quality='Kontrol';tekSokak=true}
+    }
     if(st){
       const h=await findHouse(st,a.no);
       const exact=h&&core(h.road)===core(a.street)&&(!a.mah||h.areas.some(x=>core(x)===core(a.mah)))&&(!a.ilce||!h.ilce||core(h.ilce)===core(a.ilce));
-      if(h)return {...h,quality:exact&&!h.conflict?'Kapı':'Kontrol'};
+      // İlçede bu adda tek sokak var ve aynı kapı no kesin bulundu: evraktaki mahalle farklı olsa da bina budur (sokak sınırı/evrak hatası).
+      // Başka bir sokağa asla geçilmez; mahalle farkı sürücüye not olarak gösterilir.
+      const tekKesin=h&&!exact&&tekSokak&&core(h.road)===core(a.street)&&(!a.ilce||!h.ilce||core(h.ilce)===core(a.ilce));
+      if(h)return {...h,quality:(exact||tekKesin)&&!h.conflict?'Kapı':'Kontrol',tekSokak:tekKesin,
+        notu:tekKesin?`Evrakta ${a.mah} mahallesi yazıyor; ${h.road} ilçede tek ve ${h.no} numara ${String(h.mah||'komşu').replace(/\s*(mah\.?|mahallesi)$/i,'')} mahallesinde.`:''};
       return {lat:st.lat,lon:st.lon,quality,road:st.road,no:'',mah:st.mah};
     }
   }
@@ -762,7 +775,7 @@ function kesinlikDenetimi(a,r){
   if(a.no&&r.no&&!noVariants(a.no).some(v=>noOk(r.no,v.no)||baseNoOk(r.no,v.no)))sorun.push(`kapı no tutmuyor (evrak: ${a.no}, bulunan: ${r.no})`);
   else if(a.no&&!r.no&&r.quality==='Kapı')sorun.push('bulunan yerde kapı no yok');
   const alanlar=[...(r.areas||[]),r.mah].filter(Boolean);
-  if(a.mah&&alanlar.length&&!alanlar.some(x=>same(x,a.mah)))sorun.push(`mahalle tutmuyor (evrak: ${a.mah}${r.mah?', bulunan: '+r.mah:''})`);
+  if(a.mah&&alanlar.length&&!r.tekSokak&&!alanlar.some(x=>same(x,a.mah)))sorun.push(`mahalle tutmuyor (evrak: ${a.mah}${r.mah?', bulunan: '+r.mah:''})`);
   if(a.ilce&&r.ilce&&!same(r.ilce,a.ilce))sorun.push(`ilçe tutmuyor (evrak: ${a.ilce}, bulunan: ${r.ilce})`);
   if(!sorun.length)return r;
   a.placeError='Konum doğrulanamadı: '+sorun.join('; ')+'. Doğru binayı teyit edin.';
@@ -877,7 +890,7 @@ function oneriyleDuzelt(s){
 function gidilecekHTML(s){
   const m=s.match||{},adr=m.yandexAddress||m.address||[m.road&&(m.road+(m.no?' No:'+m.no:'')),m.mah,m.ilce].filter(Boolean).join(', ');
   const ok=readyStop(s),metin=adr||(s.quality==='Elle'?'elle seçilen konum':'yaklaşık konum');
-  return `<div class="gidilecek ${ok?'ok':'no'}"><i class="ic" data-ic="${ok?'check':'alert'}"></i> <span><b>Gidilecek:</b> ${esc(metin)}${ok?'':' — <b>teyit edilmedi</b>'}</span></div>`;
+  return `<div class="gidilecek ${ok?'ok':'no'}"><i class="ic" data-ic="${ok?'check':'alert'}"></i> <span><b>Gidilecek:</b> ${esc(metin)}${ok?'':' — <b>teyit edilmedi</b>'}${m.notu?`<span class="gnot">${esc(m.notu)}</span>`:''}</span></div>`;
 }
 const denetimHTML=(s,i)=>s.aiDenetim?`<div class="ai-uyari ${s.aiDenetim.durum}"><i class="ic" data-ic="alert"></i> <span><b>${s.aiDenetim.durum==='hatali'?'Muhtemelen yanlış konum':'Kontrol edin'}:</b> ${esc(s.aiDenetim.neden)}${s.aiDenetim.oneri?` <span class="small">Öneri: ${esc(s.aiDenetim.oneri)}</span>`:''}</span><button class="hide-print" data-denetim="${i}">Öneriyle düzelt</button></div>`:'';
 async function geocodeAll(force){
@@ -1906,13 +1919,21 @@ async function restorePlan(){
   try{
     stops=plan.stops;const byId=new Map(stops.map(s=>[s.id,s]));planDate=plan.planDate||new Date(plan.savedAt).toLocaleDateString('sv-SE');planEvraklar=plan.evraklar||[];elleSira=plan.elleSira||null;siraDuzenle=false;planEvrakZamani=plan.planEvrakZamani||null;planCikis=plan.planCikis||null;cikisGoster();
     delivered=(plan.delivered||[]).map(id=>byId.get(id)).filter(Boolean);
+    // Eski sürümde "kesin" kaydedilmiş konumlar bugünkü kurallarla yeniden doğrulanır (ör. Kaptan Arif yerine Taşmektep)
+    let dusen=0;
+    for(const s of stops){
+      if(!['Kapı','OSM'].includes(s.quality)||!s.match||s.match.source==='Hafıza'||s.match.confirmed)continue;
+      const r=kesinlikDenetimi(s,{...s.match,quality:s.quality});
+      if(r.quality!==s.quality){s.quality='Kontrol';s.match={...s.match,dogrulama:r.dogrulama};dusen++}
+    }
     if(plan.svc)$('svc').value=plan.svc;
     const when=new Date(plan.savedAt).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
     $('fileInfo').innerHTML=String(plan.fileInfo||'').replace(/<br><span class="small( geri-not)?">[\s\S]*?Kayıtlı plan geri yüklendi[\s\S]*$/,'')+`<br><span class="small geri-not"><i class="ic" data-ic="folder"></i> Kayıtlı plan geri yüklendi (${when}). <a href="#" id="newPlan">Yeni evrak için temizle</a></span>`;
     $('newPlan').onclick=async e=>{e.preventDefault();await clearPlan();location.reload()};
     renderStops();refreshMarkers();updateState();
     const r=plan.route,order=r?.order?.map(id=>byId.get(id))||null;
-    if(r&&order&&order.every(Boolean)&&order.length){
+    if(dusen){$('stopsCard').open=true;$('geoInfo').textContent=`${dusen} durağın konumu yeniden doğrulanamadı (evraktaki sokak/kapı no tutmuyor). Adres kontrolünden teyit edin ya da “Adresleri tekrar ara”ya basın.`}
+    if(r&&order&&order.every(Boolean)&&order.length&&!dusen){
       routeOrder=order;lastRoute=r;lastCoords=r.lastCoords||null;trafficInfo=r.trafficInfo||null;
       refreshMarkers();drawRouteLine();
       renderResult(r.seq,r.legs,r.dist,r.dur,r.exact,r.homeDistances,r.roadLegs,[]);

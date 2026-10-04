@@ -81,6 +81,8 @@ async function main(){
     assert.equal(run(`kesinlikDenetimi(${a},{quality:'Kapı',road:'Tepegöz Sokak',no:'53',areas:['Esenyurt','Saadetdere'],ilce:'Esenyurt'}).quality`),'Kontrol','başka ilçe/mahalle');
     assert.equal(run(`kesinlikDenetimi(${a},{quality:'Kapı',road:'Tepegöz Sk.',no:'No:53',areas:['Göztepe Mahallesi','Kadıköy'],ilce:'Kadıköy'}).quality`),'Kapı','yazım farkı sorun değil');
   }
+  // bitişik yazılmış apartman numarası
+  assert.equal(run(`parseAddress('Suadiye mah. Kaptan Arif Sokak Kadife Apartmanı24/A K:9 D:17','Kadıköy').no`),'24/A');
   // apartman/site adı geçen adreslerde sokak esas alınır, kapı no doğru okunur
   for(const [ham,sokak,no] of [['Göztepe mah. Tepegöz sok. Yılmaz Apt. No:5 D:3','Tepegöz Sokak','5'],['Göztepe mah. Tepegöz sokak Gül Sitesi B blok no 12 kat 2','Tepegöz Sokak','12'],
     ['Caferağa mah. Moda cad. Deniz apt. kat 3 daire 5 no 34','Moda Caddesi','34'],['Suadiye mah. Acun sok. Park Evleri Sitesi A Blok No: 2 Daire 8','Acun Sokak','2'],
