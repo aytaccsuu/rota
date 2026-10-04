@@ -1,10 +1,8 @@
-// Evrak fotoğrafı okuma ve adres düzeltme: önce Google Gemini, kotası/erişimi yoksa Cloudflare Workers AI
+// Evrak fotoğrafı okuma ve adres düzeltme: yalnızca Google Gemini
 import * as depo from './depo.js';
 
 const MODELLER = env => String(env.GEMINI_MODELS || 'gemini-3.8-flash,gemini-3.7-flash,gemini-3.5-flash-lite,gemini-3.1-flash-lite').split(',').map(x => x.trim()).filter(Boolean);
 const URL_ = 'https://generativelanguage.googleapis.com/v1beta/interactions';
-const AI_GORSEL = ['@cf/meta/llama-4-scout-17b-16e-instruct', '@cf/meta/llama-3.2-11b-vision-instruct'];
-const AI_METIN = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
 
 export class OkumaHatasi extends Error { constructor(mesaj, code = 'upstream') { super(mesaj); this.code = code; } }
 
@@ -121,26 +119,6 @@ function satirlariTemizle(rows) {
   return out;
 }
 
-// Workers AI: görselden tablo okuma (Gemini yedeği)
-async function aiOku(env, b64, mime) {
-  const talimat = PROMPT + '\nYanıt biçimi: {"rows":[{"musteri":"","siparis_no":"","alici":"","not":"","adet":"","ilce":"","adres":"","geri_alim":false}]}';
-  let son = null;
-  for (const model of AI_GORSEL) {
-    try {
-      let r;
-      if (model.includes('llama-4')) {
-        r = await env.AI.run(model, { messages: [{ role: 'user', content: [{ type: 'text', text: talimat }, { type: 'image_url', image_url: { url: `data:${mime};base64,${b64}` } }] }], max_tokens: 6000 });
-      } else {
-        const image = [...Uint8Array.from(atob(b64), c => c.charCodeAt(0))];
-        try { r = await env.AI.run(model, { prompt: talimat, image, max_tokens: 4000 }); }
-        catch (e) { if (!/agree/i.test(String(e?.message))) throw e; await env.AI.run(model, { prompt: 'agree' }); r = await env.AI.run(model, { prompt: talimat, image, max_tokens: 4000 }); }
-      }
-      return satirlariTemizle(gevsekJson(r.response ?? r, 'rows'));
-    } catch (e) { son = e; }
-  }
-  throw new OkumaHatasi('Yedek okuyucu (Workers AI) da okuyamadı: ' + (son?.message || 'hata'));
-}
-
 export async function evrakOku(env, b64, mime, key) {
   let geminiHata = null;
   if (key) {
@@ -152,7 +130,6 @@ export async function evrakOku(env, b64, mime, key) {
       geminiHata = e;
     }
   }
-  if (env.AI) return { rows: await aiOku(env, b64, mime), kaynak: 'Workers AI', not: geminiHata ? 'Gemini kullanılamadı; yedek okuyucu kullanıldı.' : undefined };
   if (geminiHata) throw geminiHata instanceof OkumaHatasi ? geminiHata : new OkumaHatasi('Gemini yanıtı anlaşılamadı.', 'response');
   throw new OkumaHatasi('Fotoğraf okuma için Ayarlar’dan Gemini anahtarı ekleyin.', 'missing_key');
 }
@@ -176,12 +153,6 @@ export async function adresDuzelt(env, items, key) {
   if (key) {
     try { return kalemleriTemizle(gevsekJson(await uret(env, [{ type: 'text', text: DUZELT_PROMPT + '\nAdresler:\n' + liste }], DUZELT_SCHEMA, key), 'items'), ids); }
     catch (e) { if (e instanceof OkumaHatasi && e.code === 'auth') throw e; geminiHata = e; }
-  }
-  if (env.AI) {
-    try {
-      const r = await env.AI.run(AI_METIN, { messages: [{ role: 'system', content: DUZELT_PROMPT }, { role: 'user', content: 'Adresler:\n' + liste }], response_format: { type: 'json_schema', json_schema: DUZELT_SCHEMA }, max_tokens: 4000 });
-      return kalemleriTemizle(gevsekJson(r.response ?? r, 'items'), ids);
-    } catch (e) { throw new OkumaHatasi('Adres düzeltme yapılamadı: ' + (e?.message || 'hata')); }
   }
   if (geminiHata) throw geminiHata instanceof OkumaHatasi ? geminiHata : new OkumaHatasi('Gemini yanıtı anlaşılamadı.', 'response');
   throw new OkumaHatasi('Adres düzeltme için Gemini anahtarı gerekli.', 'missing_key');
@@ -213,18 +184,9 @@ function denetimTemizle(out, ids) {
 }
 
 export async function adresDenetle(env, items, geminiKey) {
+  if (!geminiKey) throw new OkumaHatasi('Adres denetimi için Gemini anahtarı gerekli.', 'missing_key');
   const ids = new Set(items.map(i => String(i.id)));
-  const veri = 'Duraklar (JSON):\n' + JSON.stringify(items);
-  let hata = null;
-  if (env.AI) {
-    try {
-      const r = await env.AI.run(AI_METIN, { messages: [{ role: 'system', content: DENETIM_PROMPT }, { role: 'user', content: veri }], response_format: { type: 'json_schema', json_schema: DENETIM_SCHEMA }, max_tokens: 4000 });
-      return { items: denetimTemizle(gevsekJson(r.response ?? r, 'items'), ids), kaynak: 'Workers AI' };
-    } catch (e) { hata = e; }
-  }
-  if (geminiKey) {
-    try { return { items: denetimTemizle(gevsekJson(await uret(env, [{ type: 'text', text: DENETIM_PROMPT + '\n\n' + veri }], DENETIM_SCHEMA, geminiKey), 'items'), ids), kaynak: 'Gemini' }; }
-    catch (e) { hata = e; }
-  }
-  throw new OkumaHatasi('Adres denetimi yapılamadı' + (hata ? ': ' + hata.message : ' (yapay zekâ yok).'), hata ? 'upstream' : 'missing_key');
+  const veri = 'Duraklar (JSON):' + String.fromCharCode(10) + JSON.stringify(items);
+  try { return { items: denetimTemizle(gevsekJson(await uret(env, [{ type: 'text', text: DENETIM_PROMPT + String.fromCharCode(10, 10) + veri }], DENETIM_SCHEMA, geminiKey), 'items'), ids), kaynak: 'Gemini' }; }
+  catch (e) { throw e instanceof OkumaHatasi ? e : new OkumaHatasi('Adres denetimi yapılamadı: ' + (e?.message || 'hata')); }
 }

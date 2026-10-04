@@ -24,10 +24,6 @@ migrations_dir = "migrations"
 # binding = "EVRAK"
 # bucket_name = "rota-evrak"
 
-# Workers AI: Gemini kotası bittiğinde evrak okuma ve adres düzeltme yedeği
-[ai]
-binding = "AI"
-remote = true   # yerel geliştirmede de Cloudflare'in yapay zekâsı kullanılır
 
 [vars]
 # Gizli olmayan ayarlar. Anahtar ve şifreler "wrangler secret put" ile girilir:

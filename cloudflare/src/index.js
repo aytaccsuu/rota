@@ -56,7 +56,7 @@ async function get(env, request, url, user) {
     return yanit(200, {
       ...(await kullaniciNoktalari(env, user, a)), ykey: env.YANDEX_MAPS_JS_KEY || a.ykey || '',
       isAdmin: admin, providers, hints, googleConfigured: !!googleAnahtari(env, a),
-      ocrConfigured: !!gem || !!env.AI, ocrHint: gem && admin ? gem.slice(-4) : '', orsConfigured: !!ors, orsHint: ors && admin ? ors.slice(-4) : '',
+      ocrConfigured: !!gem, ocrHint: gem && admin ? gem.slice(-4) : '', orsConfigured: !!ors, orsHint: ors && admin ? ors.slice(-4) : '',
       user, authOn: G.girisAcik(env), tercihler,
     });
   }
