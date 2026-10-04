@@ -175,7 +175,7 @@ html[data-theme="dark"] .tk.on.acti,html[data-theme="dark"] .tk.on.acmadi,html[d
   <div class="card hide-print" id="setCard" style="display:none">
     <h2><i class="ic" data-ic="settings"></i> Ayarlar</h2>
     <div class="ayar-bolum row" style="align-items:center;gap:8px"><b style="font-size:14px"><i class="ic" data-ic="clock"></i> Çıkış saati</b><span class="small">Evrak okutulduktan</span><input type="number" id="cikisDkIn" min="0" max="600" step="5" style="width:80px"><span class="small">dk sonra (rota o saatin trafiğine göre)</span><span class="small" id="cikisDkMsg"></span></div>
-    <div class="ayar-bolum row" style="align-items:center;gap:8px"><b style="font-size:14px"><i class="ic" data-ic="nav"></i> Yandex uygulaması</b><select id="yxUygulamaSec" style="width:auto"><option value="">Her seferinde sor</option><option value="navi">Yandex Navigasyon</option><option value="harita">Yandex Haritalar</option><option value="web">Tarayıcıda aç</option></select><span class="small">Telefonunuzda yüklü olanı seçin</span></div>
+    <div class="ayar-bolum row" style="align-items:center;gap:8px"><b style="font-size:14px"><i class="ic" data-ic="nav"></i> Yandex uygulaması</b><select id="yxUygulamaSec" style="width:auto"><option value="">Yandex (otomatik)</option><option value="navi">Yandex Navigasyon</option><option value="harita">Yandex Haritalar</option></select></div>
     <details id="ptCard" class="ayar-bolum" open>
       <summary><b><i class="ic" data-ic="pin"></i> Başlangıç (depo) ve bitiş (ev)</b> <small id="ptOzet"></small></summary>
       <p class="card-caption" style="margin:8px 0">Bir kez kaydet, her gün kullan. Koordinatı Yandex Haritalar’da noktaya basılı tutup kopyalayabilirsiniz.</p>
@@ -1657,18 +1657,12 @@ function yxAc(web,tip){
   const app=yxUygulamaLinki(web,tip);
   if(app)location.href=app;else window.open(web,'_blank','noopener');
 }
-function yxSor(web){
-  let m=document.getElementById('yxModal');
-  if(!m){m=document.createElement('div');m.id='yxModal';m.className='modal';document.body.appendChild(m)}
-  m.innerHTML=`<div class="box"><h3>Hangi uygulamayla açılsın?</h3><p class="small">Telefonunuzda yüklü olanı seçin. Seçiminiz hatırlanır, Ayarlar’dan değiştirebilirsiniz.</p><div class="row" style="flex-wrap:wrap;gap:8px;margin-top:10px"><button class="p" data-yx="navi">Yandex Navigasyon</button><button class="p" data-yx="harita">Yandex Haritalar</button><button data-yx="web">Tarayıcıda aç</button><button data-yx="">Vazgeç</button></div></div>`;
-  m.style.display='flex';
-  m.onclick=e=>{const b=e.target.closest('button[data-yx]');if(!b&&e.target!==m)return;m.style.display='none';if(!b||!b.dataset.yx)return;yxTercihKaydet(b.dataset.yx);const sec=document.getElementById('yxUygulamaSec');if(sec)sec.value=b.dataset.yx;yxAc(web,b.dataset.yx)};
-}
 document.addEventListener('click',e=>{
   const a=e.target.closest?.('a[data-app]');if(!a||!mobilMi())return;
-  e.preventDefault();
   const tip=yxTercih();
-  if(!tip)yxSor(a.href);else yxAc(a.href,tip);
+  // varsayılan: Yandex'in kendi https bağlantısı aynı sekmede (uygulama yüklüyse iOS/Android doğrudan uygulamada açar, yoksa Yandex web)
+  if(!tip||tip==='web'){a.removeAttribute('target');return}
+  e.preventDefault();yxAc(a.href,tip);
 },true);
 function bildirim(metin,sure=2500){let t=document.getElementById('bildirim');if(!t){t=document.createElement('div');t.id='bildirim';document.body.appendChild(t)}t.textContent=metin;t.classList.add('acik');clearTimeout(t._z);if(sure)t._z=setTimeout(()=>t.classList.remove('acik'),sure)}
 async function pdfAc(baslik,govde){
