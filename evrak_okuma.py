@@ -78,58 +78,7 @@ def _post(url, body, key):
             time.sleep(2)
 
 
-def _generate(parts, schema, key, models=None, groq_key=None):
-    """Önce Gemini; Gemini anahtarı yoksa ya da kotası/bağlantısı biterse Groq yedeği (varsa)."""
-    if not key:
-        if groq_key:
-            return _groq(parts, schema, groq_key)
-        raise OkumaHatasi("Yapay zekâ anahtarı tanımlı değil.", "auth")
-    try:
-        return _gemini(parts, schema, key, models)
-    except OkumaHatasi:
-        if not groq_key:
-            raise
-        return _groq(parts, schema, groq_key)
-
-
-GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_MODEL = os.environ.get("GROQ_MODEL", "qwen/qwen3.8-27b")
-
-
-def _groq(parts, schema, key):
-    """Groq (OpenAI uyumlu) yedek modeli: metin + isteğe bağlı görsel, JSON yanıt."""
-    import re
-    import urllib.error
-    content = []
-    for p in parts:
-        if p.get("type") == "image":
-            content.append({"type": "image_url", "image_url": {"url": "data:%s;base64,%s" % (p.get("mime_type") or "image/jpeg", p["data"])}})
-        else:
-            content.append({"type": "text", "text": p.get("text", "")})
-    content.append({"type": "text", "text": "Yanıtı yalnızca şu JSON şemasına uyan tek bir JSON nesnesi olarak ver:\n" + json.dumps(schema, ensure_ascii=False)})
-    body = {"model": GROQ_MODEL, "messages": [{"role": "user", "content": content}], "temperature": 0,
-            "max_completion_tokens": 8000, "response_format": {"type": "json_object"}}
-    req = urllib.request.Request(GROQ_URL, data=json.dumps(body).encode(), headers={
-        "Content-Type": "application/json", "Authorization": "Bearer " + key, "User-Agent": "rota-plani/1.0"})
-    try:
-        with urllib.request.urlopen(req, timeout=90, context=SSL_CONTEXT) as response:
-            data = json.load(response)
-    except urllib.error.HTTPError as error:
-        if error.code in (401, 403):
-            raise OkumaHatasi("Groq anahtarı reddedildi. Anahtarı kontrol edin.", "auth")
-        if error.code == 429:
-            raise OkumaHatasi("Gemini ve Groq ücretsiz kullanım sınırları doldu. Biraz sonra tekrar deneyin.", "quota")
-        raise OkumaHatasi("Groq şu an yanıt vermiyor (%s)." % error.code)
-    except (urllib.error.URLError, TimeoutError, OSError) as error:
-        raise OkumaHatasi("Groq şu an yanıt vermiyor (%s)." % type(error).__name__)
-    try:
-        text = data["choices"][0]["message"]["content"] or ""
-    except (KeyError, IndexError, TypeError):
-        raise OkumaHatasi("Groq yanıtı anlaşılamadı.", "response")
-    return re.sub(r"<think>.*?</think>", "", text, flags=re.S).strip()
-
-
-def _gemini(parts, schema, key, models=None):
+def _generate(parts, schema, key, models=None):
     """Model zincirini sırayla dener; anahtar hatası hariç her hatada sıradaki modele geçer."""
     import urllib.error
     last = None
@@ -193,13 +142,13 @@ def _field(r, key):
     return ""
 
 
-def read_document(image_b64, mime, key, groq_key=None):
+def read_document(image_b64, mime, key):
     """Fotoğraftaki tabloyu [{musteri, siparis_no, alici, not, adet, ilce, adres, geri_alim}] listesine çevirir."""
-    text = _generate([{"type": "text", "text": PROMPT}, {"type": "image", "data": image_b64, "mime_type": mime, "resolution": "ultra_high"}], SCHEMA, key, OCR_MODELS, groq_key)
+    text = _generate([{"type": "text", "text": PROMPT}, {"type": "image", "data": image_b64, "mime_type": mime, "resolution": "ultra_high"}], SCHEMA, key, OCR_MODELS)
     try:
         rows = _loose_json(text, "rows")
     except (ValueError, KeyError, TypeError, IndexError):
-        raise OkumaHatasi("Yapay zekâ yanıtı anlaşılamadı.", "response")
+        raise OkumaHatasi("Gemini yanıtı anlaşılamadı.", "response")
     clean = []
     for r in rows:
         if not isinstance(r, dict):
@@ -258,14 +207,14 @@ DUZELT_SCHEMA = {
 }
 
 
-def normalize_addresses(items, key, groq_key=None):
+def normalize_addresses(items, key):
     """[{id, adres, ilce}] → her adres için düzeltilmiş mahalle/sokak/kapı no. Sonuç haritada ayrıca doğrulanmalı."""
     listing = "\n".join("[%s] %s (ilçe: %s)" % (i["id"], i["adres"], i.get("ilce", "")) for i in items)
-    text = _generate([{"type": "text", "text": DUZELT_PROMPT + "\nAdresler:\n" + listing}], DUZELT_SCHEMA, key, groq_key=groq_key)
+    text = _generate([{"type": "text", "text": DUZELT_PROMPT + "\nAdresler:\n" + listing}], DUZELT_SCHEMA, key)
     try:
         out = _loose_json(text, "items")
     except (ValueError, KeyError, TypeError, IndexError):
-        raise OkumaHatasi("Yapay zekâ yanıtı anlaşılamadı.", "response")
+        raise OkumaHatasi("Gemini yanıtı anlaşılamadı.", "response")
     ids = {str(i["id"]) for i in items}
     clean = []
     for r in out:
@@ -297,13 +246,13 @@ DENETIM_SCHEMA = {"type": "object", "properties": {"items": {"type": "array", "i
     "required": ["id", "durum", "neden", "oneri"]}}}, "required": ["items"]}
 
 
-def check_addresses(items, key, groq_key=None):
+def check_addresses(items, key):
     """Evraktaki adres ↔ haritada bulunan konum karşılaştırması: [{id, durum: uygun|kontrol|hatali, neden, oneri}]."""
-    text = _generate([{"type": "text", "text": DENETIM_PROMPT + "\n\nDuraklar (JSON):\n" + json.dumps(items, ensure_ascii=False)}], DENETIM_SCHEMA, key, groq_key=groq_key)
+    text = _generate([{"type": "text", "text": DENETIM_PROMPT + "\n\nDuraklar (JSON):\n" + json.dumps(items, ensure_ascii=False)}], DENETIM_SCHEMA, key)
     try:
         out = _loose_json(text, "items")
     except (ValueError, KeyError, TypeError, IndexError):
-        raise OkumaHatasi("Yapay zekâ yanıtı anlaşılamadı.", "response")
+        raise OkumaHatasi("Gemini yanıtı anlaşılamadı.", "response")
     ids = {str(i.get("id")) for i in items}
     clean = []
     for r in out:

@@ -5,7 +5,7 @@ import * as depo from './depo.js';
 import { PROVIDERS, anahtar as servisAnahtari, adresAra, googleAra, matris, rota, yolMatrisi, cikisSaati, ServisHatasi } from './servisler.js';
 import { evrakOku, adresDuzelt, adresDenetle, OkumaHatasi } from './okuma.js';
 
-const ANAHTAR_ALANLARI = ['ykey', 'gkey', 'geminiKey', 'groqKey', 'orsKey', ...Object.values(PROVIDERS).map(p => p[1])];
+const ANAHTAR_ALANLARI = ['ykey', 'gkey', 'geminiKey', 'orsKey', ...Object.values(PROVIDERS).map(p => p[1])];
 
 function ortamNoktasi(metin) {
   const [a, b] = String(metin || '').replace(/;/g, ',').split(',').map(Number);
@@ -18,7 +18,6 @@ async function ayarlar(env) {
   return { ...kayit, depot: ortamNoktasi(env.DEPO_KOORDINAT), home: ortamNoktasi(env.EV_KOORDINAT) };
 }
 const geminiAnahtari = (env, a) => env.GEMINI_API_KEY || a.geminiKey || '';
-const groqAnahtari = (env, a) => env.GROQ_API_KEY || a.groqKey || '';
 const orsAnahtari = (env, a) => env.ORS_API_KEY || a.orsKey || '';
 const googleAnahtari = (env, a) => env.GOOGLE_MAPS_API_KEY || a.gkey || '';
 
@@ -51,13 +50,13 @@ async function get(env, request, url, user) {
     const a = await ayarlar(env), admin = G.yoneticiMi(env, user);
     const providers = Object.fromEntries(Object.keys(PROVIDERS).map(p => [p, !!servisAnahtari(env, a, p)]));
     const hints = admin ? Object.fromEntries(Object.keys(PROVIDERS).filter(p => servisAnahtari(env, a, p)).map(p => [p, servisAnahtari(env, a, p).slice(-4)])) : {};
-    const gem = geminiAnahtari(env, a), ors = orsAnahtari(env, a), groq = groqAnahtari(env, a);
+    const gem = geminiAnahtari(env, a), ors = orsAnahtari(env, a);
     let tercihler = {};
     try { tercihler = JSON.parse(await depo.ayarOku(env, 'tercih:' + safe(user)) || '{}'); } catch { tercihler = {}; }
     return yanit(200, {
       ...(await kullaniciNoktalari(env, user, a)), ykey: env.YANDEX_MAPS_JS_KEY || a.ykey || '',
       isAdmin: admin, providers, hints, googleConfigured: !!googleAnahtari(env, a),
-      ocrConfigured: !!gem || !!groq || !!env.AI, ocrHint: gem && admin ? gem.slice(-4) : '', groqConfigured: !!groq, groqHint: groq && admin ? groq.slice(-4) : '', orsConfigured: !!ors, orsHint: ors && admin ? ors.slice(-4) : '',
+      ocrConfigured: !!gem || !!env.AI, ocrHint: gem && admin ? gem.slice(-4) : '', orsConfigured: !!ors, orsHint: ors && admin ? ors.slice(-4) : '',
       user, authOn: G.girisAcik(env), tercihler,
     });
   }
@@ -195,7 +194,7 @@ async function post(env, request, url, user) {
     const onceki = await depo.ayarOku(env, ozet).catch(() => null);
     if (onceki) return yanit(200, { ...JSON.parse(onceki), onbellek: true });
     try {
-      const sonuc = await evrakOku(env, image, mime, ...(a => [geminiAnahtari(env, a), groqAnahtari(env, a)])(await ayarlar(env)));
+      const sonuc = await evrakOku(env, image, mime, geminiAnahtari(env, await ayarlar(env)));
       await depo.ayarYaz(env, ozet, JSON.stringify(sonuc)).catch(() => {});
       await env.DB.prepare("DELETE FROM ayarlar WHERE anahtar LIKE 'ocr:%' AND guncelleme < datetime('now', '-2 days')").run().catch(() => {});
       return yanit(200, sonuc);
@@ -207,14 +206,14 @@ async function post(env, request, url, user) {
     if (!Array.isArray(items) || items.length < 1 || items.length > 150) throw new HttpHata(400, 'Geçersiz durak listesi.');
     const temiz = items.map(i => JSON.parse(JSON.stringify(i, (k, v) => typeof v === 'string' ? v.slice(0, 300) : v)));
     if (temiz.some(i => !i || i.id === undefined)) throw new HttpHata(400, 'Geçersiz durak listesi.');
-    try { return yanit(200, await adresDenetle(env, temiz, ...(a => [geminiAnahtari(env, a), groqAnahtari(env, a)])(await ayarlar(env)))); }
+    try { return yanit(200, await adresDenetle(env, temiz, geminiAnahtari(env, await ayarlar(env)))); }
     catch (e) { return yanit(e.code === 'missing_key' ? 503 : 502, { error: e.message, code: e.code || 'upstream' }); }
   }
   if (yol === '/api/adres-duzelt') {
     const items = (await govde(request, 512 * 1024)).items;
     if (!Array.isArray(items) || items.length < 1 || items.length > 150) throw new HttpHata(400, 'Geçersiz adres listesi.');
     const temiz = items.map(i => { if (!i || i.id === undefined || i.adres === undefined) throw new HttpHata(400, 'Geçersiz adres listesi.'); return { id: String(i.id).slice(0, 20), adres: String(i.adres).slice(0, 500), ilce: String(i.ilce || '').slice(0, 40) }; });
-    try { return yanit(200, { items: await adresDuzelt(env, temiz, ...(a => [geminiAnahtari(env, a), groqAnahtari(env, a)])(await ayarlar(env))) }); }
+    try { return yanit(200, { items: await adresDuzelt(env, temiz, geminiAnahtari(env, await ayarlar(env))) }); }
     catch (e) { if (e instanceof OkumaHatasi) return yanit(e.code === 'missing_key' ? 503 : 502, { error: e.message, code: e.code }); return yanit(502, { error: 'Gemini’ye ulaşılamadı.', code: 'network' }); }
   }
   return new Response('Not Found', { status: 404, headers: { 'Cache-Control': 'no-store' } });

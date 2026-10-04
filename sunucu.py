@@ -154,11 +154,6 @@ def gemini_key(settings):
     return os.environ.get("GEMINI_API_KEY") or settings.get("geminiKey", "")
 
 
-def groq_key(settings):
-    """Gemini kotası bitince kullanılan yedek yapay zekâ (Groq) anahtarı."""
-    return os.environ.get("GROQ_API_KEY") or settings.get("groqKey", "")
-
-
 def read_settings():
     data = {}
     if os.path.exists(AYAR):
@@ -304,8 +299,6 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             key = data.pop("gkey", "")
             gem = gemini_key(data)
             data.pop("geminiKey", None)
-            groq = groq_key(data)
-            data.pop("groqKey", None)
             ors = ors_key(data)
             data.pop("orsKey", None)
             configured = {p: bool(key_for(p, data)) for p in PROVIDERS}
@@ -321,7 +314,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             admin = is_admin(self.user)
             if not admin:
                 hints = {}  # anahtar ipuçları yalnızca yöneticiye (Yandex harita anahtarı tarayıcıda harita için zorunlu)
-            return self.reply(200, {**data, "isAdmin": admin, "providers": configured, "hints": hints, "googleConfigured": bool(os.environ.get("GOOGLE_MAPS_API_KEY") or key), "ocrConfigured": bool(gem or groq), "ocrHint": gem[-4:] if gem and admin else "", "groqConfigured": bool(groq), "groqHint": groq[-4:] if groq and admin else "", "orsConfigured": bool(ors), "orsHint": ors[-4:] if ors and admin else "", "user": self.user, "authOn": auth_enabled()})
+            return self.reply(200, {**data, "isAdmin": admin, "providers": configured, "hints": hints, "googleConfigured": bool(os.environ.get("GOOGLE_MAPS_API_KEY") or key), "ocrConfigured": bool(gem), "ocrHint": gem[-4:] if gem and admin else "", "orsConfigured": bool(ors), "orsHint": ors[-4:] if ors and admin else "", "user": self.user, "authOn": auth_enabled()})
         if path == "/api/yonetim/ozet":
             if not is_admin(self.user):
                 return self.reply(403, {"error": "Bu işlem yalnızca yönetici içindir.", "code": "forbidden"})
@@ -455,7 +448,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             new = json.loads(self.rfile.read(size))
             if not isinstance(new, dict):
                 raise ValueError()
-            fields = {'ykey', 'gkey', 'geminiKey', 'groqKey', 'orsKey'} | {spec[1] for spec in PROVIDERS.values()}
+            fields = {'ykey', 'gkey', 'geminiKey', 'orsKey'} | {spec[1] for spec in PROVIDERS.values()}
             if any(k in fields for k in new) and not is_admin(self.user):
                 return self.reply(403, {"error": "API anahtarlarını yalnızca yönetici değiştirebilir.", "code": "forbidden"})
             if "tercihler" in new:  # kişiye özel tercihler (ör. arama takibi açık/kapalı)
@@ -619,12 +612,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         except (ValueError, TypeError, AttributeError):
             return self.reply(400, {"error": "Geçersiz fotoğraf.", "code": "invalid_request"})
         with LOCK:
-            settings = read_settings()
-            key, groq = gemini_key(settings), groq_key(settings)
-        if not key and not groq:
+            key = gemini_key(read_settings())
+        if not key:
             return self.reply(503, {"error": "Fotoğraf okuma için Ayarlar’dan Gemini anahtarı ekleyin.", "code": "missing_key"})
         try:
-            return self.reply(200, {"rows": read_document(image, mime, key, groq)})
+            return self.reply(200, {"rows": read_document(image, mime, key)})
         except OkumaHatasi as error:
             return self.reply(502, {"error": str(error), "code": error.code})
         except (urllib.error.URLError, TimeoutError):
@@ -796,12 +788,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         except (ValueError, TypeError, AttributeError):
             return self.reply(400, {"error": "Geçersiz durak listesi.", "code": "invalid_request"})
         with LOCK:
-            settings = read_settings()
-            key, groq = gemini_key(settings), groq_key(settings)
-        if not key and not groq:
+            key = gemini_key(read_settings())
+        if not key:
             return self.reply(503, {"error": "Adres denetimi için yapay zekâ anahtarı gerekli.", "code": "missing_key"})
         try:
-            return self.reply(200, {"items": check_addresses(items, key, groq), "kaynak": "Gemini"})
+            return self.reply(200, {"items": check_addresses(items, key), "kaynak": "Gemini"})
         except OkumaHatasi as error:
             return self.reply(502, {"error": str(error), "code": error.code})
         except (urllib.error.URLError, TimeoutError):
@@ -820,12 +811,11 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         except (ValueError, TypeError, KeyError, AttributeError):
             return self.reply(400, {"error": "Geçersiz adres listesi.", "code": "invalid_request"})
         with LOCK:
-            settings = read_settings()
-            key, groq = gemini_key(settings), groq_key(settings)
-        if not key and not groq:
+            key = gemini_key(read_settings())
+        if not key:
             return self.reply(503, {"error": "Adres düzeltme için Gemini anahtarı gerekli.", "code": "missing_key"})
         try:
-            return self.reply(200, {"items": normalize_addresses(items, key, groq)})
+            return self.reply(200, {"items": normalize_addresses(items, key)})
         except OkumaHatasi as error:
             return self.reply(502, {"error": str(error), "code": error.code})
         except (urllib.error.URLError, TimeoutError):

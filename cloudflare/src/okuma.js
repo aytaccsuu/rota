@@ -108,25 +108,6 @@ async function uret(env, parts, schema, key, sonTarih = Date.now() + 120000) {
   throw new OkumaHatasi(`Gemini şu an yanıt vermiyor (${son.status || son.name}).`);
 }
 
-// Groq (OpenAI uyumlu): Gemini kotası bitince yedek
-const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
-async function groqUret(env, parts, schema, key, sonTarih = Date.now() + 60000) {
-  const content = parts.map(p => p.type === 'image' ? { type: 'image_url', image_url: { url: `data:${p.mime_type || 'image/jpeg'};base64,${p.data}` } } : { type: 'text', text: p.text || '' });
-  content.push({ type: 'text', text: 'Yanıtı yalnızca şu JSON şemasına uyan tek bir JSON nesnesi olarak ver:\n' + JSON.stringify(schema) });
-  const kalan = Math.min(60000, sonTarih - Date.now());
-  if (kalan < 5000) throw new OkumaHatasi('Groq için süre kalmadı.');
-  let r;
-  try {
-    r = await fetch(GROQ_URL, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + key }, signal: AbortSignal.timeout(kalan),
-      body: JSON.stringify({ model: env.GROQ_MODEL || 'qwen/qwen3.8-27b', messages: [{ role: 'user', content }], temperature: 0, max_completion_tokens: 8000, response_format: { type: 'json_object' } }) });
-  } catch (e) { throw new OkumaHatasi(`Groq şu an yanıt vermiyor (${e.name}).`); }
-  if (r.status === 401 || r.status === 403) throw new OkumaHatasi('Groq anahtarı reddedildi.', 'auth');
-  if (r.status === 429) throw new OkumaHatasi('Groq ücretsiz kullanım sınırı doldu.', 'quota');
-  if (!r.ok) throw new OkumaHatasi(`Groq şu an yanıt vermiyor (${r.status}).`);
-  const data = await r.json();
-  return String(data?.choices?.[0]?.message?.content || '').replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-}
-
 const ALIAS = { siparis_no: ['siparis_no', 'siparis_numarasi', 'siparisNo', 'siparis'], geri_alim: ['geri_alim', 'geriAlim'] };
 const alan = (r, k) => { for (const a of ALIAS[k] || [k]) if (r[a] !== undefined && r[a] !== null && r[a] !== '') return r[a]; return ''; };
 function satirlariTemizle(rows) {
@@ -160,23 +141,16 @@ async function aiOku(env, b64, mime) {
   throw new OkumaHatasi('Yedek okuyucu (Workers AI) da okuyamadı: ' + (son?.message || 'hata'));
 }
 
-export async function evrakOku(env, b64, mime, key, groqKey = '') {
+export async function evrakOku(env, b64, mime, key) {
   let geminiHata = null;
-  const parts = [{ type: 'text', text: PROMPT }, { type: 'image', data: b64, mime_type: mime, resolution: 'ultra_high' }];
   if (key) {
     try {
-      const metin = await uret(env, parts, SCHEMA, key, Date.now() + (groqKey ? 55000 : 70000));
+      const metin = await uret(env, [{ type: 'text', text: PROMPT }, { type: 'image', data: b64, mime_type: mime, resolution: 'ultra_high' }], SCHEMA, key, Date.now() + 70000);
       return { rows: satirlariTemizle(gevsekJson(metin, 'rows')), kaynak: 'Gemini' };
     } catch (e) {
       if (e instanceof OkumaHatasi && e.code === 'auth') throw e;
       geminiHata = e;
     }
-  }
-  if (groqKey) {
-    try {
-      const rows = satirlariTemizle(gevsekJson(await groqUret(env, parts, SCHEMA, groqKey, Date.now() + 50000), 'rows'));
-      if (rows.length) return { rows, kaynak: 'Groq', not: geminiHata ? 'Gemini kullanılamadı; Groq ile okundu.' : undefined };
-    } catch (e) { geminiHata = geminiHata || e; }
   }
   if (env.AI) return { rows: await aiOku(env, b64, mime), kaynak: 'Workers AI', not: geminiHata ? 'Gemini kullanılamadı; yedek okuyucu kullanıldı.' : undefined };
   if (geminiHata) throw geminiHata instanceof OkumaHatasi ? geminiHata : new OkumaHatasi('Gemini yanıtı anlaşılamadı.', 'response');
@@ -195,17 +169,13 @@ function kalemleriTemizle(out, ids) {
   return clean;
 }
 
-export async function adresDuzelt(env, items, key, groqKey = '') {
+export async function adresDuzelt(env, items, key) {
   const liste = items.map(i => `[${i.id}] ${i.adres} (ilçe: ${i.ilce || ''})`).join('\n');
   const ids = new Set(items.map(i => String(i.id)));
   let geminiHata = null;
   if (key) {
     try { return kalemleriTemizle(gevsekJson(await uret(env, [{ type: 'text', text: DUZELT_PROMPT + '\nAdresler:\n' + liste }], DUZELT_SCHEMA, key), 'items'), ids); }
-    catch (e) { geminiHata = e; }
-  }
-  if (groqKey) {
-    try { return kalemleriTemizle(gevsekJson(await groqUret(env, [{ type: 'text', text: DUZELT_PROMPT + '\nAdresler:\n' + liste }], DUZELT_SCHEMA, groqKey), 'items'), ids); }
-    catch (e) { geminiHata = geminiHata || e; }
+    catch (e) { if (e instanceof OkumaHatasi && e.code === 'auth') throw e; geminiHata = e; }
   }
   if (env.AI) {
     try {
@@ -242,7 +212,7 @@ function denetimTemizle(out, ids) {
   }));
 }
 
-export async function adresDenetle(env, items, geminiKey, groqKey = '') {
+export async function adresDenetle(env, items, geminiKey) {
   const ids = new Set(items.map(i => String(i.id)));
   const veri = 'Duraklar (JSON):\n' + JSON.stringify(items);
   let hata = null;
@@ -254,10 +224,6 @@ export async function adresDenetle(env, items, geminiKey, groqKey = '') {
   }
   if (geminiKey) {
     try { return { items: denetimTemizle(gevsekJson(await uret(env, [{ type: 'text', text: DENETIM_PROMPT + '\n\n' + veri }], DENETIM_SCHEMA, geminiKey), 'items'), ids), kaynak: 'Gemini' }; }
-    catch (e) { hata = e; }
-  }
-  if (groqKey) {
-    try { return { items: denetimTemizle(gevsekJson(await groqUret(env, [{ type: 'text', text: DENETIM_PROMPT + '\n\n' + veri }], DENETIM_SCHEMA, groqKey), 'items'), ids), kaynak: 'Groq' }; }
     catch (e) { hata = e; }
   }
   throw new OkumaHatasi('Adres denetimi yapılamadı' + (hata ? ': ' + hata.message : ' (yapay zekâ yok).'), hata ? 'upstream' : 'missing_key');
