@@ -13,9 +13,9 @@ import sys
 KLASOR = os.path.dirname(os.path.abspath(__file__))
 DOSYA = os.path.join(KLASOR, "ANAHTARLAR.txt")
 AYAR = os.path.join(KLASOR, "..", "ayarlar.json")
-SIRA = ["ROTA_KULLANICILAR", "ROTA_GIZLI", "TOMTOM_API_KEY", "YANDEX_GEOCODER_API_KEY", "YANDEX_MAPS_JS_KEY", "GEMINI_API_KEY",
+SIRA = ["ROTA_KULLANICILAR", "ROTA_GIZLI", "TOMTOM_API_KEY", "YANDEX_GEOCODER_API_KEY", "YANDEX_MAPS_JS_KEY", "GEMINI_API_KEY", "GROQ_API_KEY",
         "MAPTILER_API_KEY", "GEOAPIFY_API_KEY", "ORS_API_KEY", "GOOGLE_MAPS_API_KEY", "DEPO_KOORDINAT", "EV_KOORDINAT"]
-JSON_ALAN = {"tomtomKey": "TOMTOM_API_KEY", "ygeokey": "YANDEX_GEOCODER_API_KEY", "ykey": "YANDEX_MAPS_JS_KEY", "geminiKey": "GEMINI_API_KEY",
+JSON_ALAN = {"tomtomKey": "TOMTOM_API_KEY", "ygeokey": "YANDEX_GEOCODER_API_KEY", "ykey": "YANDEX_MAPS_JS_KEY", "geminiKey": "GEMINI_API_KEY", "groqKey": "GROQ_API_KEY",
              "maptilerKey": "MAPTILER_API_KEY", "geoapifyKey": "GEOAPIFY_API_KEY", "orsKey": "ORS_API_KEY", "gkey": "GOOGLE_MAPS_API_KEY"}
 
 
