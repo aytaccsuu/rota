@@ -1313,7 +1313,7 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
   const svc=Math.max(0,+$('svc').value||0)*routeOrder.length*60;
   const links=[];
   // tüm rota tek bağlantıda: depo → duraklar (sırayla) → ev
-  const yx=`https://yandex.com.tr/harita/?rtt=auto&rtext=${seq.map(p=>(+p.lat).toFixed(6)+','+(+p.lon).toFixed(6)).join('~')}`;
+  const yx=`https://yandex.com.tr/maps/?rtt=auto&rtext=${seq.map(p=>(+p.lat).toFixed(6)+','+(+p.lon).toFixed(6)).join('~')}`;
   if(!draft)links.push(`<a href="${yx}" target="_blank" rel="noopener" data-app="${esc(yandexUygulama(yx))}"><button class="p"><i class="ic" data-ic="nav"></i> Rotayı Yandex'te aç</button></a>`);
   const names=s=>esc(stopNames(s));
   const delayTot=legs.reduce((a,l)=>a+(l.delay||0),0),withTraffic=legs.some(l=>'delay' in l);
@@ -1336,9 +1336,10 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
     const k=s.orders.reduce((a,o)=>a+(o.adet||0),0),geri=s.orders.some(o=>o.geri);
     const warn=!readyStop(s)?' <span class="tag t-Mahalle">konum yaklaşık</span>':'';
     const ll=(+s.lon).toFixed(6)+','+(+s.lat).toFixed(6);
-    const m=s.match||{},adrText=m.yandexAddress||(m.road&&m.no?[m.road+' '+m.no,(m.mah||s.mah)&&String(m.mah||s.mah).replace(/\s*(mah\.?|mahallesi)$/i,'')+' Mahallesi',s.ilce,'İstanbul'].filter(Boolean).join(', '):'');
-    const yhref=adrText?`https://yandex.com.tr/harita/?ll=${ll}&z=18&text=${encodeURIComponent(adrText)}`:`https://yandex.com.tr/harita/?ll=${ll}&z=18&whatshere%5Bpoint%5D=${ll}&whatshere%5Bzoom%5D=18`;
-    const ya=`<div class="yx-actions hide-print"><a class="yx" href="${yhref}" target="_blank" rel="noopener" data-app="${esc(yandexUygulama(yhref))}"><i class="ic" data-ic="star"></i> Yandex’te aç / kaydet</a><a class="yx" href="https://yandex.com.tr/harita/?rtt=auto&rtext=~${(+s.lat).toFixed(6)},${(+s.lon).toFixed(6)}" target="_blank" rel="noopener" data-app="yandexnavi://build_route_on_map?lat_to=${(+s.lat).toFixed(6)}&lon_to=${(+s.lon).toFixed(6)}"><i class="ic" data-ic="nav"></i> Git</a></div>`;
+    const m=s.match||{};
+    // koordinatın kendisi açılır (adres metniyle aratılırsa Yandex evraktaki yanlış mahalleye göre başka yer gösterebiliyor)
+    const yhref=`https://yandex.com.tr/maps/?ll=${ll}&z=18&pt=${ll},pm2rdm&whatshere%5Bpoint%5D=${ll}&whatshere%5Bzoom%5D=18`;
+    const ya=`<div class="yx-actions hide-print"><a class="yx" href="${yhref}" target="_blank" rel="noopener" data-app="${esc(yandexUygulama(yhref))}"><i class="ic" data-ic="star"></i> Yandex’te aç / kaydet</a><a class="yx" href="https://yandex.com.tr/maps/?rtt=auto&rtext=~${(+s.lat).toFixed(6)},${(+s.lon).toFixed(6)}" target="_blank" rel="noopener" data-app="yandexnavi://build_route_on_map?lat_to=${(+s.lat).toFixed(6)}&lon_to=${(+s.lon).toFixed(6)}"><i class="ic" data-ic="nav"></i> Git</a></div>`;
     const tas=siraDuzenle?`<div class="sira-tas hide-print"><button data-tas="${i}" data-y="-1" ${i?'':'disabled'} aria-label="Yukarı taşı"><i class="ic" data-ic="up"></i></button><button data-tas="${i}" data-y="1" ${i<routeOrder.length-1?'':'disabled'} aria-label="Aşağı taşı"><i class="ic" data-ic="down"></i></button></div>`:'';
     if(takip&&s.tamam&&!siraDuzenle){h+=`<div class="sira bitti"><span class="n"><i class="ic" data-ic="check"></i></span><div><div class="ad">${i+1+delivered.length}. ${names(s)} <span class="tk-zaman">tamamlandı ${esc(s.tamamZaman||'')}${s.arama?' · '+ARAMA[s.arama][1]:''}</span> <button class="tk-geri hide-print" data-tm="${i}">Geri al</button></div></div></div>`;return}
     const tk=takip&&!siraDuzenle?`<div class="takip hide-print">${Object.entries(ARAMA).map(([v,[icn,ad]])=>`<button class="tk ${s.arama===v?'on '+v:''}" data-tk="${i}" data-v="${v}"><i class="ic" data-ic="${icn}"></i> ${ad}</button>`).join('')}${s.arama?`<span class="tk-zaman">${esc(s.aramaZaman||'')}</span>`:''}<button class="tk tamam" data-tm="${i}"><i class="ic" data-ic="check"></i> Tamamlandı</button></div>`:'';
@@ -1502,7 +1503,7 @@ async function otoKaydet(){
     haric:[...new Set([...(eski.haric||[]).filter(x=>keys.has(x)),...skipped])],
     rota:{sira,km:delivered.length&&eski.rota?.km?eski.rota.km:lastRoute?+((lastRoute.dist||0)/1000).toFixed(1):null,sure:lastRoute?Math.round((lastRoute.dur||0)/60):null,
       gecikme:lastRoute?Math.round((lastRoute.legs||[]).reduce((a,l)=>a+(l.delay||0),0)/60):null,eve:lastRoute?.eta?.length?new Date(lastRoute.eta.at(-1)).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}):null,
-      yandex:lastRoute?.seq?.length?'https://yandex.com.tr/harita/?rtt=auto&rtext='+lastRoute.seq.map(p=>p.lat.toFixed(6)+','+p.lon.toFixed(6)).join('~'):null,olusturma:new Date().toISOString()},evraklar:planEvraklar};
+      yandex:lastRoute?.seq?.length?'https://yandex.com.tr/maps/?rtt=auto&rtext='+lastRoute.seq.map(p=>p.lat.toFixed(6)+','+p.lon.toFixed(6)).join('~'):null,olusturma:new Date().toISOString()},evraklar:planEvraklar};
   k.rota.evDepoKm=eski.rota?.evDepoKm??await evDepoKm();
   if(k.rota.km!=null)k.rota.toplamKm=+((k.rota.km||0)+(k.rota.evDepoKm||0)).toFixed(1);
   try{await gunYaz(t,k);if(hesapSayfasiAcik()&&!$('hesapPage').contains(document.activeElement)&&!gunTimer)renderHesap()}catch(e){console.warn('gün kaydı',e)}
@@ -1630,11 +1631,14 @@ const html2pdfYukle=()=>html2pdfYuk||(html2pdfYuk=new Promise((ok,no)=>{const sc
 // Yandex web bağlantısını uygulama bağlantısına çevirir (yandex.com.tr/harita/?... → yandexmaps://maps.yandex.ru/?...)
 const yandexUygulama=web=>{try{const u=new URL(web);return 'yandexmaps://maps.yandex.ru/'+u.search}catch(e){return ''}};
 const mobilMi=()=>/Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'');
-// Telefonda Yandex bağlantıları: yandex.com.tr/harita adresi aynı sekmede açılır. iOS/Android bu adresi Yandex Haritalar
+// Telefonda Yandex bağlantıları: yandex.com.tr/maps adresi aynı sekmede açılır. iOS/Android bu adresi Yandex Haritalar
 // uygulamasına doğrudan verir (soru sormaz); yandexmaps:// gibi özel adresler Safari'de "açılsın mı?" sorusu çıkarır, kullanılmaz.
 try{localStorage.removeItem('rota_yx_uygulama')}catch(e){}
 document.addEventListener('click',e=>{
-  const a=e.target.closest?.('a[data-app]');if(a&&mobilMi())a.removeAttribute('target');
+  const a=e.target.closest?.('a[data-app]');if(!a||!mobilMi())return;
+  a.removeAttribute('target');
+  // /maps/ adresini hem Yandex Haritalar hem Yandex Navigasyon doğrudan açar (eski kayıtlardaki /harita/ da çevrilir)
+  if(a.href.includes('yandex.com.tr/harita/'))a.href=a.href.replace('yandex.com.tr/harita/','yandex.com.tr/maps/');
 },true);
 function bildirim(metin,sure=2500){let t=document.getElementById('bildirim');if(!t){t=document.createElement('div');t.id='bildirim';document.body.appendChild(t)}t.textContent=metin;t.classList.add('acik');clearTimeout(t._z);if(sure)t._z=setTimeout(()=>t.classList.remove('acik'),sure)}
 async function pdfAc(baslik,govde){
