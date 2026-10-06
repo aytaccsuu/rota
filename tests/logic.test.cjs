@@ -67,6 +67,8 @@ async function main(){
     assert.ok(kml.includes('Konum yaklaşık'));
   }
   assert.equal(run(`buildStops([{sip:'162409262477306',alici:'NAZİF ÖCAL',ilce:'Kadıköy',raw:'Göztepe mah. Arı apartmanı no: 171'},{sip:'162609262477306',alici:'NAZİF ÖCAL',ilce:'Kadıköy',raw:'Göztepe mah. Arı apartmanı no: 171'}]).reduce((a,s)=>a+s.orders.length,0)`),1,'sipariş no farklı okunsa da aynı alıcı+adres tek sipariş');
+  assert.equal(run(`(()=>{const st=buildStops([{sip:'11321412192_1',alici:'Arzu GÜVEN',adet:1,ilce:'Kadıköy',raw:'Dostane sokak faik bey apt no 2 /4 FENERYOLU MAH. /'},{sip:'11321545555_1',alici:'ARZU GÜVEN',adet:1,ilce:'Kadıköy',raw:'Dostane sokak faikbey apt no 2/4 FENERYOLU MAH. /'}]);return st.length+'|'+st[0].orders.length+'|'+st[0].orders.reduce((a,o)=>a+o.adet,0)})()`),'1|2|2','aynı alıcı+adres, farklı sipariş no: tek durak, 2 sipariş, 2 koli');
+  assert.equal(run(`buildStops([{sip:'11321412192_1',alici:'Arzu GÜVEN',ilce:'Kadıköy',raw:'Dostane sokak faik bey apt no 2 /4'},{sip:'11321412192_1',alici:'Arzu GÜVEN',ilce:'Kadıköy',raw:'Dostane sokak faik bey apt no 2 /4'}]).reduce((a,s)=>a+s.orders.length,0)`),1,'aynı sipariş no iki kez okunursa tek');
   // Ayrıştırma: virgül sınırı ve numaradan önceki yol
   // farklı sokaklar "Sokak/Cadde" kelimesi ortak diye aynı sayılmamalı (görünmez karakter hatası: Tepegöz ≈ Acun)
   assert.equal(run(`sameLoose('Acun Sokak','Tepegöz Sokak')`),false);

@@ -211,6 +211,7 @@ html[data-theme="dark"] .tip{background:#16304d;color:#a9cdf5;border-color:#5d95
 .yuk-ozet b{display:block;font-size:22px;font-weight:800;line-height:1.2}.yuk-ozet .g{background:#fff1dc;border-color:#e9b56b;color:#8a4b00}html[data-theme="dark"] .yuk-ozet .g{background:#3d2a10;border-color:#8a5a1c;color:#ffc37a}
 @media screen{#result .sira .adr{font-size:20px;font-weight:800;color:var(--adr);letter-spacing:.1px}#result .tip{font-size:15px;padding:5px 12px}}
 @media(max-width:720px){#result .sira .adr{font-size:17px}}
+#ekleCard>summary{list-style:none}#ekleCard>summary::-webkit-details-marker{display:none}#ekleCard>summary h2{margin:0;display:flex;align-items:center;gap:8px}#ekleCard>summary h2:after{content:'▾';margin-left:auto;color:var(--mute);transition:transform .2s}#ekleCard[open]>summary h2:after{transform:rotate(180deg)}#ekleCard[open]>summary{margin-bottom:6px}.ekle-ozet{font-style:normal;font-size:13px;font-weight:600;color:var(--ok)}
 </style>
 </head>
 <body>
@@ -245,12 +246,12 @@ html[data-theme="dark"] .tip{background:#16304d;color:#a9cdf5;border-color:#5d95
 
   <div id="rotaPage">
   <div class="workspace"><aside class="setup-column">
-  <div class="card hide-print">
-    <h2><span>1</span>Teslimatları ekle</h2><p class="card-caption">Satırların sıralı olması gerekmez.</p>
+  <details class="card hide-print" id="ekleCard" open>
+    <summary><h2><span>1</span>Teslimatları ekle<em id="ekleOzet" class="ekle-ozet"></em></h2></summary><p class="card-caption">Satırların sıralı olması gerekmez.</p>
     <div class="drop" id="drop" role="button" tabindex="0" aria-label="Teslimat evrakı yükle"><svg class="upload-icon" width="29" height="29" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 16V4m-4 4 4-4 4 4M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><strong>Dosyanı buraya bırak</strong><span class="small">veya seçmek için tıkla<br>Fotoğraf, Excel, CSV · Çoklu yükleme</span><input type="file" id="file" accept="image/*,.xlsx,.xls,.csv" multiple hidden></div>
     <div class="bar" id="ocrBar" style="display:none"><i></i></div>
     <div class="small" id="fileInfo" style="margin-top:6px"></div>
-  </div>
+  </details>
 
   </aside><main class="route-column">
   <div class="card" id="resCard">
@@ -479,11 +480,12 @@ function renderPts(){
 const STREET={cad:'Caddesi',cd:'Caddesi',cadde:'Caddesi',caddesi:'Caddesi',sok:'Sokak',sk:'Sokak',sokak:'Sokak','sokağı':'Sokak',bulvar:'Bulvarı','bulvarı':'Bulvarı',blv:'Bulvarı'};
 const STOPW=/^(mah|mahallesi|mahalle|no|apt|apartman|apartmanı|sitesi|site|sit|blok|kat|daire|d|istanbul|i̇stanbul|\/|-)$/;
 function parseAddress(raw,ilceRaw){
-  const s=String(raw).replace(/\s+/g,' ').trim();
+  // "no 2 /4" → "no 2/4" (kapı/daire)
+  const s=String(raw).replace(/\s+/g,' ').replace(/(\d)\s*\/\s*(\d)/g,'$1/$2').trim();
   const mm=[...s.matchAll(/(?:^|[,;])\s*([A-Za-zÇĞİÖŞÜçğıöşü0-9]+(?:\s+[A-Za-zÇĞİÖŞÜçğıöşü0-9]+){0,3})\s+mah(?:allesi)?(?=[\s.,/]|$)/gi)].map(x=>x[1]).filter(x=>!/^mah/i.test(x));
   // "19 Mayıs Mah." rakamla başlayabilir; ama "No:5 GÖZTEPE MAH."daki 5 kapı numarasıdır, mahalle adına girmez
   const fallbackMah=[...s.matchAll(/((?:\d+\s+)?[A-Za-zÇĞİÖŞÜçğıöşü]{3,})\s+mah(?:allesi)?(?=[\s.,/]|$)/gi)]
-    .map(x=>/(?:\bno|\bnu|\bnr|\bn|numara|:)\s*[:.]?\s*$/i.test(s.slice(0,x.index))?x[1].replace(/^\d+\s+/,''):x[1]).find(x=>!/^mah/i.test(x));
+    .map(x=>/(?:\bno|\bnu|\bnr|\bn|numara|:|\d\/)\s*[:.]?\s*$/i.test(s.slice(0,x.index))?x[1].replace(/^\d+\s+/,''):x[1]).find(x=>!/^mah/i.test(x));
   const mah=mm[0]||fallbackMah||'';
   // bitişik yazımları ayır: "KadıköyBostancı" → "Kadıköy Bostancı", "Apartmanı24/A" → "Apartmanı 24/A"
   const rest=s.replace(/([a-zçğıöşü])([A-ZÇĞİÖŞÜ])/g,'$1 $2').replace(/([A-Za-zÇĞİÖŞÜçğıöşü]{3,})(\d)/g,'$1 $2');
@@ -1126,6 +1128,8 @@ $('pkClose').onclick=closePicker;
 $('pkMap').onclick=()=>{const s=pkStop;closePicker();startPick('Durak konumunu seçin',(lat,lon)=>{Object.assign(s,{lat,lon,quality:'Elle',match:null,aiDenetim:null});konumHatirla(s,'elle');clearRoute();renderStops();refreshMarkers();updateState()})};
 
 function updateState(){
+  const ek=$('ekleCard');
+  if(ek){const dolu=stops.length>0;if(dolu!==ek._dolu){ek.open=!dolu;ek._dolu=dolu}const oz=$('ekleOzet');if(oz)oz.textContent=dolu?stops.length+' durak yüklendi':''}
   const act=pendingStops(),ok=act.filter(readyStop),located=act.filter(validPoint),msgs=[];
   if(!depot)msgs.push('depo konumu kaydedilmedi');if(!home)msgs.push('ev konumu kaydedilmedi');
   if(located.length<act.length)msgs.push((act.length-located.length)+' adresin konumu yok; düzeltin veya açıkça atlayın');
@@ -1181,12 +1185,14 @@ function buildStops(orders){
   const m=new Map();let id=0;
   // Aynı sipariş numarası (ör. fotoğrafta iki kez okunan satır) tek sipariş sayılır
   const seenSip=new Set();
-  const seenRow=new Set();
+  const seenRow=new Map(); // alıcı+adres → o satırdaki sipariş numaraları
   orders=orders.filter(o=>{
     const k=String(o.sip||'').replace(/\D/g,''),r=fold(o.alici).replace(/[^a-z0-9]/g,'')+'|'+fold(o.raw).replace(/[^a-z0-9]/g,'');
-    // Aynı alıcı + aynı adres de tekrar sayılır (sipariş no bir kopyada yanlış okunmuş olabilir)
-    if((k.length>=6&&seenSip.has(k))||(r.length>12&&seenRow.has(r)))return false;
-    if(k.length>=6)seenSip.add(k);seenRow.add(r);return true});
+    if(k.length>=6&&seenSip.has(k))return false;
+    // Aynı alıcı + aynı adres: sipariş no yoksa ya da 1-2 hane farkla okunmuşsa aynı satırın tekrarı sayılır;
+    // açıkça farklı sipariş numarası (ör. Arzu Güven: 11321412192_1 ve 11321545555_1) ayrı siparişdir
+    if(r.length>12&&seenRow.has(r)&&(k.length<6||seenRow.get(r).some(p=>p.length<6||(p.length===k.length&&lev(p,k)<=2))))return false;
+    if(k.length>=6)seenSip.add(k);if(!seenRow.has(r))seenRow.set(r,[]);seenRow.get(r).push(k);return true});
   for(const o of orders){
     const p=parseAddress(o.raw,o.ilce);
     const mall=mallFromCode(o.alici)||mallFromCode(o.musteri);
@@ -1198,7 +1204,8 @@ function buildStops(orders){
       if(!m.has(key))m.set(key,{id:++id,...p,orders:[],raw:o.raw,lat:null,lon:null,quality:'Bekliyor',skip:false,match:null});
       m.get(key).orders.push(o);continue;
     }
-    const key=p.street&&p.no?fold([p.street,p.no,p.mah,p.ilce,p.place].join('|')):fold([o.raw,p.ilce].join('|'));
+    // apartman adı boşluksuz karşılaştırılır ("faik bey apt" = "faikbey apt")
+    const key=p.street&&p.no?fold([p.street,p.no,p.mah,p.ilce].join('|'))+'|'+fold(p.place||'').replace(/[^a-z0-9]/g,''):fold([o.raw,p.ilce].join('|'));
     if(!m.has(key))m.set(key,{id:++id,...p,orders:[],raw:o.raw,lat:null,lon:null,quality:'Bekliyor',skip:false,match:null});
     m.get(key).orders.push(o);
   }
