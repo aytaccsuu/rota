@@ -1929,38 +1929,59 @@ function guncelFiyatGoster(){
   const el=document.getElementById('guncelFiyatBilgi');if(!el)return;
   el.textContent=guncelYakit?`Güncel motorin: ${String(guncelYakit.motorin).replace('.',',')} ₺/L (${guncelYakit.kaynak}, İstanbul ${guncelYakit.yaka==='avrupa'?'Avrupa':'Anadolu'}, ${new Date(guncelYakit.zaman).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})})${+OTURUM.tercih?.motorinFiyat>0?' · şu an elle yazdığınız fiyat kullanılıyor':''}`:'Güncel motorin fiyatı alınamadı; gerekirse elle yazın.';
 }
-const aracAyar=()=>{const t=OTURUM.tercih||{};return {ad:t.aracAd||'',tuketim:+t.aracTuketim>0?+t.aracTuketim:11,depo:+t.aracDepo>0?+t.aracDepo:70,fiyat:+t.motorinFiyat>0?+t.motorinFiyat:(guncelYakit?.motorin||0)}};
+let ogrenilenTuketim=null; // iki depo fulleme arasından hesaplanan gerçek L / 100 km
+const aracAyar=()=>{const t=OTURUM.tercih||{};return {ad:t.aracAd||'',tuketim:ogrenilenTuketim||(+t.aracTuketim>0?+t.aracTuketim:11),ogrenildi:!!ogrenilenTuketim,depo:+t.aracDepo>0?+t.aracDepo:70,fiyat:+t.motorinFiyat>0?+t.motorinFiyat:(guncelYakit?.motorin||0)}};
 const gunLitre=r=>{const km=r&&r.durum!=='gidilmedi'?gunKm(r):0;return km?km*aracAyar().tuketim/100:0};
 const yakitLitre=(y,fiyat)=>y.litre>0?+y.litre:(fiyat>0?y.tutar/fiyat:0);
 const litreYaz=l=>(Math.round(l*10)/10).toLocaleString('tr-TR',{maximumFractionDigits:1})+' L';
 // Depoda kalan yakıt: alınan litre eklenir (depo kapasitesiyle sınırlı), her günün km'sine göre yakılan düşülür
+const fullMu=(y,l,depo)=>/full/i.test(y.notu||'')||(depo>0&&l>=depo*0.9);
 async function depoTahmini(son){
   await guncelFiyatYukle();
-  const a=aracAyar(),d=new Date(son.slice(0,7)+'-01T12:00');d.setMonth(d.getMonth()-1);
-  const aylar=[d.toLocaleDateString('sv-SE').slice(0,7),son.slice(0,7)];
+  const t0=OTURUM.tercih||{},depo=+t0.aracDepo>0?+t0.aracDepo:70,fiyat=aracAyar().fiyat;
+  const aylar=[2,1,0].map(g=>{const d=new Date(son.slice(0,7)+'-01T12:00');d.setMonth(d.getMonth()-g);return d.toLocaleDateString('sv-SE').slice(0,7)});
   const veri=await Promise.all(aylar.map(x=>ayYukle(x)));
-  const yak=new Map(),alim=new Map();let sonAlim=null;
+  const km=new Map(),alim=new Map();let sonAlim=null;
   for(const v of veri){
-    for(const r of v.rutlar)if(r.tarih<=son)yak.set(r.tarih,(yak.get(r.tarih)||0)+gunLitre(r));
-    for(const y of v.yakitlar)if(y.tarih<=son){const l=yakitLitre(y,a.fiyat);alim.set(y.tarih,(alim.get(y.tarih)||0)+l);if(!sonAlim||y.tarih>=sonAlim.tarih)sonAlim={...y,l}}
+    for(const r of v.rutlar)if(r.tarih<=son&&r.durum!=='gidilmedi'){const k=gunKm(r);if(k)km.set(r.tarih,(km.get(r.tarih)||0)+k)}
+    for(const y of v.yakitlar)if(y.tarih<=son){const l=yakitLitre(y,fiyat),o=alim.get(y.tarih)||{l:0,full:false};o.l+=l;o.full=o.full||fullMu(y,l,depo);alim.set(y.tarih,o);if(!sonAlim||y.tarih>=sonAlim.tarih)sonAlim={...y,l,full:fullMu(y,l,depo)}}
   }
-  if(!alim.size||![...alim.values()].some(l=>l>0))return {eksik:!a.fiyat,sonAlim};
+  const gunler=[...new Set([...km.keys(),...alim.keys()])].sort();
+  // 1) iki fulleme arası: (ikinci fullemede alınan + aradaki alımlar) / aradaki km
+  let fullT=null,arada=0,kmArada=0;const oranlar=[];
+  for(const t of gunler){
+    const al=alim.get(t);
+    if(al&&al.full){if(fullT&&kmArada>=80){const r=(arada+al.l)/kmArada*100;if(r>=4&&r<=40)oranlar.push(r)}fullT=t;arada=0;kmArada=0}
+    else if(al&&fullT)arada+=al.l;
+    if(fullT)kmArada+=km.get(t)||0;
+  }
+  ogrenilenTuketim=oranlar.length?Math.round(oranlar.slice(-3).reduce((a,b)=>a+b,0)/Math.min(3,oranlar.length)*10)/10:null;
+  const a=aracAyar();
+  if(!alim.size||![...alim.values()].some(x=>x.l>0))return {eksik:!fiyat,sonAlim};
+  // 2) depo: full gününde dolu, kısmi alımda eklenir (kapasiteyle sınırlı), her gün km × tüketim düşülür
   let L=0,bas=false;
-  for(const t of [...new Set([...yak.keys(),...alim.keys()])].sort()){if(alim.has(t)){L=Math.min(a.depo,L+alim.get(t));bas=true}if(bas)L=Math.max(0,L-(yak.get(t)||0))}
-  return {litre:L,km:L/(a.tuketim/100),sonAlim,a};
+  for(const t of gunler){const al=alim.get(t);if(al){L=al.full?depo:Math.min(depo,L+al.l);bas=true}if(bas)L=Math.max(0,L-(km.get(t)||0)*a.tuketim/100)}
+  return {litre:L,km:L/(a.tuketim/100),sonAlim,a:{...a,depo}};
 }
 function depoHTML(dt){
   if(!dt)return '';
   if(dt.litre==null)return dt.sonAlim?'<div class="small">Güncel yakıt fiyatı alınamadı; depo tahmini için Ayarlar → Araç ve yakıt bölümüne motorin fiyatını yazın ya da yakıt eklerken litreyi girin.</div>':'';
-  return `<div class="tiles depo-t"><div><b>${litreYaz(dt.litre)}</b>depoda tahmini kalan<span class="tnot">depo ${dt.a.depo} L</span></div><div><b>≈ ${Math.round(dt.km).toLocaleString('tr-TR')} km</b>daha gider<span class="tnot">${String(dt.a.tuketim).replace('.',',')} L / 100 km ile</span></div>${dt.sonAlim?`<div><b>${tl(dt.sonAlim.tutar)}</b>son yakıt · ${trTarih(dt.sonAlim.tarih)}<span class="tnot">≈ ${litreYaz(dt.sonAlim.l)}</span></div>`:''}</div>`;
+  return `<div class="tiles depo-t"><div><b>${litreYaz(dt.litre)}</b>depoda tahmini kalan<span class="tnot">depo ${dt.a.depo} L</span></div><div><b>≈ ${Math.round(dt.km).toLocaleString('tr-TR')} km</b>daha gider<span class="tnot">${String(dt.a.tuketim).replace('.',',')} L / 100 km ile${dt.a.ogrenildi?' (fullemelerden öğrenildi)':''}</span></div>${dt.sonAlim?`<div><b>${tl(dt.sonAlim.tutar)}</b>son yakıt · ${trTarih(dt.sonAlim.tarih)}<span class="tnot">≈ ${litreYaz(dt.sonAlim.l)}${dt.sonAlim.full?' · depo full':''}</span></div>`:''}</div>`;
 }
 const calisilanGun=rutlar=>rutlar.filter(r=>r.durum!=='gidilmedi').length;
 const gunlukYakit=(toplam,gun)=>gun>0?toplam/gun:0;
+// gerçek günlük yakıt: km'si bilinen çalışılan günlerde km × tüketim × motorin fiyatı
+function gunlukGercek(rutlar){
+  const a=aracAyar(),g=rutlar.filter(r=>r.durum!=='gidilmedi'&&gunKm(r));
+  if(!g.length||!a.fiyat)return null;
+  const litre=g.reduce((s,r)=>s+gunLitre(r),0)/g.length;
+  return {tl:litre*a.fiyat,litre,gun:g.length};
+}
 
 // ---------- Yakıt: tarih ve tutar ----------
 async function renderYakit(){
   const el=$('hesap_yakit'),ay=ozetAy||todayISO().slice(0,7);
-  el.innerHTML=`<div class="yform"><div class="fl">Tarih${donemHTML('yTarih','date',todayISO())}</div><label class="fl">Tutar (₺)<input type="text" inputmode="decimal" autocomplete="off" id="yTutar" placeholder="ör. 2500"></label><label class="fl">Litre (isteğe bağlı)<input type="text" inputmode="decimal" autocomplete="off" id="yLitre" placeholder="ör. 50"></label><button class="p tbtn" id="yEkle"><i class="ic" data-ic="fuel"></i> Yakıt ekle</button></div>
+  el.innerHTML=`<div class="yform"><div class="fl">Tarih${donemHTML('yTarih','date',todayISO())}</div><label class="fl">Tutar (₺)<input type="text" inputmode="decimal" autocomplete="off" id="yTutar" placeholder="ör. 2500"></label><label class="fl">Litre (isteğe bağlı)<input type="text" inputmode="decimal" autocomplete="off" id="yLitre" placeholder="ör. 50"></label><label class="fl yfull"><span><input type="checkbox" id="yFull"> Depoyu fulledim</span></label><button class="p tbtn" id="yEkle"><i class="ic" data-ic="fuel"></i> Yakıt ekle</button></div>
     <div class="small" id="yMsg"></div>
     <div class="htool" style="margin-top:18px">${donemHTML('yAy','month',ay)}</div><div id="yOzet"></div><div id="yListe" class="small">Yükleniyor…</div>`;
   donemBagla('yAy',v=>{ozetAy=v;renderYakit()});
@@ -1969,16 +1990,17 @@ async function renderYakit(){
     const item={tarih:$('yTarih').value,tutar:sayiOku($('yTutar').value)},lt=sayiOku($('yLitre').value);
     if(!item.tarih||!(+item.tutar>0)){$('yMsg').textContent='Tarih ve tutar gerekli.';return}
     if(lt>0)item.litre=lt;
+    if($('yFull').checked)item.notu='full';
     try{await apiJSON('/api/yakit',item);delete ayCache[item.tarih.slice(0,7)];ozetAy=item.tarih.slice(0,7);renderYakit()}catch(e){$('yMsg').textContent='Kaydedilemedi: '+e.message}
   };
   try{
-    await guncelFiyatYukle();
+    await guncelFiyatYukle();await depoTahmini(todayISO()).catch(()=>null);
     const {yakitlar,rutlar}=await ayYukle(ay,true),top=yakitlar.reduce((a,y)=>a+y.tutar,0),gun=calisilanGun(rutlar);
     const ayLitre=rutlar.reduce((a,r)=>a+gunLitre(r),0),fy=aracAyar().fiyat;
-    $('yOzet').innerHTML=`<div class="tiles"><div><b>${tl(top)}</b>bu ay alınan yakıt</div><div><b>${gun}</b>çalışılan gün</div><div><b>${gun?tl(gunlukYakit(top,gun)):'—'}</b>günlük tahmini yakıt</div>${ayLitre?`<div><b>${litreYaz(ayLitre)}</b>km'ye göre yakılan${fy?`<span class="tnot">≈ ${tl(ayLitre*fy)}</span>`:''}</div>`:''}</div><div id="yDepo"></div>`;
+    $('yOzet').innerHTML=`<div class="tiles"><div><b>${tl(top)}</b>bu ay alınan yakıt</div><div><b>${gun}</b>çalışılan gün</div>${(()=>{const gg=gunlukGercek(rutlar);return gg?`<div><b>${tl(gg.tl)}</b>günlük yakıt (gerçek km)<span class="tnot">≈ ${litreYaz(gg.litre)} / gün · ${gg.gun} günün km'si</span></div>`:`<div><b>${gun?tl(gunlukYakit(top,gun)):'—'}</b>günlük tahmini yakıt${gun?'<span class="tnot">alınan yakıt ÷ gün</span>':''}</div>`})()}${ayLitre?`<div><b>${litreYaz(ayLitre)}</b>km'ye göre yakılan${fy?`<span class="tnot">≈ ${tl(ayLitre*fy)}</span>`:''}</div>`:''}</div><div id="yDepo"></div>`;
     const ayBitis=ay===todayISO().slice(0,7)?todayISO():ay+'-'+String(new Date(+ay.slice(0,4),+ay.slice(5,7),0).getDate()).padStart(2,'0');
     depoTahmini(ayBitis).then(dt=>{if($('yDepo'))$('yDepo').innerHTML=depoHTML(dt)}).catch(()=>{});
-    $('yListe').innerHTML=yakitlar.length?`<table class="otab"><tr><th>Tarih</th><th>Tutar</th><th>Litre</th><th></th></tr>${yakitlar.map(y=>`<tr><td>${trTarih(y.tarih)}</td><td>${tl(y.tutar)}</td><td>${y.litre>0?litreYaz(+y.litre):(fy?'≈ '+litreYaz(y.tutar/fy):'')}</td><td><button class="copy" data-sil="${y.id}" title="Sil"><i class="ic" data-ic="x"></i></button></td></tr>`).join('')}<tr class="tot"><td>Toplam</td><td>${tl(top)}</td><td></td><td></td></tr></table>`:'Bu ay yakıt kaydı yok.';
+    $('yListe').innerHTML=yakitlar.length?`<table class="otab"><tr><th>Tarih</th><th>Tutar</th><th>Litre</th><th></th></tr>${yakitlar.map(y=>`<tr><td>${trTarih(y.tarih)}</td><td>${tl(y.tutar)}</td><td>${y.litre>0?litreYaz(+y.litre):(fy?'≈ '+litreYaz(y.tutar/fy):'')}${/full/i.test(y.notu||'')?' <span class="rozet">full</span>':''}</td><td><button class="copy" data-sil="${y.id}" title="Sil"><i class="ic" data-ic="x"></i></button></td></tr>`).join('')}<tr class="tot"><td>Toplam</td><td>${tl(top)}</td><td></td><td></td></tr></table>`:'Bu ay yakıt kaydı yok.';
     $('yListe').querySelectorAll('[data-sil]').forEach(b=>b.onclick=async()=>{if(!confirm('Bu yakıt kaydı silinsin mi?'))return;await apiJSON('/api/yakit-sil',{id:+b.dataset.sil});renderYakit()});
   }catch(e){$('yListe').textContent='Okunamadı: '+e.message}
 }
@@ -1988,22 +2010,25 @@ async function renderOzet(){
   const el=$('hesap_ozet'),ay=ozetAy||(gunSecili||todayISO()).slice(0,7);ozetAy=ay;
   el.innerHTML=`<div class="htool">${donemHTML('oAy','month',ay)}<div class="acts"><button class="tbtn" id="oYaz"><i class="ic" data-ic="file"></i> PDF</button><button class="tbtn" id="oCsv"><i class="ic" data-ic="download"></i> CSV</button></div></div><div id="oTablo" class="small">Yükleniyor…</div>`;
   donemBagla('oAy',v=>{ozetAy=v;renderOzet()});
+  await guncelFiyatYukle();await depoTahmini(todayISO()).catch(()=>null); // öğrenilen tüketim hazır olsun
   let data;try{data=await ayYukle(ay,true)}catch(e){$('oTablo').textContent='Okunamadı: '+e.message;return}
   const [Y,M]=ay.split('-').map(Number),gunSay=new Date(Y,M,0).getDate();
   const byDay=Object.fromEntries(data.rutlar.map(r=>[r.tarih,r])),yakit={};data.yakitlar.forEach(y=>yakit[y.tarih]=(yakit[y.tarih]||0)+y.tutar);
-  const rows=[],T={nokta:0,rut:0,ekKm:0,ekKmTl:0,ham:0,net:0,kdv:0,top:0,yakit:0,calisti:0,gidilmedi:0,km:0,kmGun:0,desi:0,kg:0};
+  const rows=[],T={nokta:0,rut:0,ekKm:0,ekKmTl:0,ham:0,net:0,kdv:0,top:0,yakit:0,calisti:0,gidilmedi:0,km:0,kmGun:0,desi:0,kg:0},ayRutlar=[];
   for(let d=1;d<=gunSay;d++){
     const t=`${ay}-${String(d).padStart(2,'0')}`,r=byDay[t],h=r?gunHesap(r):null,yk=yakit[t]||0;
     if(r?.durum==='gidilmedi')T.gidilmedi++;else if(r)T.calisti++;
     if(h){T.nokta+=h.nokta;T.rut+=h.rutUcret+h.ekstraTl;T.ekKm+=h.ekKm;T.ekKmTl+=h.ekKmTl;T.ham+=h.hammaliye;T.net+=h.net;T.kdv+=h.kdv;T.top+=h.toplam}
     const km=r&&r.durum!=='gidilmedi'?gunKm(r):null;if(km){T.km+=km;T.kmGun++}
     if(r&&r.durum!=='gidilmedi'){const y=gunYuk(r);T.desi+=y.desi;T.kg+=y.kg}
+    if(r)ayRutlar.push(r);
     T.yakit+=yk;rows.push({t,d,r,h,yk,km});
   }
   const n=x=>x?Math.round(x).toLocaleString('tr-TR'):'',AY_ADI=['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
   const durum=r=>!r?'<span class="dim">—</span>':r.durum==='gidilmedi'?`<span class="no">✗ ${esc(r.neden||'Gidilmedi')}</span>`:'<span class="ok">✓</span>';
+  const GG=gunlukGercek(ayRutlar);
   $('oTablo').innerHTML=`<div class="hesap-ozet"><div class="ho-satir"><span>Toplam kazanç (KDV dahil)</span><b>${tl(T.top)}</b></div><div class="ho-satir eksi"><span>Yakıt (KDV dahil)</span><b>− ${tl(T.yakit)}</b></div><div class="ho-satir sonuc"><span>Hakedişim (kazanç − yakıt)</span><b>${tl(T.top-T.yakit)}</b></div></div>
-  <div class="tiles"><div><b>${T.calisti}</b>çalışılan gün</div><div><b>${T.gidilmedi}</b>gidilmeyen gün</div><div><b>${T.calisti?tl(gunlukYakit(T.yakit,T.calisti)):'—'}</b>günlük tahmini yakıt${T.calisti?` <span class="tnot">(${tl(T.yakit)} ÷ ${T.calisti} gün)</span>`:''}</div><div><b>${T.km?T.km.toLocaleString('tr-TR',{maximumFractionDigits:1})+' km':'—'}</b>toplam yol</div><div><b>${T.kmGun?(T.km/T.kmGun).toFixed(1).replace('.',',')+' km':'—'}</b>ortalama km / gün${T.kmGun?` <span class="tnot">(${T.kmGun} günün rotası)</span>`:''}</div>${T.desi?`<div><b>${sayiYaz(T.desi)}</b>toplam desi</div>`:''}${T.kg?`<div><b>${sayiYaz(T.kg)} kg</b>toplam ağırlık</div>`:''}</div>
+  <div class="tiles"><div><b>${T.calisti}</b>çalışılan gün</div><div><b>${T.gidilmedi}</b>gidilmeyen gün</div>${GG?`<div><b>${tl(GG.tl)}</b>günlük yakıt (gerçek km)<span class="tnot">≈ ${litreYaz(GG.litre)} / gün · ${GG.gun} günün km'si</span></div>`:`<div><b>${T.calisti?tl(gunlukYakit(T.yakit,T.calisti)):'—'}</b>günlük tahmini yakıt${T.calisti?` <span class="tnot">(${tl(T.yakit)} ÷ ${T.calisti} gün)</span>`:''}</div>`}<div><b>${T.km?T.km.toLocaleString('tr-TR',{maximumFractionDigits:1})+' km':'—'}</b>toplam yol</div><div><b>${T.kmGun?(T.km/T.kmGun).toFixed(1).replace('.',',')+' km':'—'}</b>ortalama km / gün${T.kmGun?` <span class="tnot">(${T.kmGun} günün rotası)</span>`:''}</div></div>
   <div class="otab-wrap"><table class="otab" id="ozetTablo"><tr><th>Gün</th><th>Durum</th><th>Müşteri</th><th>Bölge</th><th>Rut</th><th>Rut ücreti</th><th>Ek km</th><th>Hammaliye</th><th>KDV’siz</th><th>KDV</th><th>Toplam</th><th>Yakıt</th><th>Km</th></tr>
   ${rows.map(({t,d,r,h,yk,km})=>`<tr data-t="${t}" class="${!r?'bos':''}"><td>${String(d).padStart(2,'0')} ${GUN_ADI[new Date(Y,M-1,d).getDay()]}</td><td>${durum(r)}</td><td>${h?h.nokta:''}</td><td>${h?BOLGE_KISA[h.bolge]:''}</td><td>${h?String(h.rutTip).replace('.',','):''}</td><td>${n(h&&h.rutUcret+h.ekstraTl)}</td><td>${h&&h.ekKm?h.ekKm+' km / '+n(h.ekKmTl):''}</td><td>${n(h?.hammaliye)}</td><td>${n(h?.net)}</td><td>${n(h?.kdv)}</td><td><b>${n(h?.toplam)}</b></td><td>${n(yk)}</td><td>${km?String(km).replace('.',','):''}</td></tr>`).join('')}
   <tr class="tot"><td>Toplam</td><td>${T.calisti} ✓ / ${T.gidilmedi} ✗</td><td>${T.nokta||''}</td><td></td><td></td><td>${n(T.rut)}</td><td>${T.ekKm?T.ekKm+' km / '+n(T.ekKmTl):''}</td><td>${n(T.ham)}</td><td>${n(T.net)}</td><td>${n(T.kdv)}</td><td><b>${n(T.top)}</b></td><td>${n(T.yakit)}</td><td>${T.km?T.km.toLocaleString('tr-TR',{maximumFractionDigits:1}):''}</td></tr><tr class="tot"><td colspan="10">Toplam kazanç ${n(T.top)} − yakıt ${n(T.yakit)} =</td><td colspan="2"><b>Hakedişim ${n(T.top-T.yakit)}</b></td><td></td></tr>${T.kmGun?`<tr class="tot"><td>Ortalama</td><td colspan="11"></td><td>${(T.km/T.kmGun).toFixed(1).replace('.',',')}</td></tr>`:''}</table></div>
