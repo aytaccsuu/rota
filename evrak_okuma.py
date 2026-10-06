@@ -67,45 +67,49 @@ class OkumaHatasi(Exception):
 
 
 def _post(url, body, key):
-    """Gemini'ye istek; ücretsiz planda sık görülen geçici 500/503 hatalarında 3 kez tekrar dener."""
-    import time
-    import urllib.error
-    for attempt in range(2):
-        req = urllib.request.Request(url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json", "x-goog-api-key": key})
-        try:
-            with urllib.request.urlopen(req, timeout=90, context=SSL_CONTEXT) as response:
-                return json.load(response)
-        except urllib.error.HTTPError as error:
-            if error.code not in (500, 502, 503, 504) or attempt == 1:
-                raise
-            time.sleep(2)
+    """Gemini'ye tek istek; yoğunluk (5xx) hatasında beklemeden sıradaki modele geçilir."""
+    req = urllib.request.Request(url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json", "x-goog-api-key": key})
+    with urllib.request.urlopen(req, timeout=90, context=SSL_CONTEXT) as response:
+        return json.load(response)
 
 
 def _generate(parts, schema, key, models=None):
-    """Model zincirini sırayla dener; anahtar hatası hariç her hatada sıradaki modele geçer."""
+    """Model zincirini sırayla dener; yoğun/zaman aşımı olanlar 3 tura kadar artan beklemeyle yeniden denenir."""
+    import time
     import urllib.error
     last = None
-    for model in (models or MODELS):
-        body = {"model": model, "input": parts, "response_format": {"type": "text", "mime_type": "application/json", "schema": schema},
-                "generation_config": {"thinking_level": "low"}}
-        try:
+    order = list(models or MODELS)
+    for tur in range(3):
+        if not order:
+            break
+        if tur:
+            time.sleep(2.5 * tur)
+        busy = []
+        for model in order:
+            body = {"model": model, "input": parts, "response_format": {"type": "text", "mime_type": "application/json", "schema": schema},
+                    "generation_config": {"thinking_level": "low"}}
             try:
-                data = _post(URL, body, key)
+                try:
+                    data = _post(URL, body, key)
+                except urllib.error.HTTPError as error:
+                    if error.code != 400:
+                        raise
+                    body.pop("generation_config")  # bazı modeller düşünme ayarını kabul etmiyor
+                    data = _post(URL, body, key)
+                return "".join(_texts(data.get("steps") or data.get("outputs") or data))
             except urllib.error.HTTPError as error:
-                if error.code != 400:
-                    raise
-                body.pop("generation_config")  # bazı modeller düşünme ayarını kabul etmiyor
-                data = _post(URL, body, key)
-            return "".join(_texts(data.get("steps") or data.get("outputs") or data))
-        except urllib.error.HTTPError as error:
-            if error.code in (401, 403):
-                raise OkumaHatasi("Gemini anahtarı reddedildi. Anahtarı kontrol edin.", "auth")
-            last = error
-        except (urllib.error.URLError, TimeoutError, OSError) as error:
-            last = error  # zaman aşımı / bağlantı: sıradaki model
+                if error.code in (401, 403):
+                    raise OkumaHatasi("Gemini anahtarı reddedildi. Anahtarı kontrol edin.", "auth")
+                if error.code >= 500:
+                    busy.append(model)
+                last = error
+            except (urllib.error.URLError, TimeoutError, OSError) as error:
+                busy.append(model)
+                last = error  # zaman aşımı / bağlantı: sıradaki model
+        order = busy
     if isinstance(last, urllib.error.HTTPError) and last.code == 429:
         raise OkumaHatasi("Gemini ücretsiz kullanım sınırı bütün modellerde doldu. Yarın tekrar deneyin veya yerel okuyucu kullanılır.", "quota")
-    raise OkumaHatasi("Gemini şu an yanıt vermiyor (%s). Biraz sonra tekrar deneyin." % (getattr(last, "code", None) or type(last).__name__))
+    raise OkumaHatasi("Gemini şu an çok yoğun (%s). Birkaç dakika sonra tekrar deneyin." % (getattr(last, "code", None) or type(last).__name__))
 
 
 def _texts(node):

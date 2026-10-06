@@ -75,36 +75,42 @@ const bugun = () => new Date().toISOString().slice(0, 10);
 async function doluModeller(env) { try { return new Set(JSON.parse(await depo.ayarOku(env, 'gemini_kota:' + bugun()) || '[]')); } catch { return new Set(); } }
 async function doluIsaretle(env, model) { try { const s = await doluModeller(env); s.add(model); await depo.ayarYaz(env, 'gemini_kota:' + bugun(), JSON.stringify([...s])); } catch { /* yok say */ } }
 
+// Tek deneme: yoğun (5xx) model beklenmez, sıradaki modele geçilir; tur sonunda yoğunlar yeniden denenir
 async function geminiPost(body, key, sonTarih = Date.now() + 90000) {
-  for (let deneme = 0; deneme < 2; deneme++) {
-    const kalan = Math.min(60000, sonTarih - Date.now());
-    if (kalan < 8000) { const e = new Error('süre doldu'); e.name = 'TimeoutError'; throw e; }
-    const r = await fetch(URL_, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify(body), signal: AbortSignal.timeout(kalan) });
-    if (r.ok) return r.json();
-    if (![500, 502, 503, 504].includes(r.status) || deneme === 1) { const e = new Error('gemini ' + r.status); e.status = r.status; throw e; }
-    await new Promise(res => setTimeout(res, 2000));
-  }
+  const kalan = Math.min(60000, sonTarih - Date.now());
+  if (kalan < 8000) { const e = new Error('süre doldu'); e.name = 'TimeoutError'; throw e; }
+  const r = await fetch(URL_, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: JSON.stringify(body), signal: AbortSignal.timeout(kalan) });
+  if (r.ok) return r.json();
+  const e = new Error('gemini ' + r.status); e.status = r.status; throw e;
 }
 
-// sonTarih: bu süre dolunca Gemini bırakılır (evrak okumada yedek okuyucuya zaman kalsın, telefon beklerken bağlantı kopmasın)
+// sonTarih: bu süre dolunca Gemini bırakılır (telefon beklerken bağlantı kopmasın)
+// Modeller sırayla denenir; yoğun/zaman aşımı olanlar 3 tura kadar artan beklemeyle tekrar denenir.
 async function uret(env, parts, schema, key, sonTarih = Date.now() + 120000) {
   let son = null;
   const dolu = await doluModeller(env);
-  for (const model of MODELLER(env).filter(m => !dolu.has(m))) {
-    if (sonTarih - Date.now() < 8000) break;
-    const body = { model, input: parts, response_format: { type: 'text', mime_type: 'application/json', schema }, generation_config: { thinking_level: 'low' } };
-    try {
-      let data;
-      try { data = await geminiPost(body, key, sonTarih); } catch (e) { if (e.status !== 400) throw e; delete body.generation_config; data = await geminiPost(body, key, sonTarih); }
-      return [...metinler(data.steps || data.outputs || data)].join('');
-    } catch (e) {
-      if (e.status === 401 || e.status === 403) throw new OkumaHatasi('Gemini anahtarı reddedildi. Anahtarı kontrol edin.', 'auth');
-      if (e.status === 429) await doluIsaretle(env, model);
-      son = e;
+  let sira = MODELLER(env).filter(m => !dolu.has(m));
+  for (let tur = 0; tur < 3 && sira.length; tur++) {
+    if (tur) { const bekle = 2500 * tur; if (sonTarih - Date.now() < bekle + 10000) break; await new Promise(res => setTimeout(res, bekle)); }
+    const yogun = [];
+    for (const model of sira) {
+      if (sonTarih - Date.now() < 8000) break;
+      const body = { model, input: parts, response_format: { type: 'text', mime_type: 'application/json', schema }, generation_config: { thinking_level: 'low' } };
+      try {
+        let data;
+        try { data = await geminiPost(body, key, sonTarih); } catch (e) { if (e.status !== 400) throw e; delete body.generation_config; data = await geminiPost(body, key, sonTarih); }
+        return [...metinler(data.steps || data.outputs || data)].join('');
+      } catch (e) {
+        if (e.status === 401 || e.status === 403) throw new OkumaHatasi('Gemini anahtarı reddedildi. Anahtarı kontrol edin.', 'auth');
+        if (e.status === 429) await doluIsaretle(env, model);
+        else if (!e.status || e.status >= 500) yogun.push(model);
+        son = e;
+      }
     }
+    sira = yogun;
   }
   if (!son || son.status === 429) throw new OkumaHatasi('Gemini ücretsiz kullanım sınırı bütün modellerde doldu.', 'quota');
-  throw new OkumaHatasi(`Gemini şu an yanıt vermiyor (${son.status || son.name}).`);
+  throw new OkumaHatasi(`Gemini şu an çok yoğun (${son.status || son.name}). Birkaç dakika sonra tekrar deneyin.`);
 }
 
 const ALIAS = { siparis_no: ['siparis_no', 'siparis_numarasi', 'siparisNo', 'siparis'], geri_alim: ['geri_alim', 'geriAlim'] };
@@ -124,7 +130,7 @@ export async function evrakOku(env, b64, mime, key) {
   let geminiHata = null;
   if (key) {
     try {
-      const metin = await uret(env, [{ type: 'text', text: PROMPT }, { type: 'image', data: b64, mime_type: mime, resolution: 'ultra_high' }], SCHEMA, key, Date.now() + 70000);
+      const metin = await uret(env, [{ type: 'text', text: PROMPT }, { type: 'image', data: b64, mime_type: mime, resolution: 'ultra_high' }], SCHEMA, key, Date.now() + 100000);
       return { rows: satirlariTemizle(gevsekJson(metin, 'rows')), kaynak: 'Gemini' };
     } catch (e) {
       if (e instanceof OkumaHatasi && e.code === 'auth') throw e;

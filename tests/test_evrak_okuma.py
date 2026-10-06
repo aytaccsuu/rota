@@ -74,15 +74,16 @@ class EvrakOkumaTests(unittest.TestCase):
         class Resp:
             def __enter__(self): return self
             def __exit__(self, *a): return False
-            def read(self): return b'{"ok": 1}'
+            def read(self): return b'{"outputs": [{"type": "text", "text": "tamam"}]}'
         def fake(req, timeout, context):
-            calls.append(1)
-            if len(calls) < 2:
+            calls.append(json.loads(req.data)["model"])
+            if len(calls) <= 2:  # iki model de yoğun
                 raise urllib.error.HTTPError("u", 503, "busy", {}, None)
             return Resp()
-        with patch("urllib.request.urlopen", side_effect=fake), patch("time.sleep"):
-            self.assertEqual(ev._post("https://x", {}, "k"), {"ok": 1})
-        self.assertEqual(len(calls), 2, 'geçici hatada bir kez tekrar, sonra sıradaki model')
+        with patch("urllib.request.urlopen", side_effect=fake), patch("time.sleep") as uyku:
+            self.assertEqual(ev._generate([{"type": "text", "text": "x"}], {}, "k", ["m1", "m2"]), "tamam")
+        self.assertEqual(calls, ["m1", "m2", "m1"], 'yoğun modelde beklenmez, sıradakine geçilir; tur sonunda yeniden denenir')
+        uyku.assert_called_once()
 
 
 if __name__ == "__main__":
