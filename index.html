@@ -908,7 +908,9 @@ function gpsIleOgren(s){
   if(!navigator.geolocation||!konumAnahtari(s))return;
   navigator.geolocation.getCurrentPosition(p=>{
     const g={lat:p.coords.latitude,lon:p.coords.longitude},acc=p.coords.accuracy;
-    if(acc>60||(validPoint(s)&&hav(g,s)>0.8))return;
+    // kesin bulunmuş (kapı no ile doğrulanmış) adreste yalnızca bina girişi düzeltilir (80 m); "Tamamlandı" başka yerde basılırsa yanlış konum öğrenilmez
+    const sinir=readyStop(s)?0.08:0.8;
+    if(acc>60||(validPoint(s)&&hav(g,s)>sinir))return;
     s._gps=g;konumHatirla(s,'gps',Math.round(acc));
   },()=>{},{enableHighAccuracy:true,timeout:15000,maximumAge:30000});
 }
