@@ -62,6 +62,24 @@ async function get(env, request, url, user) {
   }
   if (yol === '/api/plan') return yanit(200, { plan: await depo.planOku(env, user), backend: 'd1' });
   if (yol === '/api/fiyat') return yanit(200, { fiyat: JSON.parse(await depo.ayarOku(env, 'fiyat') || 'null') });
+  if (yol === '/api/yakit-fiyat') {
+    // Güncel akaryakıt fiyatı (Opet'in herkese açık fiyat servisi), 3 saat önbellekte
+    const yaka = q.get('yaka') === 'avrupa' ? 'avrupa' : 'anadolu', kod = yaka === 'avrupa' ? 934 : 34, ak = 'yakitfiyat:' + kod;
+    try { const c = JSON.parse(await depo.ayarOku(env, ak) || 'null'); if (c && Date.now() - c.zaman < 3 * 3600 * 1000) return yanit(200, c); } catch { /* yenisi alınır */ }
+    try {
+      const r = await fetch(`https://api.opet.com.tr/api/fuelprices/prices?ProvinceCode=${kod}&IncludeAllProducts=true`, { headers: { Accept: 'application/json', 'User-Agent': 'rota-plani/1.0' }, signal: AbortSignal.timeout(15000) });
+      if (!r.ok) throw new Error('opet ' + r.status);
+      const motorin = [], benzin = [];
+      for (const d of await r.json()) for (const p of d.prices || []) {
+        const a = Number(p.amount), k = String(p.productShortName || '');
+        if (a > 10 && a < 1000) { if (k.startsWith('MT')) motorin.push(a); else if (k === 'KURS') benzin.push(a); }
+      }
+      if (!motorin.length) throw new Error('motorin yok');
+      const sonuc = { motorin: Math.min(...motorin), benzin: benzin.length ? Math.min(...benzin) : null, yaka, kaynak: 'Opet', zaman: Date.now() };
+      await depo.ayarYaz(env, ak, JSON.stringify(sonuc));
+      return yanit(200, sonuc);
+    } catch { return yanit(502, { error: 'Güncel yakıt fiyatı alınamadı.', code: 'upstream' }); }
+  }
   if (yol === '/api/rutlar' || yol === '/api/yakitlar') {
     const ay = q.get('ay') || '';
     if (!AY.test(ay)) throw new HttpHata(400, 'Ay YYYY-AA biçiminde olmalı.');

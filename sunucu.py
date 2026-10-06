@@ -150,6 +150,37 @@ def ors_key(settings):
     return os.environ.get("ORS_API_KEY") or settings.get("orsKey", "")
 
 
+# Güncel akaryakıt fiyatı (Opet'in herkese açık fiyat servisi). 3 saat önbellekte tutulur.
+YAKIT_ILLER = {"anadolu": 34, "avrupa": 934}
+_yakit_cache = {}
+
+
+def yakit_fiyat(yaka):
+    code = YAKIT_ILLER.get(yaka, 34)
+    hit = _yakit_cache.get(code)
+    if hit and time.time() - hit[0] < 3 * 3600:
+        return hit[1]
+    url = "https://api.opet.com.tr/api/fuelprices/prices?ProvinceCode=%d&IncludeAllProducts=true" % code
+    req = urllib.request.Request(url, headers={"User-Agent": "rota-plani/1.0", "Accept": "application/json"})
+    with urllib.request.urlopen(req, timeout=15, context=SSL_CONTEXT) as response:
+        data = json.load(response)
+    motorin, benzin = [], []
+    for district in data if isinstance(data, list) else []:
+        for item in district.get("prices") or []:
+            short, amount = str(item.get("productShortName") or ""), item.get("amount")
+            if isinstance(amount, (int, float)) and 10 < amount < 1000:
+                if short.startswith("MT"):
+                    motorin.append(float(amount))
+                elif short == "KURS":
+                    benzin.append(float(amount))
+    if not motorin:
+        raise ValueError("motorin fiyatı yok")
+    result = {"motorin": min(motorin), "benzin": min(benzin) if benzin else None, "yaka": yaka if yaka in YAKIT_ILLER else "anadolu",
+              "kaynak": "Opet", "zaman": int(time.time() * 1000)}
+    _yakit_cache[code] = (time.time(), result)
+    return result
+
+
 def gemini_key(settings):
     return os.environ.get("GEMINI_API_KEY") or settings.get("geminiKey", "")
 
@@ -355,6 +386,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 return self.reply(200, {"fiyat": json.loads(depo.get_setting("fiyat") or "null")})
             except (OSError, ValueError):
                 return self.reply(502, {"error": "Fiyat tablosu okunamadı (veritabanı).", "code": "storage"})
+        if path == "/api/yakit-fiyat":
+            yaka = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query).get("yaka", ["anadolu"])[0]
+            try:
+                return self.reply(200, yakit_fiyat(yaka))
+            except (OSError, ValueError, urllib.error.URLError, TimeoutError):
+                return self.reply(502, {"error": "Güncel yakıt fiyatı alınamadı.", "code": "upstream"})
         if path in ("/api/rutlar", "/api/yakitlar"):
             ay = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query).get("ay", [""])[0]
             if not re.fullmatch(r"\d{4}-\d{2}", ay):
