@@ -2277,8 +2277,20 @@ Tamam: tekrar dene
   }
   $('ocrBar').style.display='none';
   if(!orders.length){$('fileInfo').textContent='Adres bulunamadı. '+msgs.join(' · ');return}
+  // Bugün için başka bir evrakla rota zaten kayıtlıysa (ör. ertesi günün evrakı gece yüklendi) üzerine yazılmaz
+  let hedefGun=todayISO();
+  const mevcutGun=await gunKaydi(hedefGun).catch(()=>null);
+  if(mevcutGun?.rota?.sira?.length){
+    const no=x=>String(x||'').replace(/\D/g,''),eski=new Set(mevcutGun.rota.sira.flatMap(m=>m.sip||[]).map(no));
+    const yeni=orders.map(o=>no(o.sip)).filter(x=>x.length>=6),ortak=yeni.filter(x=>eski.has(x)).length;
+    if(!yeni.length||ortak/yeni.length<0.5){
+      const d=new Date(hedefGun+'T12:00');d.setDate(d.getDate()+1);const yarin=d.toLocaleDateString('sv-SE');
+      if(confirm(`${trTarih(hedefGun)} için zaten ${mevcutGun.rota.sira.length} duraklı bir rota kayıtlı.\n\nBu evrak yarının (${trTarih(yarin)}) evrakı mı?\n\nTamam = ${trTarih(yarin)} için kaydet\nİptal = bugünün kaydını değiştirmek istiyorum`))hedefGun=yarin;
+      else if(!confirm(`${trTarih(hedefGun)} kaydındaki rota, km ve tamamlanan duraklar bu evrakla DEĞİŞTİRİLSİN mi?\n\nTamam = değiştir · İptal = vazgeç`)){$('fileInfo').textContent='Evrak yüklenmedi; '+trTarih(hedefGun)+' kaydı korundu.';return}
+    }
+  }
   geoRun++;geoBusy=false;delivered=[];lastRoute=null;stops=buildStops(orders);clearRoute();
-  planDate=todayISO();planEvraklar=[];gunSecili=planDate;elleSira=null;siraDuzenle=false;planEvrakZamani=Date.now();planCikis=null;cikisGoster();files.forEach(f=>evrakSakla(f));
+  planDate=hedefGun;planEvraklar=[];gunSecili=planDate;elleSira=null;siraDuzenle=false;planEvrakZamani=hedefGun===todayISO()?Date.now():null;planCikis=null;cikisGoster();files.forEach(f=>evrakSakla(f));
   $('fileInfo').innerHTML=esc(msgs.join(' · '))+`<br><b>${orders.length} sipariş → ${stops.length} durak.</b>`;
   renderStops();refreshMarkers();updateState();
   if(aiOcr){const run=geoRun;await aiNormalize(stops);if(run!==geoRun)return;renderStops()}
