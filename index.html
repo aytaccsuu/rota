@@ -213,6 +213,12 @@ html[data-theme="dark"] .tip{background:#16304d;color:#a9cdf5;border-color:#5d95
 @media(max-width:720px){#result .sira .adr{font-size:17px}}
 #ekleCard>summary{list-style:none}#ekleCard>summary::-webkit-details-marker{display:none}#ekleCard>summary h2{margin:0;display:flex;align-items:center;gap:8px}#ekleCard>summary h2:after{content:'▾';margin-left:auto;color:var(--mute);transition:transform .2s}#ekleCard[open]>summary h2:after{transform:rotate(180deg)}#ekleCard[open]>summary{margin-bottom:6px}.ekle-ozet{font-style:normal;font-size:13px;font-weight:600;color:var(--ok)}
 .depo-t>div:first-child{background:var(--soft);border-color:var(--pri)}.depo-t>div:first-child b{color:var(--pri)}
+.tk.on.nohatali{background:#7a3db8;border-color:#7a3db8;color:#fff}html[data-theme="dark"] .tk.on.nohatali{background:#8a52c8;color:#fff}
+.teslim-form{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 10px;padding:10px 12px;border:2px solid var(--ok);border-radius:12px;background:var(--soft)}
+.teslim-form input[type=text]{flex:1 1 180px;min-width:0;font-size:16px;padding:10px 12px}.tf-kapi{display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px;cursor:pointer}.tf-kapi input{width:22px;height:22px}
+.teslim-bilgi{margin:6px 0;padding:8px 12px;border-radius:10px;background:#fff1dc;color:#7a4300;font-size:15px;border-left:4px solid #c06a00}.teslim-bilgi .ic{width:1em;height:1em;vertical-align:-2px}
+html[data-theme="dark"] .teslim-bilgi{background:#3d2a10;color:#ffc37a}
+@media screen{#result .teslim-bilgi{font-size:18px}#result .teslim-form input[type=text]{font-size:18px}}
 </style>
 </head>
 <body>
@@ -1359,7 +1365,15 @@ async function buildRoute(){
 // Arama takibi (isteğe bağlı, kişiye özel tercih): s.arama = acti | acmadi | mesgul, s.tamam = durak bitti
 let sonRender=null;
 const takipAcik=()=>!!OTURUM.tercih?.arama;
-const ARAMA={acti:['check','Açtı'],acmadi:['x','Açmadı'],mesgul:['busy','Meşgul']};
+const ARAMA={acti:['check','Açtı'],acmadi:['x','Açmadı'],mesgul:['busy','Meşgul'],nohatali:['alert','No hatalı']};
+// Açtıysa: daire kapısına bırakma, bina kapı şifresi, not (durakta saklanır, gün kaydına yazılır)
+function teslimBilgiHTML(s){
+  const p=[];if(s.kapiBirak)p.push('<b>Daire kapısına bırak</b>');if(s.kapiSifre)p.push('Şifre: <b>'+esc(s.kapiSifre)+'</b>');if(s.aramaNot)p.push(esc(s.aramaNot));
+  return p.length?`<div class="teslim-bilgi"><i class="ic" data-ic="pin"></i> ${p.join(' · ')}</div>`:'';
+}
+function teslimFormHTML(s,i){
+  return `<div class="teslim-form hide-print"><label class="tf-kapi"><input type="checkbox" data-kb="${i}" ${s.kapiBirak?'checked':''}> Daire kapısına bırak</label><input type="text" data-ks="${i}" value="${esc(s.kapiSifre||'')}" placeholder="Bina kapı şifresi (varsa)" autocomplete="off" inputmode="text"><input type="text" data-kn="${i}" value="${esc(s.aramaNot||'')}" placeholder="Not (ör. kapıcıya bırak, 3. kat)" autocomplete="off"></div>`;
+}
 const saatNow=()=>new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
 function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=[]){
   sonRender=[seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison];
@@ -1400,9 +1414,9 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
     const yhref=`https://yandex.com.tr/maps/?ll=${ll}&z=18&pt=${ll},pm2rdm&whatshere%5Bpoint%5D=${ll}&whatshere%5Bzoom%5D=18`;
     const ya=`<div class="yx-actions hide-print"><a class="yx" href="${yhref}" target="_blank" rel="noopener" data-app="${esc(yandexUygulama(yhref))}"><i class="ic" data-ic="star"></i> Yandex’te aç / kaydet</a><a class="yx" href="https://yandex.com.tr/maps/?rtt=auto&rtext=~${(+s.lat).toFixed(6)},${(+s.lon).toFixed(6)}" target="_blank" rel="noopener" data-app="yandexnavi://build_route_on_map?lat_to=${(+s.lat).toFixed(6)}&lon_to=${(+s.lon).toFixed(6)}"><i class="ic" data-ic="nav"></i> Git</a></div>`;
     const tas=siraDuzenle?`<div class="sira-tas hide-print"><button data-tas="${i}" data-y="-1" ${i?'':'disabled'} aria-label="Yukarı taşı"><i class="ic" data-ic="up"></i></button><button data-tas="${i}" data-y="1" ${i<routeOrder.length-1?'':'disabled'} aria-label="Aşağı taşı"><i class="ic" data-ic="down"></i></button></div>`:'';
-    if(takip&&s.tamam&&!siraDuzenle){h+=`<div class="sira bitti"><span class="n"><i class="ic" data-ic="check"></i></span><div><div class="ad">${i+1+delivered.length}. ${names(s)} <span class="tk-zaman">tamamlandı ${esc(s.tamamZaman||'')}${s.arama?' · '+ARAMA[s.arama][1]:''}</span> <button class="tk-geri hide-print" data-tm="${i}">Geri al</button></div></div></div>`;return}
-    const tk=takip&&!siraDuzenle?`<div class="takip hide-print">${Object.entries(ARAMA).map(([v,[icn,ad]])=>`<button class="tk ${s.arama===v?'on '+v:''}" data-tk="${i}" data-v="${v}"><i class="ic" data-ic="${icn}"></i> ${ad}</button>`).join('')}${s.arama?`<span class="tk-zaman">${esc(s.aramaZaman||'')}</span>`:''}<button class="tk tamam" data-tm="${i}"><i class="ic" data-ic="check"></i> Tamamlandı</button></div>`:'';
-    h+=`<div class="sira${siraDuzenle?' duzen':''}${takip&&i===siradaki?' siradaki':''}"${takip&&i===siradaki?' id="siradakiDurak"':''}>${tas}<span class="n">${i+1+delivered.length}</span><div><div class="ad">${names(s)} <button class="copy hide-print" data-copy="${esc(stopNames(s))}" title="İsmi kopyala" aria-label="İsmi kopyala"><i class="ic" data-ic="copy"></i></button>${warn}</div><div class="tipler">${tipRozet(s)}</div><div class="adr">${esc(s.raw)}</div>${gidilecekHTML(s)}${denetimHTML(s,stops.indexOf(s))}${tk}${ya}<div class="small">${esc(neighborhoodLabel(s))} · ${(legs[i].d/1000).toFixed(1)} km / ${fmtT(legs[i].t)}${legs[i].delay>60?` (<i class="ic" data-ic="traffic"></i> +${fmtT(legs[i].delay)})`:''} · <b>varış ≈ ${clock(eta[i])}</b></div><div class="small">${[s.orders.length>1?s.orders.length+' sipariş':'',k?k+' koli':'',[...new Set(s.orders.map(o=>o.musteri).filter(Boolean))].join(', ')].filter(Boolean).join(' · ')}</div></div></div>`;
+    if(takip&&s.tamam&&!siraDuzenle){h+=`<div class="sira bitti"><span class="n"><i class="ic" data-ic="check"></i></span><div><div class="ad">${i+1+delivered.length}. ${names(s)} <span class="tk-zaman">tamamlandı ${esc(s.tamamZaman||'')}${s.arama?' · '+ARAMA[s.arama][1]:''}</span> <button class="tk-geri hide-print" data-tm="${i}">Geri al</button></div>${teslimBilgiHTML(s)}</div></div>`;return}
+    const tk=takip&&!siraDuzenle?`<div class="takip hide-print">${Object.entries(ARAMA).map(([v,[icn,ad]])=>`<button class="tk ${s.arama===v?'on '+v:''}" data-tk="${i}" data-v="${v}"><i class="ic" data-ic="${icn}"></i> ${ad}</button>`).join('')}${s.arama?`<span class="tk-zaman">${esc(s.aramaZaman||'')}</span>`:''}<button class="tk tamam" data-tm="${i}"><i class="ic" data-ic="check"></i> Tamamlandı</button></div>${s.arama==='acti'?teslimFormHTML(s,i):''}`:'';
+    h+=`<div class="sira${siraDuzenle?' duzen':''}${takip&&i===siradaki?' siradaki':''}"${takip&&i===siradaki?' id="siradakiDurak"':''}>${tas}<span class="n">${i+1+delivered.length}</span><div><div class="ad">${names(s)} <button class="copy hide-print" data-copy="${esc(stopNames(s))}" title="İsmi kopyala" aria-label="İsmi kopyala"><i class="ic" data-ic="copy"></i></button>${warn}</div><div class="tipler">${tipRozet(s)}</div><div class="adr">${esc(s.raw)}</div>${gidilecekHTML(s)}${denetimHTML(s,stops.indexOf(s))}${teslimBilgiHTML(s)}${tk}${ya}<div class="small">${esc(neighborhoodLabel(s))} · ${(legs[i].d/1000).toFixed(1)} km / ${fmtT(legs[i].t)}${legs[i].delay>60?` (<i class="ic" data-ic="traffic"></i> +${fmtT(legs[i].delay)})`:''} · <b>varış ≈ ${clock(eta[i])}</b></div><div class="small">${[s.orders.length>1?s.orders.length+' sipariş':'',k?k+' koli':'',[...new Set(s.orders.map(o=>o.musteri).filter(Boolean))].join(', ')].filter(Boolean).join(' · ')}</div></div></div>`;
   });
   h+=`<div class="sira"><span class="n" style="background:#1c2430">E</span><div><div class="ad">Eve dönüş</div></div></div>`;
   const out=stops.filter(s=>s.skip);
@@ -1412,6 +1426,10 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
   $('rotaSilBtn').onclick=()=>rotaSil(planDate||todayISO());
   if($('simdiBtn'))$('simdiBtn').onclick=()=>{planCikis=Date.now();cikisGoster();buildRoute()};
   $('result').querySelectorAll('[data-denetim]').forEach(b=>b.onclick=()=>oneriyleDuzelt(stops[+b.dataset.denetim]));
+  const teslimKaydet=()=>{savePlan();gunuRotadanGuncelle()};
+  $('result').querySelectorAll('[data-kb]').forEach(c=>c.onchange=()=>{routeOrder[+c.dataset.kb].kapiBirak=c.checked;teslimKaydet();renderResult(...sonRender)});
+  $('result').querySelectorAll('[data-ks]').forEach(x=>x.onchange=()=>{routeOrder[+x.dataset.ks].kapiSifre=x.value.trim().slice(0,40);teslimKaydet();renderResult(...sonRender)});
+  $('result').querySelectorAll('[data-kn]').forEach(x=>x.onchange=()=>{routeOrder[+x.dataset.kn].aramaNot=x.value.trim().slice(0,120);teslimKaydet();renderResult(...sonRender)});
   $('result').querySelectorAll('[data-tk]').forEach(b=>b.onclick=()=>{const s=routeOrder[+b.dataset.tk],v=b.dataset.v;if(s.arama===v){s.arama=null;s.aramaZaman=null}else{s.arama=v;s.aramaZaman=saatNow()}renderResult(...sonRender)});
   $('result').querySelectorAll('[data-tm]').forEach(b=>b.onclick=()=>{const s=routeOrder[+b.dataset.tm];s.tamam=!s.tamam;s.tamamZaman=s.tamam?saatNow():null;if(s.tamam)gpsIleOgren(s);renderResult(...sonRender);
     if(s.tamam&&routeOrder.length&&routeOrder.every(x=>x.tamam)){clearTimeout(window._bitisZ);window._bitisZ=setTimeout(()=>{if(routeOrder?.length&&routeOrder.every(x=>x.tamam))planiKapat('Bütün duraklar tamamlandı; rota Özet’e kaydedildi.')},4000)}if(s.tamam)setTimeout(()=>document.getElementById('siradakiDurak')?.scrollIntoView({behavior:'smooth',block:'center'}),60)});
@@ -1511,7 +1529,7 @@ function planMusteriler(){
     const i=ro.indexOf(s),l=i>=0?legs[i]:null;
     return {ad:stopNames(s),adres:s.raw,ilce:ILCELER.find(x=>fold(x)===fold(s.ilce))||s.ilce||'',mah:s.match?.mah||s.mah||'',siparis:s.orders.length,
       sip:s.orders.map(o=>o.sip).filter(Boolean),koli:s.orders.reduce((a,o)=>a+(o.adet||0),0),desi:+s.orders.reduce((a,o)=>a+(o.desi||0),0).toFixed(2),kg:+s.orders.reduce((a,o)=>a+(o.kg||0),0).toFixed(2),geri:s.orders.filter(o=>o.geri).length,firma:[...new Set(s.orders.map(o=>o.musteri).filter(Boolean))].join(', '),
-      teslim:delivered.includes(s),atlandi:!!s.skip,arama:s.arama||null,aramaZaman:s.aramaZaman||null,tamam:!!s.tamam,tamamZaman:s.tamamZaman||null,km:l?+(l.d/1000).toFixed(1):null,dk:l?Math.round(l.t/60):null,varis:i>=0&&eta[i]?new Date(eta[i]).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}):null,lat:s.lat,lon:s.lon};
+      teslim:delivered.includes(s),atlandi:!!s.skip,arama:s.arama||null,aramaZaman:s.aramaZaman||null,kapiBirak:!!s.kapiBirak,kapiSifre:s.kapiSifre||'',aramaNot:s.aramaNot||'',tamam:!!s.tamam,tamamZaman:s.tamamZaman||null,km:l?+(l.d/1000).toFixed(1):null,dk:l?Math.round(l.t/60):null,varis:i>=0&&eta[i]?new Date(eta[i]).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}):null,lat:s.lat,lon:s.lon};
   });
 }
 // Günün hesabı: teslim edilen (işareti kaldırılmamış) müşteriler sayılır
@@ -1663,7 +1681,7 @@ function renderHesap(){
 }
 
 // ---------- geçmiş gün: rota detayı ve PDF ----------
-const musteriDetay=m=>[m.mah,m.sip?.length?'Sip: '+m.sip.join(', '):'',m.koli?m.koli+' koli':'',m.desi?sayiYaz(m.desi)+' desi':'',m.kg?sayiYaz(m.kg)+' kg':'',m.geri?'geri alım'+(m.geri>1?' ×'+m.geri:''):'',m.firma,m.km!=null?String(m.km).replace('.',',')+' km / '+m.dk+' dk':'',m.varis?'varış ≈ '+m.varis:'',m.arama?({acti:'Açtı',acmadi:'Açmadı',mesgul:'Meşgul'}[m.arama]+(m.aramaZaman?' '+m.aramaZaman:'')):'',m.tamam?'tamamlandı'+(m.tamamZaman?' '+m.tamamZaman:''):'',m.teslim?'teslim edildi':'',m.atlandi?'atlandı':''].filter(Boolean).join(' · ');
+const musteriDetay=m=>[m.mah,m.sip?.length?'Sip: '+m.sip.join(', '):'',m.koli?m.koli+' koli':'',m.desi?sayiYaz(m.desi)+' desi':'',m.kg?sayiYaz(m.kg)+' kg':'',m.geri?'geri alım'+(m.geri>1?' ×'+m.geri:''):'',m.firma,m.km!=null?String(m.km).replace('.',',')+' km / '+m.dk+' dk':'',m.varis?'varış ≈ '+m.varis:'',m.arama?({acti:'Açtı',acmadi:'Açmadı',mesgul:'Meşgul',nohatali:'No hatalı'}[m.arama]+(m.aramaZaman?' '+m.aramaZaman:'')):'',m.kapiBirak?'daire kapısına bırakıldı':'',m.kapiSifre?'şifre '+m.kapiSifre:'',m.aramaNot||'',m.tamam?'tamamlandı'+(m.tamamZaman?' '+m.tamamZaman:''):'',m.teslim?'teslim edildi':'',m.atlandi?'atlandı':''].filter(Boolean).join(' · ');
 function rotaOzetHTML(r){
   if(!r)return '';
   return `<div class="tiles">${r.sira?.length?`<div><b>${r.sira.length}</b>durak</div>`:''}${r.km!=null?`<div><b>${String(gunKm({rota:r})).replace('.',',')} km</b>toplam yol${r.evDepoKm?`<span class="tnot">ev→depo ${String(r.evDepoKm).replace('.',',')} + dağıtım ve eve dönüş ${String(r.km).replace('.',',')}</span>`:''}</div>`:''}${r.sure!=null?`<div><b>${fmtT(r.sure*60)}</b>sürüş</div>`:''}${r.gecikme?`<div><b>${fmtT(r.gecikme*60)}</b>trafik gecikmesi</div>`:''}${r.eve?`<div><b>${r.eve}</b>eve varış (tahmini)</div>`:''}${(()=>{const y=gunYuk({rota:r});return (y.desi?`<div><b>${sayiYaz(y.desi)}</b>toplam desi</div>`:'')+(y.kg?`<div><b>${sayiYaz(y.kg)} kg</b>toplam ağırlık</div>`:'')})()}</div>`;
