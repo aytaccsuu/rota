@@ -190,7 +190,7 @@ async function post(env, request, url, user) {
   if (yol === '/api/ocr') {
     const b = await govde(request, 12 * 1024 * 1024), image = b.image, mime = b.mime || 'image/jpeg';
     if (typeof image !== 'string' || image.length < 100 || !['image/jpeg', 'image/png', 'image/webp'].includes(mime)) throw new HttpHata(400, 'Geçersiz fotoğraf.');
-    const ozet = 'ocr:' + [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(image)))].map(x => x.toString(16).padStart(2, '0')).join('').slice(0, 32);
+    const ozet = 'ocr2:' + [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(image)))].map(x => x.toString(16).padStart(2, '0')).join('').slice(0, 32);
     const onceki = await depo.ayarOku(env, ozet).catch(() => null);
     if (onceki) return yanit(200, { ...JSON.parse(onceki), onbellek: true });
     try {

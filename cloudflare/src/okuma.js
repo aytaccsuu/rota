@@ -17,10 +17,11 @@ Kurallar:
 - "adres" sütununun tamamını al: mahalle, sokak/cadde, apartman, no, kat, daire dahil.
 - Kalemle sonradan yazılmış sıra numaralarını, imzaları ve başlık satırını alma.
 - "GERİ ALIM" yazan satırlarda geri_alim true olsun.
+- desi ve agirlik: "Desi" ve "Ağırlık" sütunlarındaki sayıyı yazıldığı gibi al (ör. "51,51"). "GERİ ALIM" yazısı ağırlık değildir; sayı yoksa boş bırak.
 - Aynı satırı iki kez yazma.
 - Yanıtı yalnızca JSON olarak ver, açıklama yazma.`;
 
-const SATIR = { type: 'object', properties: { musteri: { type: 'string' }, siparis_no: { type: 'string' }, alici: { type: 'string' }, not: { type: 'string' }, adet: { type: 'string' }, ilce: { type: 'string' }, adres: { type: 'string' }, geri_alim: { type: 'boolean' } }, required: ['musteri', 'siparis_no', 'alici', 'not', 'adet', 'ilce', 'adres', 'geri_alim'] };
+const SATIR = { type: 'object', properties: { musteri: { type: 'string' }, siparis_no: { type: 'string' }, alici: { type: 'string' }, not: { type: 'string' }, adet: { type: 'string' }, ilce: { type: 'string' }, adres: { type: 'string' }, geri_alim: { type: 'boolean' }, desi: { type: 'string' }, agirlik: { type: 'string' } }, required: ['musteri', 'siparis_no', 'alici', 'not', 'adet', 'ilce', 'adres', 'geri_alim', 'desi', 'agirlik'] };
 export const SCHEMA = { type: 'object', properties: { rows: { type: 'array', items: SATIR } }, required: ['rows'] };
 
 export const DUZELT_PROMPT = `Aşağıda İstanbul'daki teslimat adresleri var (fotoğraftan okunmuş, yazım hataları olabilir).
@@ -112,7 +113,7 @@ function satirlariTemizle(rows) {
   const out = [];
   for (const r of rows) {
     if (!r || typeof r !== 'object') continue;
-    const row = Object.fromEntries(['musteri', 'siparis_no', 'alici', 'not', 'adet', 'ilce', 'adres'].map(k => [k, String(alan(r, k) ?? '').trim()]));
+    const row = Object.fromEntries(['musteri', 'siparis_no', 'alici', 'not', 'adet', 'ilce', 'adres', 'desi', 'agirlik'].map(k => [k, String(alan(r, k) ?? '').trim()]));
     row.geri_alim = [true, 'true', 'True', 'evet'].includes(alan(r, 'geri_alim'));
     if (row.adres.length >= 6) out.push(row);
   }

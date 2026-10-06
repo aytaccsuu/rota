@@ -29,6 +29,7 @@ Kurallar:
 - "adres" sütununun tamamını al: mahalle, sokak/cadde, apartman, no, kat, daire dahil.
 - Kalemle sonradan yazılmış sıra numaralarını, imzaları ve başlık satırını alma.
 - "GERİ ALIM" yazan satırlarda geri_alim true olsun.
+- desi ve agirlik: "Desi" ve "Ağırlık" sütunlarındaki sayıyı yazıldığı gibi al (ör. "51,51"). "GERİ ALIM" yazısı ağırlık değildir; sayı yoksa boş bırak.
 - Aynı satırı iki kez yazma.
 - Yanıtı yalnızca JSON olarak ver, açıklama yazma."""
 
@@ -48,8 +49,10 @@ SCHEMA = {
                     "ilce": {"type": "string"},
                     "adres": {"type": "string"},
                     "geri_alim": {"type": "boolean"},
+                    "desi": {"type": "string"},
+                    "agirlik": {"type": "string"},
                 },
-                "required": ["musteri", "siparis_no", "alici", "not", "adet", "ilce", "adres", "geri_alim"],
+                "required": ["musteri", "siparis_no", "alici", "not", "adet", "ilce", "adres", "geri_alim", "desi", "agirlik"],
             },
         }
     },
@@ -153,7 +156,7 @@ def read_document(image_b64, mime, key):
     for r in rows:
         if not isinstance(r, dict):
             continue
-        row = {k: str(_field(r, k) or "").strip() for k in ("musteri", "siparis_no", "alici", "not", "adet", "ilce", "adres")}
+        row = {k: str(_field(r, k) or "").strip() for k in ("musteri", "siparis_no", "alici", "not", "adet", "ilce", "adres", "desi", "agirlik")}
         row["geri_alim"] = _field(r, "geri_alim") in (True, "true", "True", "evet")
         if len(row["adres"]) >= 6:
             clean.append(row)
