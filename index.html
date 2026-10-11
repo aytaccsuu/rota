@@ -132,7 +132,7 @@ input[type=date],input[type=month],select{min-width:0;padding:9px 10px;border:1p
 .ic{display:inline-flex;width:1.1em;height:1.1em;vertical-align:-.18em;flex:none}.ic svg{width:100%;height:100%}
 
 :root{--surf2:#f6f9f7;--soft:#e5f1eb;--badbg:#fbeeee;--warnbg:#fff7e6;--warnink:#7a4f0a}
-html[data-theme="dark"]{color-scheme:dark;--bg:#0e1513;--card:#17211e;--ink:#e3ebe8;--mute:#a3b3ad;--line:#2b3934;--pri:#2a9d78;--ok:#4cc095;--warn:#e0a24a;--bad:#e57373;--surf2:#1c2824;--soft:#1e362e;--badbg:#3a2326;--warnbg:#382d1b;--warnink:#f0c27a}
+html[data-theme="dark"]{color-scheme:dark;--bg:#000;--card:#000;--ink:#fff;--mute:#c8c8c8;--line:#333;--pri:#2fb386;--ok:#4cc095;--warn:#e0a24a;--bad:#ff7b7b;--surf2:#0b0b0b;--soft:#0c2219;--badbg:#2a0f12;--warnbg:#2a1d08;--warnink:#f0c27a;--adr:#9fd4ff}
 html[data-theme="dark"] body{background:var(--bg);color:var(--ink)}
 html[data-theme="dark"] .brand-icon{background:var(--pri)}
 html[data-theme="dark"] input,html[data-theme="dark"] select,html[data-theme="dark"] textarea{background:var(--surf2);color:var(--ink);border-color:var(--line)}
@@ -199,7 +199,7 @@ html[data-theme="dark"] #result .sira .n{background:var(--pri);color:#fff}
 html[data-theme="dark"] #result .tk.tamam{background:#1f8a5b;border-color:#1f8a5b;color:#fff}
 html[data-theme="dark"] #result .yx[href*="rtext"]{background:var(--pri);color:#fff}
 }
-html[data-theme="dark"]{--mute:#b9c7c2}
+html[data-theme="dark"]{--mute:#c8c8c8}
 @media(max-width:720px){#result .sira .ad{font-size:19px}#result .sira .adr{font-size:17px}#result .yx{font-size:16px;padding:11px 14px}#result .tk{font-size:15px;padding:9px 13px}}
 /* geri alım / dağıtım rozetleri, yük özeti, daha belirgin adres */
 :root{--adr:#00365c}html[data-theme="dark"]{--adr:#9fd4ff}
@@ -1833,7 +1833,9 @@ const PDF_CSS=`.pdf-kap{font:11px "Segoe UI",Arial,sans-serif;color:#19322e;back
 .pdf-kap .evr img{width:100%;max-width:700px;display:block;margin:8px 0;border:1px solid #ccc}.pdf-kap .ic{display:inline-block;width:12px;height:12px;vertical-align:-2px}`;
 const PDF_AYAR=ad=>({margin:8,filename:ad,image:{type:'jpeg',quality:0.92},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',scrollX:0,scrollY:0},jsPDF:{unit:'mm',format:'a4',orientation:'landscape'},pagebreak:{mode:['avoid-all','css']}});
 let html2pdfYuk=null;
-const html2pdfYukle=()=>html2pdfYuk||(html2pdfYuk=new Promise((ok,no)=>{const sc=document.createElement('script');sc.src='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';sc.onload=()=>ok(window.html2pdf);sc.onerror=()=>{html2pdfYuk=null;no(new Error('PDF aracı yüklenemedi (internet bağlantısını kontrol edin)'))};document.head.appendChild(sc)}));
+const HTML2PDF_URL='https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js';
+// PDF aracı (~900 KB): uygulama açılınca arka planda cihaza indirilir (servis çalışanı saklar); PDF'e basınca hazır olur
+const html2pdfYukle=()=>html2pdfYuk||(html2pdfYuk=new Promise((ok,no)=>{const sc=document.createElement('script');sc.src=HTML2PDF_URL;const z=setTimeout(()=>{html2pdfYuk=null;no(new Error('PDF aracı 60 saniyede indirilemedi; internet bağlantısını kontrol edip tekrar deneyin'))},60000);sc.onload=()=>{clearTimeout(z);window.html2pdf?ok(window.html2pdf):(html2pdfYuk=null,no(new Error('PDF aracı açılamadı')))};sc.onerror=()=>{clearTimeout(z);html2pdfYuk=null;no(new Error('PDF aracı yüklenemedi (internet bağlantısını kontrol edin)'))};document.head.appendChild(sc)}));
 // Yandex web bağlantısını uygulama bağlantısına çevirir (yandex.com.tr/harita/?... → yandexmaps://maps.yandex.ru/?...)
 const yandexUygulama=web=>{try{const u=new URL(web);return 'yandexmaps://maps.yandex.ru/'+u.search}catch(e){return ''}};
 const mobilMi=()=>/Android|iPhone|iPad|iPod/i.test(navigator.userAgent||'');
@@ -2221,14 +2223,24 @@ function planData(){
   return JSON.parse(JSON.stringify({v:1,savedAt:Date.now(),fileInfo:$('fileInfo').innerHTML,svc:$('svc').value,
     planDate,evraklar:planEvraklar,elleSira,planEvrakZamani,planCikis,stops,delivered:ids(delivered),route:lastRoute&&routeOrder?{...lastRoute,order:ids(routeOrder)}:null},strip));
 }
+// Planın anlamlı içeriği (saat/rota çizgisi gibi her yenilemede değişen alanlar hariç): cihazlar arası eşitlemede karşılaştırılır
+function planImza(p){
+  if(!p)return '';
+  const st=(p.stops||[]).map(s=>[s.id,s.lat,s.lon,s.quality,!!s.skip,!!s.tamam,s.tamamZaman||'',s.arama||'',s.aramaZaman||'',!!s.kapiBirak,s.kapiSifre||'',s.aramaNot||'']);
+  return JSON.stringify([p.planDate,st,p.delivered||[],p.elleSira||null,p.route?.order||null,(p.evraklar||[]).map(e=>e.id),p.planCikis||null,p.svc]);
+}
+let planSonImza='',planSunucuT=0;
 function savePlan(now){
   if(planRestoring)return;
   clearTimeout(planTimer);
   planTimer=setTimeout(async()=>{
     if(!stops.length)return;
-    const plan=planData();
+    const plan=planData(),imza=planImza(plan);
+    if(imza===planSonImza&&!now){try{const y=JSON.parse(localStorage.getItem(PLAN_LOCAL)||'null');if(y){plan.savedAt=y.savedAt;localStorage.setItem(PLAN_LOCAL,JSON.stringify(plan))}}catch(e){}return}
+    planSonImza=imza;
     try{localStorage.setItem(PLAN_LOCAL,JSON.stringify(plan))}catch(e){}
     try{const r=await fetch('/api/plan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan})});
+      if(r.ok)planSunucuT=plan.savedAt;
       $('planStatus').textContent=r.ok?'✓ Plan kaydedildi '+new Date(plan.savedAt).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}):'Plan bu cihaza kaydedildi; sunucuya kaydedilemedi.'}
     catch(e){$('planStatus').textContent='Plan bu cihaza kaydedildi; internet gelince sunucuya gönderilecek.'}
   },now?0:1500);
@@ -2243,7 +2255,7 @@ async function restorePlan(){
   try{local=JSON.parse(localStorage.getItem(PLAN_LOCAL)||'null')}catch(e){}
   const plan=[server,local].filter(x=>x&&x.v===1&&Array.isArray(x.stops)&&x.stops.length).sort((a,b)=>b.savedAt-a.savedAt)[0];
   if(!plan||stops.length)return;
-  planRestoring=true;
+  planRestoring=true;planSonImza=planImza(plan);planSunucuT=Math.max(planSunucuT,server?.savedAt||0);
   try{
     stops=plan.stops;const byId=new Map(stops.map(s=>[s.id,s]));planDate=plan.planDate||new Date(plan.savedAt).toLocaleDateString('sv-SE');planEvraklar=plan.evraklar||[];elleSira=plan.elleSira||null;siraDuzenle=false;planEvrakZamani=plan.planEvrakZamani||null;planCikis=plan.planCikis||null;cikisGoster();
     delivered=(plan.delivered||[]).map(id=>byId.get(id)).filter(Boolean);
@@ -2283,6 +2295,35 @@ async function restorePlan(){
   }finally{planRestoring=false}
 }
 let planBackend='';
+// ---------- cihazlar arası eşitleme (telefon ↔ tablet) ----------
+// 30 sn'de bir, uygulamaya dönünce ve internet gelince: sunucudaki plan bu cihazdakinden yeniyse alınır;
+// bu cihazdaki daha yeniyse gönderilir; plan diğer cihazda kapatıldıysa (gün bitti / temizlendi) burada da kapanır.
+let esitleniyor=false;
+function yerelPlan(){try{return JSON.parse(localStorage.getItem(PLAN_LOCAL)||'null')}catch(e){return null}}
+async function planEsitle(){
+  if(esitleniyor||!srv||document.hidden||navigator.onLine===false||planRestoring||planKapaniyor||geoBusy||routeBusy)return;
+  const odak=document.activeElement;if(odak&&/^(INPUT|TEXTAREA|SELECT)$/.test(odak.tagName))return; // yazarken bozma
+  esitleniyor=true;
+  try{
+    const r=await fetch('/api/plan',{cache:'no-store'});if(!r.ok)return;
+    const j=await r.json(),sp=j.plan?JSON.parse(j.plan):null,yp=yerelPlan(),sT=sp?.savedAt||0,yT=yp?.savedAt||0;
+    if(sp&&sT>yT+500&&planImza(sp)!==planImza(yp)){
+      try{localStorage.setItem(PLAN_LOCAL,JSON.stringify(sp))}catch(e){}
+      clearTimeout(planTimer);stops=[];delivered=[];routeOrder=null;lastRoute=null;
+      await restorePlan();
+      bildirim('Diğer cihazdaki değişiklikler alındı',2500);
+    }else if(!sp&&yp&&stops.length&&planSunucuT&&yT<=planSunucuT+500){
+      clearTimeout(planTimer);try{localStorage.removeItem(PLAN_LOCAL)}catch(e){}
+      planDate=null;planEvraklar=[];stops=[];delivered=[];lastRoute=null;elleSira=null;planSonImza='';
+      $('fileInfo').innerHTML='';clearRoute();renderStops();updateState();if(typeof refreshMarkers==='function')refreshMarkers();
+      $('planStatus').textContent='Plan diğer cihazda kapatıldı.';
+    }else if(yp&&stops.length&&yT>sT+500)savePlan(true);
+    if(sT)planSunucuT=Math.max(planSunucuT,sT);
+  }catch(e){}finally{esitleniyor=false}
+}
+setInterval(planEsitle,30000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)setTimeout(planEsitle,500)});
+window.addEventListener('online',()=>setTimeout(planEsitle,1500));
 
 // ---------- fotoğraftan okuma: yapay zekâ (Gemini, sunucu üzerinden) ----------
 let aiOcr=false;
@@ -2540,7 +2581,7 @@ function uygulamaBaslat(){
   if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('/sw.js').catch(()=>{});
 window.addEventListener('online',()=>{cevrimGoster();kuyrukGonder()});window.addEventListener('offline',cevrimGoster);
 setInterval(kuyrukGonder,60000);cevrimGoster();setTimeout(kuyrukGonder,3000);
-fiyatYukle().then(()=>restorePlan()).then(()=>sayfaAc(ilk)).then(()=>setTimeout(()=>{ayYukle(todayISO().slice(0,7)).catch(()=>{});yakitHazirla()},1500));
+fiyatYukle().then(()=>restorePlan()).then(()=>sayfaAc(ilk)).then(()=>setTimeout(()=>{ayYukle(todayISO().slice(0,7)).catch(()=>{});yakitHazirla();if(navigator.serviceWorker?.controller)fetch(HTML2PDF_URL,{mode:'no-cors'}).catch(()=>{})},1500));
 }
 uygulamaBaslat();
 </script>

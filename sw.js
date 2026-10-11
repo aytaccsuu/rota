@@ -1,6 +1,6 @@
 // Rota Planı çevrimdışı katmanı: uygulama ve son okunan veriler cihazda saklanır, internet yokken bunlar gösterilir.
 // Yazma istekleri (POST) buradan geçmez; uygulama onları bekleyen kayıtlar kuyruğunda tutup internet gelince gönderir.
-const SURUM = 'rota-v1';
+const SURUM = 'rota-v2';
 const CDN = /^https:\/\/(cdnjs\.cloudflare\.com|cdn\.jsdelivr\.net)\//;
 
 self.addEventListener('install', e => {
@@ -28,7 +28,7 @@ async function onceCihaz(req) {
   const c = await caches.open(SURUM), eski = await c.match(req);
   if (eski) return eski;
   const r = await fetch(req);
-  if (r.ok) c.put(req, r.clone());
+  if (r.ok || r.type === 'opaque') c.put(req, r.clone());  // <script> istekleri "opaque" gelir; onlar da saklanır
   return r;
 }
 
