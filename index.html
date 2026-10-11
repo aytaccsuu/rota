@@ -223,6 +223,14 @@ html[data-theme="dark"] .teslim-bilgi{background:#3d2a10;color:#ffc37a}
 .cikarilan{margin:14px 0 4px;padding:10px 12px;border:1px dashed var(--bad);border-radius:12px;background:var(--badbg)}.cikarilan>div{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line)}.cikarilan>div:first-of-type{margin-top:6px}
 .cevrim{font-size:12px;font-weight:700;padding:5px 10px;border-radius:14px;background:#fff1dc;color:#7a4300;border:1px solid #e9b56b;margin-right:6px}.cevrim.off{background:#fbeeee;color:#a12f2f;border-color:#e5a3a3}
 html[data-theme="dark"] .cevrim{background:#3d2a10;color:#ffc37a;border-color:#8a5a1c}html[data-theme="dark"] .cevrim.off{background:#3a2326;color:#f3a3a3;border-color:#7a3a3a}
+/* Daha net renkler: beyaz ekranda koyu yazı ve doygun yeşil; siyah ekranda canlı yeşil, dolgulu butonlarda siyah yazı */
+:root{--ink:#0f1f1b;--mute:#46554f;--line:#d3dcd8;--pri:#0a7c45;--ok:#0a7c45;--bad:#c62828;--warn:#b45309;--soft:#dff3e8;--onpri:#fff}
+html[data-theme="dark"]{--pri:#1fbf63;--ok:#2fd27a;--soft:#062a18;--line:#3a3a3a;--bad:#ff6b6b;--warn:#fbbf24;--onpri:#000}
+button.p,.tabs button.on,.seg button.on,.ppop button.on,#result .yx[href*="rtext"],#result .tk.tamam,#result .sira .n{color:var(--onpri)}
+html[data-theme="dark"] button.p,html[data-theme="dark"] #result .tk.tamam,html[data-theme="dark"] #result .yx[href*="rtext"],html[data-theme="dark"] #result .sira .n{background:var(--pri);border-color:var(--pri);color:#000}
+.next-stop{background:#0a5c34}
+html[data-theme="dark"] .next-stop{background:#062a18;border:2px solid var(--pri);color:#fff}html[data-theme="dark"] .next-stop small{color:var(--ok)}
+html[data-theme="dark"] .tk.on.acti{background:#1fbf63;border-color:#1fbf63;color:#000}
 </style>
 </head>
 <body>
