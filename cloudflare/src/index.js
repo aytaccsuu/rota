@@ -63,9 +63,9 @@ async function get(env, request, url, user) {
   if (yol === '/api/plan') return yanit(200, { plan: await depo.planOku(env, user), backend: 'd1' });
   if (yol === '/api/fiyat') return yanit(200, { fiyat: JSON.parse(await depo.ayarOku(env, 'fiyat') || 'null') });
   if (yol === '/api/yakit-fiyat') {
-    // Güncel akaryakıt fiyatı (Opet'in herkese açık fiyat servisi), 3 saat önbellekte
+    // Güncel akaryakıt fiyatı (Opet'in herkese açık fiyat servisi), 15 dakika önbellekte
     const yaka = q.get('yaka') === 'avrupa' ? 'avrupa' : 'anadolu', kod = yaka === 'avrupa' ? 934 : 34, ak = 'yakitfiyat:' + kod;
-    try { const c = JSON.parse(await depo.ayarOku(env, ak) || 'null'); if (c && Date.now() - c.zaman < 3 * 3600 * 1000) return yanit(200, c); } catch { /* yenisi alınır */ }
+    try { const c = JSON.parse(await depo.ayarOku(env, ak) || 'null'); if (c && Date.now() - c.zaman < 15 * 60 * 1000) return yanit(200, c); } catch { /* yenisi alınır */ }
     try {
       const r = await fetch(`https://api.opet.com.tr/api/fuelprices/prices?ProvinceCode=${kod}&IncludeAllProducts=true`, { headers: { Accept: 'application/json', 'User-Agent': 'rota-plani/1.0' }, signal: AbortSignal.timeout(15000) });
       if (!r.ok) throw new Error('opet ' + r.status);

@@ -235,38 +235,77 @@ html[data-theme="dark"] button.p,html[data-theme="dark"] #result .tk.tamam,html[
 .next-stop{background:#0a5c34}
 html[data-theme="dark"] .next-stop{background:#062a18;border:2px solid var(--pri);color:#fff}html[data-theme="dark"] .next-stop small{color:var(--ok)}
 html[data-theme="dark"] .tk.on.acti{background:#1fbf63;border-color:#1fbf63;color:#000}
+/* Ayarlar: bölümler, hizalı satırlar (başlık · alan · açıklama) */
+.ayarlar>h2{margin:0 0 14px}
+.ag{border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:0 0 14px;background:var(--card)}
+.ag h3{font-size:16px;font-weight:800;margin:0 0 6px;display:flex;align-items:center;gap:8px}.ag h3 small{font-size:12px;font-weight:600;color:var(--mute)}
+.ag h3 .ic{width:1.1em;height:1.1em;color:var(--pri)}
+.ag details>summary{list-style:none;cursor:pointer}.ag details>summary::-webkit-details-marker{display:none}
+.ag details>summary h3{margin:0}.ag details>summary h3:after{content:'▾';margin-left:auto;color:var(--mute);transition:transform .2s}.ag details[open]>summary h3:after{transform:rotate(180deg)}.ag details[open]>summary{margin-bottom:8px}
+.ar{display:grid;grid-template-columns:150px minmax(0,1fr);gap:4px 14px;align-items:center;padding:11px 0;border-top:1px solid var(--line)}
+.ag h3+.ar,.ag summary+.ar,.ag-alt+.ar{border-top:0}
+.al{font-weight:700;font-size:14px;color:var(--ink)}
+.av{display:flex;gap:8px;flex-wrap:wrap;align-items:center;min-width:0}.av input,.av select{flex:1 1 220px;min-width:0;font-size:15px}.av input.kisa,.av input[type=number]{flex:0 0 110px}
+.birim{font-size:14px;color:var(--mute);font-weight:600}
+.ay{grid-column:2;margin:0;font-size:12.5px;color:var(--mute);line-height:1.5}
+.ag-alt{margin:16px 0 2px;font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--mute)}
+#ptCard>summary h3 small{margin-left:4px}
+.av input[type=password]{flex:1 1 100%}.av button{padding:8px 14px}
+@media(max-width:640px){.ar{grid-template-columns:1fr}.ay{grid-column:1}.av input.kisa,.av input[type=number]{flex:1 1 120px}}
+.yakit-rozet{display:inline-flex;align-items:center;gap:5px;font-size:14px;font-weight:800;padding:6px 11px;border-radius:16px;background:var(--soft);color:var(--pri);border:1.5px solid var(--pri);margin-right:6px;white-space:nowrap}.yakit-rozet .ic{width:1em;height:1em}
 </style>
 </head>
 <body>
 <div class="app">
-  <header class="topbar"><div class="brand"><div class="brand-icon"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="6" cy="6" r="2.5" stroke="currentColor" stroke-width="1.7"/><circle cx="18" cy="18" r="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M8.5 6H16a4 4 0 0 1 0 8H8a4 4 0 0 0 0 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div><div><h1>Rota Planı</h1><small>GÜNLÜK DAĞITIM ASİSTANI</small></div></div><nav class="pagenav hide-print"><button data-p="rota" class="on"><i class="ic" data-ic="map"></i> Rota</button><button data-p="hesap"><i class="ic" data-ic="wallet"></i> Hesap</button><button data-p="yonetim" class="yonetici-only"><i class="ic" data-ic="user"></i> Yönetim</button></nav><div class="top-actions"><span class="cevrim" id="cevrimDurum" hidden></span><span class="local-badge" id="userBadge">Yerel çalışma alanı</span><button id="tamEkranBtn" class="hide-print temaBtn" aria-label="Tam ekran" title="Tam ekran"><i class="ic" data-ic="expand"></i></button><button id="temaBtn" class="hide-print temaBtn" aria-label="Koyu / açık tema"><i class="ic" data-ic="moon"></i></button><button id="setBtn" class="hide-print">Ayarlar</button><a id="logoutBtn" class="hide-print" href="/cikis" style="display:none;padding:9px 13px;border:1px solid var(--line);border-radius:9px;font-weight:600;text-decoration:none;color:var(--ink)">Çıkış</a></div></header>
+  <header class="topbar"><div class="brand"><div class="brand-icon"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="6" cy="6" r="2.5" stroke="currentColor" stroke-width="1.7"/><circle cx="18" cy="18" r="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M8.5 6H16a4 4 0 0 1 0 8H8a4 4 0 0 0 0 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div><div><h1>Rota Planı</h1><small>GÜNLÜK DAĞITIM ASİSTANI</small></div></div><nav class="pagenav hide-print"><button data-p="rota" class="on"><i class="ic" data-ic="map"></i> Rota</button><button data-p="hesap"><i class="ic" data-ic="wallet"></i> Hesap</button><button data-p="yonetim" class="yonetici-only"><i class="ic" data-ic="user"></i> Yönetim</button></nav><div class="top-actions"><span class="yakit-rozet" id="yakitRozet" hidden title="Güncel motorin fiyatı"></span><span class="cevrim" id="cevrimDurum" hidden></span><span class="local-badge" id="userBadge">Yerel çalışma alanı</span><button id="tamEkranBtn" class="hide-print temaBtn" aria-label="Tam ekran" title="Tam ekran"><i class="ic" data-ic="expand"></i></button><button id="temaBtn" class="hide-print temaBtn" aria-label="Koyu / açık tema"><i class="ic" data-ic="moon"></i></button><button id="setBtn" class="hide-print">Ayarlar</button><a id="logoutBtn" class="hide-print" href="/cikis" style="display:none;padding:9px 13px;border:1px solid var(--line);border-radius:9px;font-weight:600;text-decoration:none;color:var(--ink)">Çıkış</a></div></header>
   <div class="card" id="fileWarn" style="display:none;border-color:var(--bad);color:var(--bad)">Sayfa doğrudan dosyadan açılmış. Lütfen klasördeki <b>başlat.bat</b> ile açın; aksi halde ayarlar kaydedilmez ve adres arama çalışmaz.</div>
 
-  <div class="card hide-print" id="setCard" style="display:none">
+  <div class="card hide-print ayarlar" id="setCard" style="display:none">
     <h2><i class="ic" data-ic="settings"></i> Ayarlar</h2>
-    <div class="ayar-bolum row" style="align-items:center;gap:8px"><b style="font-size:14px"><i class="ic" data-ic="clock"></i> Çıkış saati</b><span class="small">Evrak okutulduktan</span><input type="number" id="cikisDkIn" min="0" max="600" step="5" style="width:80px"><span class="small">dk sonra (rota o saatin trafiğine göre)</span><span class="small" id="cikisDkMsg"></span></div>
-    <div class="ayar-bolum row" id="yukleBolum" style="align-items:center;gap:8px"><b style="font-size:14px"><i class="ic" data-ic="download"></i> Uygulama</b><button class="p" id="yukleBtn" hidden>Uygulama olarak yükle</button><span class="small" id="yukleBilgi">Ana ekrana yüklenince tam ekran açılır ve konum izni bir kez verilir.</span></div>
-    <div class="ayar-bolum"><b style="font-size:14px"><i class="ic" data-ic="fuel"></i> Araç ve yakıt</b><div class="grid2" style="margin-top:8px"><label>Araç<input type="text" id="aracAdIn" autocomplete="off" placeholder="ör. Iveco Daily 35S11"></label><label>Tüketim (L / 100 km)<input type="text" inputmode="decimal" id="aracTuketimIn" autocomplete="off" placeholder="11"></label><label>Depo (L)<input type="text" inputmode="decimal" id="aracDepoIn" autocomplete="off" placeholder="70"></label><label>Fiyat bölgesi<select id="fiyatYakaIn"><option value="anadolu">İstanbul Anadolu</option><option value="avrupa">İstanbul Avrupa</option></select></label><label>Motorin elle (₺ / L)<input type="text" inputmode="decimal" id="motorinFiyatIn" autocomplete="off" placeholder="boş: güncel fiyat kullanılır"></label></div><div class="small" id="guncelFiyatBilgi"></div><div class="small" id="aracMsg">Günlük km'ye göre yakılan yakıt ve depoda kalan yakıt bu bilgilerle tahmin edilir.</div></div>
-    <details id="ptCard" class="ayar-bolum" open>
-      <summary><b><i class="ic" data-ic="pin"></i> Başlangıç (depo) ve bitiş (ev)</b> <small id="ptOzet"></small></summary>
-      <p class="card-caption" style="margin:8px 0">Bir kez kaydet, her gün kullan. Koordinatı Yandex Haritalar’da noktaya basılı tutup kopyalayabilirsiniz.</p>
-      <div id="ptBox"></div>
-      <div class="small" id="ptStatus"></div>
-    </details>
-    <div class="yonetici-only">
-    <div class="row"><label>Yandex</label><input type="password" id="yKeyIn" placeholder="Yandex JavaScript API anahtarı"><button class="p" id="yKeySave">Kaydet</button></div>
-    <div class="small">Anahtar bir kez kaydedilir, tekrar sorulmaz. Harita için gerekir.</div>
-    <div class="row" style="margin-top:10px"><label>Gemini</label><input type="password" autocomplete="off" id="gemKeyIn" placeholder="Fotoğraf okuma için Google Gemini anahtarı" style="flex:1;min-width:0"><button class="p" id="gemKeySave">Kaydet</button><button id="gemKeyRemove">Kaldır</button></div>
-    <div class="row" style="margin-top:10px"><label>Yol yedeği</label><input type="password" autocomplete="off" id="orsKeyIn" placeholder="openrouteservice anahtarı (ücretsiz)" style="flex:1;min-width:0"><button class="p" id="orsKeySave">Kaydet</button><button id="orsKeyRemove">Kaldır</button></div>
-    <div class="small" id="orsStatus">Canlı trafik alınamazsa yol süreleri sırayla TomTom (trafiksiz) ve openrouteservice’ten alınır.</div>
-    <div class="small" id="gemStatus">Evrak fotoğrafları yapay zekâ ile okunur. Anahtar yoksa daha az isabetli yerel okuyucu kullanılır. Not: Gemini ücretsiz planında Google gönderilen içeriği ürün geliştirmede kullanabilir.</div>
-    <details style="margin-top:10px"><summary>İsteğe bağlı ücretli Google API</summary><div class="row"><label>Google</label><input type="password" id="gKeyIn" placeholder="Google Places API (New) anahtarı" style="flex:1;min-width:0"><button class="p" id="gKeySave">Kaydet</button></div>
-    <div class="small" id="gStatus">Varsayılan arama ücretsiz Photon/OpenStreetMap kullanır.</div></details>
-    </div>
-    <details style="margin-top:10px"><summary><i class="ic" data-ic="wallet"></i> Fiyat tablosu (hakediş)</summary><div id="fiyatEditor"></div></details>
-    <div class="yonetici-only">
-    <div class="small" id="yWarn" role="status" style="display:none;color:var(--bad);margin-top:6px"></div><details open style="margin-top:12px"><summary>Adres servisleri ve bağlantı testleri</summary><p class="small">Kaydettiğiniz servisler adres ararken otomatik karşılaştırılır. Sorgular sağlayıcının kotasından düşer; planına göre ücret doğabilir. Anahtarlar yerel sunucuda tutulur. Google yalnızca ayrı düğmesiyle kullanılır.</p><div style="margin-top:12px"><label for="yandexKey"><b>Yandex Geocoder</b></label><div class="row"><input type="password" autocomplete="off" id="yandexKey" placeholder="Ayrı Geocoder anahtarı (boşsa harita anahtarı denenir)" style="flex:1;min-width:0"><button id="yandexSave">Kaydet</button><button id="yandexTest">Bağlantıyı test et</button><button id="yandexRemove">Kaldır</button></div><div class="small" role="status" id="yandexStatus">Anahtar kontrol ediliyor…</div></div><div style="margin-top:12px"><label for="geoapifyKey"><b>Geoapify</b></label><div class="row"><input type="password" autocomplete="off" id="geoapifyKey" placeholder="Geocoding API anahtarı" style="flex:1;min-width:0"><button id="geoapifySave">Kaydet</button><button id="geoapifyTest">Bağlantıyı test et</button><button id="geoapifyRemove">Kaldır</button></div><div class="small" role="status" id="geoapifyStatus">Anahtar kontrol ediliyor…</div></div><div style="margin-top:12px"><label for="tomtomKey"><b>TomTom</b></label><div class="row"><input type="password" autocomplete="off" id="tomtomKey" placeholder="Search API anahtarı" style="flex:1;min-width:0"><button id="tomtomSave">Kaydet</button><button id="tomtomTest">Bağlantıyı test et</button><button id="tomtomRemove">Kaldır</button></div><div class="small" role="status" id="tomtomStatus">Anahtar kontrol ediliyor…</div></div><div style="margin-top:12px"><label for="maptilerKey"><b>MapTiler</b></label><div class="row"><input type="password" autocomplete="off" id="maptilerKey" placeholder="Geocoding API anahtarı" style="flex:1;min-width:0"><button id="maptilerSave">Kaydet</button><button id="maptilerTest">Bağlantıyı test et</button><button id="maptilerRemove">Kaldır</button></div><div class="small" role="status" id="maptilerStatus">Anahtar kontrol ediliyor…</div></div><p class="small">Yandex anahtarı reddediliyorsa <a href="https://developer.tech.yandex.ru/" target="_blank" rel="noopener">Yandex geliştirici panelinde</a> Geocoder ürününü ve anahtar kısıtlarını kontrol edin. Sunucu üzerinden sorgulandığı için IP kısıtlarını da kontrol edin.</p><p class="small"><a href="https://www.geoapify.com/" target="_blank" rel="noopener">Powered by Geoapify</a> · © OpenStreetMap contributors · TomTom · MapTiler · Yandex. Her sonucun kaynağı yanında gösterilir.</p></details>
-    </div>
+
+    <section class="ag">
+      <h3><i class="ic" data-ic="clock"></i> Günlük çalışma</h3>
+      <div class="ar"><span class="al">Çıkış saati</span><div class="av"><input type="number" id="cikisDkIn" min="0" max="600" step="5"><span class="birim">dk sonra</span><span class="small" id="cikisDkMsg"></span></div><p class="ay">Evrak okutulduktan bu kadar sonra yola çıkılır; rota o saatin trafiğine göre hesaplanır.</p></div>
+      <div class="ar" id="yukleBolum"><span class="al">Uygulama</span><div class="av"><button class="p" id="yukleBtn" hidden>Uygulama olarak yükle</button></div><p class="ay" id="yukleBilgi">Ana ekrana yüklenince tam ekran açılır ve konum izni bir kez verilir.</p></div>
+    </section>
+
+    <section class="ag">
+      <details id="ptCard" open>
+        <summary><h3><i class="ic" data-ic="pin"></i> Başlangıç (depo) ve bitiş (ev) <small id="ptOzet"></small></h3></summary>
+        <p class="ay" style="margin:0 0 8px">Bir kez kaydedin, her gün kullanılır. Koordinatı Yandex Haritalar’da noktaya basılı tutup kopyalayabilirsiniz.</p>
+        <div id="ptBox"></div>
+        <div class="small" id="ptStatus"></div>
+      </details>
+    </section>
+
+    <section class="ag">
+      <h3><i class="ic" data-ic="fuel"></i> Araç ve yakıt</h3>
+      <div class="ar"><span class="al">Araç</span><div class="av"><input type="text" id="aracAdIn" autocomplete="off" placeholder="ör. Iveco Daily 35S11"></div></div>
+      <div class="ar"><span class="al">Tüketim</span><div class="av"><input type="text" inputmode="decimal" id="aracTuketimIn" autocomplete="off" placeholder="11" class="kisa"><span class="birim">L / 100 km</span></div><p class="ay">İki depo fulleme arasından gerçek tüketim kendiliğinden öğrenilir.</p></div>
+      <div class="ar"><span class="al">Depo</span><div class="av"><input type="text" inputmode="decimal" id="aracDepoIn" autocomplete="off" placeholder="70" class="kisa"><span class="birim">litre</span></div></div>
+      <div class="ar"><span class="al">Fiyat bölgesi</span><div class="av"><select id="fiyatYakaIn"><option value="anadolu">İstanbul Anadolu</option><option value="avrupa">İstanbul Avrupa</option></select></div><p class="ay" id="guncelFiyatBilgi"></p></div>
+      <div class="ar"><span class="al">Motorin (elle)</span><div class="av"><input type="text" inputmode="decimal" id="motorinFiyatIn" autocomplete="off" placeholder="boş: güncel fiyat" class="kisa"><span class="birim">₺ / L</span></div><p class="ay" id="aracMsg">Boş bırakılırsa güncel motorin fiyatı kullanılır.</p></div>
+    </section>
+
+    <section class="ag">
+      <details><summary><h3><i class="ic" data-ic="wallet"></i> Hakediş fiyat tablosu</h3></summary><div id="fiyatEditor"></div></details>
+    </section>
+
+    <section class="ag yonetici-only">
+      <div class="small" id="yWarn" role="status" style="display:none;color:var(--bad);margin-bottom:8px"></div>
+      <details><summary><h3><i class="ic" data-ic="settings"></i> API anahtarları <small>yönetici</small></h3></summary>
+        <div class="ar"><span class="al">Yandex harita</span><div class="av"><input type="password" id="yKeyIn" placeholder="Yandex JavaScript API anahtarı"><button class="p" id="yKeySave">Kaydet</button></div><p class="ay">Harita için gerekir; bir kez kaydedilir.</p></div>
+        <div class="ar"><span class="al">Gemini</span><div class="av"><input type="password" autocomplete="off" id="gemKeyIn" placeholder="Fotoğraf okuma için Google Gemini anahtarı"><button class="p" id="gemKeySave">Kaydet</button><button id="gemKeyRemove">Kaldır</button></div><p class="ay" id="gemStatus">Evrak fotoğrafları yapay zekâ ile okunur.</p></div>
+        <div class="ar"><span class="al">Yol yedeği</span><div class="av"><input type="password" autocomplete="off" id="orsKeyIn" placeholder="openrouteservice anahtarı (ücretsiz)"><button class="p" id="orsKeySave">Kaydet</button><button id="orsKeyRemove">Kaldır</button></div><p class="ay" id="orsStatus">Canlı trafik alınamazsa yol süreleri TomTom (trafiksiz) ve openrouteservice’ten alınır.</p></div>
+        <div class="ar"><span class="al">Google (ücretli)</span><div class="av"><input type="password" id="gKeyIn" placeholder="Google Places API (New) anahtarı"><button class="p" id="gKeySave">Kaydet</button></div><p class="ay" id="gStatus">İsteğe bağlı; varsayılan arama ücretsiz Photon/OpenStreetMap kullanır.</p></div>
+        <h4 class="ag-alt">Adres servisleri</h4>
+        <div class="ar"><span class="al">Yandex Geocoder</span><div class="av"><input type="password" autocomplete="off" id="yandexKey" placeholder="Ayrı Geocoder anahtarı (boşsa harita anahtarı denenir)"><button id="yandexSave">Kaydet</button><button id="yandexTest">Test et</button><button id="yandexRemove">Kaldır</button></div><p class="ay" role="status" id="yandexStatus">Anahtar kontrol ediliyor…</p></div>
+        <div class="ar"><span class="al">Geoapify</span><div class="av"><input type="password" autocomplete="off" id="geoapifyKey" placeholder="Geocoding API anahtarı"><button id="geoapifySave">Kaydet</button><button id="geoapifyTest">Test et</button><button id="geoapifyRemove">Kaldır</button></div><p class="ay" role="status" id="geoapifyStatus">Anahtar kontrol ediliyor…</p></div>
+        <div class="ar"><span class="al">TomTom</span><div class="av"><input type="password" autocomplete="off" id="tomtomKey" placeholder="Search API anahtarı"><button id="tomtomSave">Kaydet</button><button id="tomtomTest">Test et</button><button id="tomtomRemove">Kaldır</button></div><p class="ay" role="status" id="tomtomStatus">Anahtar kontrol ediliyor…</p></div>
+        <div class="ar"><span class="al">MapTiler</span><div class="av"><input type="password" autocomplete="off" id="maptilerKey" placeholder="Geocoding API anahtarı"><button id="maptilerSave">Kaydet</button><button id="maptilerTest">Test et</button><button id="maptilerRemove">Kaldır</button></div><p class="ay" role="status" id="maptilerStatus">Anahtar kontrol ediliyor…</p></div>
+        <p class="ay" style="margin-top:8px">Kaydedilen servisler adres ararken otomatik karşılaştırılır; sorgular sağlayıcının kotasından düşer. Yandex anahtarı reddediliyorsa <a href="https://developer.tech.yandex.ru/" target="_blank" rel="noopener">Yandex geliştirici panelinde</a> Geocoder ürününü ve kısıtları kontrol edin. <a href="https://www.geoapify.com/" target="_blank" rel="noopener">Powered by Geoapify</a> · © OpenStreetMap contributors · TomTom · MapTiler · Yandex.</p>
+      </details>
+    </section>
   </div>
 
   <div id="rotaPage">
@@ -2105,12 +2144,16 @@ async function renderGun(){
 // ---------- araç ve yakıt tahmini ----------
 // Güncel motorin fiyatı sunucudan (Opet, 3 saat önbellekli); elle fiyat yazılmışsa o kullanılır
 let guncelYakit=null,guncelYakitP=null;
+setInterval(()=>{if(!document.hidden&&navigator.onLine!==false)guncelFiyatYukle(true)},15*60000);
 function guncelFiyatYukle(yenile){
   if(guncelYakitP&&!yenile)return guncelYakitP;
   const yaka=OTURUM.tercih?.fiyatYaka==='avrupa'?'avrupa':'anadolu';
   return guncelYakitP=apiJSON('/api/yakit-fiyat?yaka='+yaka).then(j=>{guncelYakit=j&&+j.motorin>0?j:null;guncelFiyatGoster();return guncelYakit}).catch(()=>{guncelYakit=null;guncelFiyatGoster();return null});
 }
 function guncelFiyatGoster(){
+  const rz=document.getElementById('yakitRozet');
+  if(rz){const f=+OTURUM.tercih?.motorinFiyat>0?+OTURUM.tercih.motorinFiyat:guncelYakit?.motorin;rz.hidden=!f;if(f)rz.innerHTML='<i class="ic" data-ic="fuel"></i> '+String(f.toFixed(2)).replace('.',',')+' ₺';
+    if(f&&guncelYakit)rz.title='Motorin · '+(guncelYakit.kaynak||'')+' · '+new Date(guncelYakit.zaman).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})+(+OTURUM.tercih?.motorinFiyat>0?' (elle yazılan fiyat)':'')}
   const el=document.getElementById('guncelFiyatBilgi');if(!el)return;
   el.textContent=guncelYakit?`Güncel motorin: ${String(guncelYakit.motorin).replace('.',',')} ₺/L (${guncelYakit.kaynak}, İstanbul ${guncelYakit.yaka==='avrupa'?'Avrupa':'Anadolu'}, ${new Date(guncelYakit.zaman).toLocaleString('tr-TR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})})${+OTURUM.tercih?.motorinFiyat>0?' · şu an elle yazdığınız fiyat kullanılıyor':''}`:'Güncel motorin fiyatı alınamadı; gerekirse elle yazın.';
 }
@@ -2642,7 +2685,7 @@ function uygulamaBaslat(){
   if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('/sw.js').catch(()=>{});
 window.addEventListener('online',()=>{cevrimGoster();kuyrukGonder()});window.addEventListener('offline',cevrimGoster);
 setInterval(kuyrukGonder,60000);cevrimGoster();setTimeout(kuyrukGonder,3000);
-fiyatYukle().then(()=>restorePlan()).then(()=>sayfaAc(ilk)).then(()=>setTimeout(()=>{ayYukle(todayISO().slice(0,7)).then(durakDkOgren).catch(()=>{});yakitHazirla();if(navigator.serviceWorker?.controller)fetch(HTML2PDF_URL,{mode:'no-cors'}).catch(()=>{})},1500));
+fiyatYukle().then(()=>restorePlan()).then(()=>sayfaAc(ilk)).then(()=>{guncelFiyatYukle();setTimeout(()=>{ayYukle(todayISO().slice(0,7)).then(durakDkOgren).catch(()=>{});yakitHazirla();if(navigator.serviceWorker?.controller)fetch(HTML2PDF_URL,{mode:"no-cors"}).catch(()=>{})},1500)});
 }
 uygulamaBaslat();
 </script>

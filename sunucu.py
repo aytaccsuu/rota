@@ -150,7 +150,7 @@ def ors_key(settings):
     return os.environ.get("ORS_API_KEY") or settings.get("orsKey", "")
 
 
-# Güncel akaryakıt fiyatı (Opet'in herkese açık fiyat servisi). 3 saat önbellekte tutulur.
+# Güncel akaryakıt fiyatı (Opet'in herkese açık fiyat servisi). 15 dakika önbellekte tutulur.
 YAKIT_ILLER = {"anadolu": 34, "avrupa": 934}
 _yakit_cache = {}
 
@@ -158,7 +158,7 @@ _yakit_cache = {}
 def yakit_fiyat(yaka):
     code = YAKIT_ILLER.get(yaka, 34)
     hit = _yakit_cache.get(code)
-    if hit and time.time() - hit[0] < 3 * 3600:
+    if hit and time.time() - hit[0] < 15 * 60:
         return hit[1]
     url = "https://api.opet.com.tr/api/fuelprices/prices?ProvinceCode=%d&IncludeAllProducts=true" % code
     req = urllib.request.Request(url, headers={"User-Agent": "rota-plani/1.0", "Accept": "application/json"})
