@@ -219,11 +219,15 @@ html[data-theme="dark"] .tip{background:#16304d;color:#a9cdf5;border-color:#5d95
 .teslim-bilgi{margin:6px 0;padding:8px 12px;border-radius:10px;background:#fff1dc;color:#7a4300;font-size:15px;border-left:4px solid #c06a00}.teslim-bilgi .ic{width:1em;height:1em;vertical-align:-2px}
 html[data-theme="dark"] .teslim-bilgi{background:#3d2a10;color:#ffc37a}
 @media screen{#result .teslim-bilgi{font-size:18px}#result .teslim-form input[type=text]{font-size:18px}}
+.urun-yok{margin-left:8px;padding:5px 10px;font-size:13px;font-weight:700;border-radius:16px;border:1.5px solid var(--bad);color:var(--bad);background:transparent;vertical-align:middle}
+.cikarilan{margin:14px 0 4px;padding:10px 12px;border:1px dashed var(--bad);border-radius:12px;background:var(--badbg)}.cikarilan>div{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line)}.cikarilan>div:first-of-type{margin-top:6px}
+.cevrim{font-size:12px;font-weight:700;padding:5px 10px;border-radius:14px;background:#fff1dc;color:#7a4300;border:1px solid #e9b56b;margin-right:6px}.cevrim.off{background:#fbeeee;color:#a12f2f;border-color:#e5a3a3}
+html[data-theme="dark"] .cevrim{background:#3d2a10;color:#ffc37a;border-color:#8a5a1c}html[data-theme="dark"] .cevrim.off{background:#3a2326;color:#f3a3a3;border-color:#7a3a3a}
 </style>
 </head>
 <body>
 <div class="app">
-  <header class="topbar"><div class="brand"><div class="brand-icon"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="6" cy="6" r="2.5" stroke="currentColor" stroke-width="1.7"/><circle cx="18" cy="18" r="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M8.5 6H16a4 4 0 0 1 0 8H8a4 4 0 0 0 0 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div><div><h1>Rota Planı</h1><small>GÜNLÜK DAĞITIM ASİSTANI</small></div></div><nav class="pagenav hide-print"><button data-p="rota" class="on"><i class="ic" data-ic="map"></i> Rota</button><button data-p="hesap"><i class="ic" data-ic="wallet"></i> Hesap</button><button data-p="yonetim" class="yonetici-only"><i class="ic" data-ic="user"></i> Yönetim</button></nav><div class="top-actions"><span class="local-badge" id="userBadge">Yerel çalışma alanı</span><button id="tamEkranBtn" class="hide-print temaBtn" aria-label="Tam ekran" title="Tam ekran"><i class="ic" data-ic="expand"></i></button><button id="temaBtn" class="hide-print temaBtn" aria-label="Koyu / açık tema"><i class="ic" data-ic="moon"></i></button><button id="setBtn" class="hide-print">Ayarlar</button><a id="logoutBtn" class="hide-print" href="/cikis" style="display:none;padding:9px 13px;border:1px solid var(--line);border-radius:9px;font-weight:600;text-decoration:none;color:var(--ink)">Çıkış</a></div></header>
+  <header class="topbar"><div class="brand"><div class="brand-icon"><svg width="25" height="25" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="6" cy="6" r="2.5" stroke="currentColor" stroke-width="1.7"/><circle cx="18" cy="18" r="2.5" stroke="currentColor" stroke-width="1.7"/><path d="M8.5 6H16a4 4 0 0 1 0 8H8a4 4 0 0 0 0 8" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div><div><h1>Rota Planı</h1><small>GÜNLÜK DAĞITIM ASİSTANI</small></div></div><nav class="pagenav hide-print"><button data-p="rota" class="on"><i class="ic" data-ic="map"></i> Rota</button><button data-p="hesap"><i class="ic" data-ic="wallet"></i> Hesap</button><button data-p="yonetim" class="yonetici-only"><i class="ic" data-ic="user"></i> Yönetim</button></nav><div class="top-actions"><span class="cevrim" id="cevrimDurum" hidden></span><span class="local-badge" id="userBadge">Yerel çalışma alanı</span><button id="tamEkranBtn" class="hide-print temaBtn" aria-label="Tam ekran" title="Tam ekran"><i class="ic" data-ic="expand"></i></button><button id="temaBtn" class="hide-print temaBtn" aria-label="Koyu / açık tema"><i class="ic" data-ic="moon"></i></button><button id="setBtn" class="hide-print">Ayarlar</button><a id="logoutBtn" class="hide-print" href="/cikis" style="display:none;padding:9px 13px;border:1px solid var(--line);border-radius:9px;font-weight:600;text-decoration:none;color:var(--ink)">Çıkış</a></div></header>
   <div class="card" id="fileWarn" style="display:none;border-color:var(--bad);color:var(--bad)">Sayfa doğrudan dosyadan açılmış. Lütfen klasördeki <b>başlat.bat</b> ile açın; aksi halde ayarlar kaydedilmez ve adres arama çalışmaz.</div>
 
   <div class="card hide-print" id="setCard" style="display:none">
@@ -347,7 +351,10 @@ const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 // ---------- kalıcı ayarlar (sunucu.py → ayarlar.json) ----------
 const SYNC=['ykey','depot','home'],srv=location.protocol.startsWith('http');
 let OTURUM={user:'',admin:true,authOn:false,tercih:{}};
-if(srv)try{const x=new XMLHttpRequest();x.open('GET','/ayarlar?'+Date.now(),false);x.send();if(x.status===200){const a=JSON.parse(x.responseText),miss={};
+if(srv)try{const x=new XMLHttpRequest();let metin=null;
+  try{x.open('GET','/ayarlar?'+Date.now(),false);x.send();if(x.status===200){metin=x.responseText;try{localStorage.setItem('rota_oturum_son',metin)}catch(e){}}}
+  catch(e){metin=localStorage.getItem('rota_oturum_son')} // çevrimdışı: son oturum bilgisiyle açılır
+  if(metin){const a=JSON.parse(metin),miss={};
   OTURUM={user:a.user||'',admin:a.isAdmin!==false,authOn:!!a.authOn,tercih:a.tercihler||{}};
   // girişli kullanımda depo/ev kişiye özel: sunucuda yoksa bu cihazda kalmış (başka kullanıcının) değer kullanılmaz
   for(const k of SYNC){if(a[k]!=null)localStorage.setItem(k,JSON.stringify(a[k]));else if(OTURUM.authOn&&k!=='ykey')localStorage.removeItem(k);else if(k!=='ykey'||OTURUM.admin){const v=localStorage.getItem(k);if(v)miss[k]=JSON.parse(v)}}
@@ -1476,13 +1483,15 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
     const tas=siraDuzenle?`<div class="sira-tas hide-print"><button data-tas="${i}" data-y="-1" ${i?'':'disabled'} aria-label="Yukarı taşı"><i class="ic" data-ic="up"></i></button><button data-tas="${i}" data-y="1" ${i<routeOrder.length-1?'':'disabled'} aria-label="Aşağı taşı"><i class="ic" data-ic="down"></i></button></div>`:'';
     if(takip&&s.tamam&&!siraDuzenle){h+=`<div class="sira bitti"><span class="n"><i class="ic" data-ic="check"></i></span><div><div class="ad">${i+1+delivered.length}. ${names(s)} <span class="tk-zaman">tamamlandı ${esc(s.tamamZaman||'')}${s.arama?' · '+ARAMA[s.arama][1]:''}</span> <button class="tk-geri hide-print" data-tm="${i}">Geri al</button></div>${teslimBilgiHTML(s)}</div></div>`;return}
     const tk=takip&&!siraDuzenle?`<div class="takip hide-print">${Object.entries(ARAMA).map(([v,[icn,ad]])=>`<button class="tk ${s.arama===v?'on '+v:''}" data-tk="${i}" data-v="${v}"><i class="ic" data-ic="${icn}"></i> ${ad}</button>`).join('')}${s.arama?`<span class="tk-zaman">${esc(s.aramaZaman||'')}</span>`:''}<button class="tk tamam" data-tm="${i}"><i class="ic" data-ic="check"></i> Tamamlandı</button></div>${s.arama==='acti'?teslimFormHTML(s,i):''}`:'';
-    h+=`<div class="sira${siraDuzenle?' duzen':''}${takip&&i===siradaki?' siradaki':''}"${takip&&i===siradaki?' id="siradakiDurak"':''}>${tas}<span class="n">${i+1+delivered.length}</span><div><div class="ad">${names(s)} <button class="copy hide-print" data-copy="${esc(stopNames(s))}" title="İsmi kopyala" aria-label="İsmi kopyala"><i class="ic" data-ic="copy"></i></button>${warn}</div><div class="tipler">${tipRozet(s)}</div><div class="adr">${esc(s.raw)}</div>${gidilecekHTML(s)}${denetimHTML(s,stops.indexOf(s))}${teslimBilgiHTML(s)}${tk}${ya}<div class="small">${esc(neighborhoodLabel(s))} · ${(legs[i].d/1000).toFixed(1)} km / ${fmtT(legs[i].t)}${legs[i].delay>60?` (<i class="ic" data-ic="traffic"></i> +${fmtT(legs[i].delay)})`:''} · <b>varış ≈ ${clock(eta[i])}</b></div><div class="small">${[s.orders.length>1?s.orders.length+' sipariş':'',k?k+' koli':'',[...new Set(s.orders.map(o=>o.musteri).filter(Boolean))].join(', ')].filter(Boolean).join(' · ')}</div></div></div>`;
+    h+=`<div class="sira${siraDuzenle?' duzen':''}${takip&&i===siradaki?' siradaki':''}"${takip&&i===siradaki?' id="siradakiDurak"':''}>${tas}<span class="n">${i+1+delivered.length}</span><div><div class="ad">${names(s)} <button class="copy hide-print" data-copy="${esc(stopNames(s))}" title="İsmi kopyala" aria-label="İsmi kopyala"><i class="ic" data-ic="copy"></i></button>${warn}${siraDuzenle?'':`<button class="urun-yok hide-print" data-cikar="${s.id}" title="Ürünü yok: rotadan ve müşteri sayısından çıkar"><i class="ic" data-ic="x"></i> Ürün yok</button>`}</div><div class="tipler">${tipRozet(s)}</div><div class="adr">${esc(s.raw)}</div>${gidilecekHTML(s)}${denetimHTML(s,stops.indexOf(s))}${teslimBilgiHTML(s)}${tk}${ya}<div class="small">${esc(neighborhoodLabel(s))} · ${(legs[i].d/1000).toFixed(1)} km / ${fmtT(legs[i].t)}${legs[i].delay>60?` (<i class="ic" data-ic="traffic"></i> +${fmtT(legs[i].delay)})`:''} · <b>varış ≈ ${clock(eta[i])}</b></div><div class="small">${[s.orders.length>1?s.orders.length+' sipariş':'',k?k+' koli':'',[...new Set(s.orders.map(o=>o.musteri).filter(Boolean))].join(', ')].filter(Boolean).join(' · ')}</div></div></div>`;
   });
   h+=`<div class="sira"><span class="n" style="background:#1c2430">E</span><div><div class="ad">Eve dönüş</div></div></div>`;
   const out=stops.filter(s=>s.skip);
-  if(out.length)h+=`<div class="small" style="color:var(--bad);margin-top:8px">Sıraya girmeyen ${out.length} durak: ${out.map(names).join(', ')} — “Adres kontrolü” bölümünden düzeltin.</div>`;
+  if(out.length)h+=`<div class="cikarilan hide-print"><b>Rotadan çıkarılan ${out.length} müşteri</b> <span class="small">(müşteri sayısına da girmez)</span>${out.map(s=>`<div><span>${names(s)}</span><button data-geri="${s.id}"><i class="ic" data-ic="undo"></i> Rotaya geri ekle</button></div>`).join('')}</div>`;
   $('result').innerHTML=h;
   $('result').querySelectorAll('button.copy').forEach(b=>b.onclick=()=>copyText(b.dataset.copy,b));
+  $('result').querySelectorAll('[data-cikar]').forEach(b=>b.onclick=()=>{const s=stops.find(x=>x.id===+b.dataset.cikar);if(s&&confirm(stopNames(s)+' rotadan ve müşteri sayısından çıkarılsın mı? (ürünü yok)'))durakCikar(s,true)});
+  $('result').querySelectorAll('[data-geri]').forEach(b=>b.onclick=()=>{const s=stops.find(x=>x.id===+b.dataset.geri);if(s)durakCikar(s,false)});
   $('rotaSilBtn').onclick=()=>rotaSil(planDate||todayISO());
   if($('simdiBtn'))$('simdiBtn').onclick=()=>{planCikis=Date.now();cikisGoster();buildRoute()};
   $('result').querySelectorAll('[data-denetim]').forEach(b=>b.onclick=()=>oneriyleDuzelt(stops[+b.dataset.denetim]));
@@ -1579,6 +1588,15 @@ function ucretHesapla({bolge,ilceSayisi,nokta,rutTip,hammaliye=0,ekKm=0},F=fiyat
   return {bolge,nokta,bazNokta,bazTl,yarimEsik,tamIkiEsik,otoTip:oto,rutTip:tip,rutKat:kat,rutUcret,ekstra,ekstraTl,ekKm:+ekKm||0,ekKmTl,hammaliye:ham,net,kdvOran:F.kdv??20,kdv,toplam:net+kdv};
 }
 const musteriKey=m=>fold(m.ad)+'|'+fold(m.adres);
+const durakKey=s=>fold(stopNames(s))+'|'+fold(s.raw);
+// Ürünü olmayan / alınmayan müşteri: listeden çıkarılınca rotadan da çıkar
+function planHaricUygula(haric){
+  const h=new Set(haric||[]);let degisti=false;
+  for(const s of stops){if(delivered.includes(s))continue;const ist=h.has(durakKey(s));if(!!s.skip!==ist){s.skip=ist;degisti=true}}
+  if(degisti){elleSira=null;savePlan();renderStops();clearRoute()}
+}
+// Rota sayfasından: "Ürün yok" → rotadan çıkar; geri al → rotaya ekle
+function durakCikar(s,cikar){s.skip=!!cikar;elleSira=null;savePlan();renderStops();clearRoute()}
 // Plandan günün müşteri listesi (rota sırasıyla) ve otomatik bilgiler
 function planMusteriler(){
   // yalnızca bu plandaki duraklar, her biri bir kez (teslim edilenler → kalan sıra → atlananlar)
@@ -1608,14 +1626,59 @@ function gunHesap(k){
   const bolge=(liste&&k.bolge)||bolgeBul(ilceler)||k.rota?.bolge||'anadolu';
   return ucretHesapla({bolge,ilceSayisi:(liste&&+k.ilceSayisi)||ilceler.length||1,nokta:liste?+k.nokta:teslim.length,rutTip:k.rutTip||undefined,hammaliye:k.hammaliye,ekKm:k.ekKm});
 }
+// ---------- çevrimdışı: bekleyen kayıtlar ----------
+// İnternet yokken gün kaydı, yakıt ve konum kayıtları bu cihazda sıraya alınır; internet gelince sırayla gönderilir.
+const KUYRUK='rota_kuyruk'+(typeof OTURUM!=='undefined'&&OTURUM.user?':'+OTURUM.user:''),KUYRUK_YOL=['/api/rut','/api/yakit','/api/yakit-sil','/api/konum-kaydet'];
+function kuyrukOku(){try{return JSON.parse(localStorage.getItem(KUYRUK)||'[]')}catch(e){return []}}
+function kuyrukYaz(q){try{localStorage.setItem(KUYRUK,JSON.stringify(q))}catch(e){}cevrimGoster()}
+function kuyrukEkle(url,body){let q=kuyrukOku();if(url==='/api/rut')q=q.filter(x=>!(x.url===url&&x.body?.tarih===body.tarih));q.push({url,body,at:Date.now()});kuyrukYaz(q)}
+let kuyrukGidiyor=false;
+async function kuyrukGonder(){
+  if(kuyrukGidiyor||navigator.onLine===false)return;
+  let q=kuyrukOku();if(!q.length)return;
+  kuyrukGidiyor=true;cevrimGoster();
+  try{
+    while(q.length){
+      const x=q[0];let r;
+      try{r=await fetch(x.url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(x.body)})}catch(e){break}
+      if(r.status===401||r.status>=500)break; // oturum düştü ya da sunucu geçici hata: sonra tekrar
+      q.shift();kuyrukYaz(q);
+    }
+  }finally{kuyrukGidiyor=false;cevrimGoster()}
+  if(!kuyrukOku().length){ayCache={};if(typeof stops!=='undefined'&&stops.length)savePlan(true)}
+}
+function cevrimGoster(){
+  const el=document.getElementById('cevrimDurum');if(!el)return;
+  const n=kuyrukOku().length,off=navigator.onLine===false;
+  el.hidden=!off&&!n;
+  el.className='cevrim'+(off?' off':'');
+  el.textContent=off?'Çevrimdışı'+(n?' · '+n+' kayıt bekliyor':''):n?(kuyrukGidiyor?n+' kayıt gönderiliyor…':n+' kayıt bekliyor'):'';
+}
 async function apiJSON(url,body){
-  const r=await fetch(url,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  let r;
+  try{r=await fetch(url,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})}
+  catch(e){if(body!==undefined&&KUYRUK_YOL.includes(url)){kuyrukEkle(url,body);return {kuyrukta:true}}throw e}
   if(r.status===204)return {};const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'sunucu hatası');return j;
 }
 async function ayYukle(ay,force){
   if(!force&&ayCache[ay])return ayCache[ay];
   const [r,y]=await Promise.all([apiJSON('/api/rutlar?ay='+ay),apiJSON('/api/yakitlar?ay='+ay)]);
   return ayCache[ay]={rutlar:r.rutlar||[],yakitlar:y.yakitlar||[]};
+}
+const ayTazeleniyor={};
+async function ayYukleHizli(ay,yenidenCiz){
+  const eski=ayCache[ay];
+  if(!eski)return ayYukle(ay,true);
+  if(!ayTazeleniyor[ay]){ayTazeleniyor[ay]=true;const once=JSON.stringify(eski);
+    ayYukle(ay,true).then(v=>{if(JSON.stringify(v)!==once&&yenidenCiz)yenidenCiz()}).catch(()=>{}).finally(()=>{delete ayTazeleniyor[ay]})}
+  return eski;
+}
+// Yakıt fiyatı ve öğrenilen tüketim arka planda hazırlanır; sayfalar beklemez, hazır olunca açık sayfa bir kez yenilenir
+let yakitHazirP=null;
+function yakitHazirla(){
+  return yakitHazirP||(yakitHazirP=guncelFiyatYukle().then(()=>depoTahmini(todayISO())).catch(()=>null).then(()=>{
+    if(!$('hesapPage')?.hidden){if(!$('hesap_ozet')?.hidden&&typeof renderOzet==='function')renderOzet();else if(!$('hesap_yakit')?.hidden&&typeof renderYakit==='function')renderYakit()}
+  }));
 }
 const gunKaydi=async t=>(await ayYukle(t.slice(0,7))).rutlar.find(r=>r.tarih===t)||null;
 async function gunYaz(t,k){
@@ -1641,8 +1704,9 @@ async function otoKaydet(){
   const eski=(await gunKaydi(t).catch(()=>null))||{};
   const sira=planMusteriler(),keys=new Set(sira.map(musteriKey));
   const skipped=stops.filter(s=>s.skip).map(s=>fold(stopNames(s))+'|'+fold(s.raw));
+  const aktif=new Set(stops.filter(s=>!s.skip).map(durakKey)); // rotaya geri eklenen müşteri yeniden sayılır
   const k={durum:eski.durum||'calisti',neden:eski.neden||null,hammaliye:eski.hammaliye||0,ekKm:eski.ekKm||0,notu:eski.notu||'',
-    haric:[...new Set([...(eski.haric||[]).filter(x=>keys.has(x)),...skipped])],
+    haric:[...new Set([...(eski.haric||[]).filter(x=>keys.has(x)&&!aktif.has(x)),...skipped])],
     rota:{sira,km:delivered.length&&eski.rota?.km?eski.rota.km:lastRoute?+((lastRoute.dist||0)/1000).toFixed(1):null,sure:lastRoute?Math.round((lastRoute.dur||0)/60):null,
       gecikme:lastRoute?Math.round((lastRoute.legs||[]).reduce((a,l)=>a+(l.delay||0),0)/60):null,eve:lastRoute?.eta?.length?new Date(lastRoute.eta.at(-1)).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}):null,
       yandex:lastRoute?.seq?.length?'https://yandex.com.tr/maps/?rtt=auto&rtext='+lastRoute.seq.map(p=>p.lat.toFixed(6)+','+p.lon.toFixed(6)).join('~'):null,olusturma:new Date().toISOString()},evraklar:planEvraklar};
@@ -1978,7 +2042,7 @@ async function renderGun(){
        <div><span>KDV’siz</span><b>${tl(h.net)}</b></div><div><span>KDV (%${h.kdvOran})</span><b>+${tl(h.kdv)}</b></div>
        <div class="top"><span>Toplam hakediş</span><b>${tl(h.toplam)}</b></div></div>`;
   };
-  const save=()=>{clearTimeout(gunTimer);gunTimer=setTimeout(async()=>{gunTimer=null;try{k=await gunYaz(t,read());$('gMsg').textContent='✓ Kaydedildi '+new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})}catch(e){$('gMsg').textContent='Kaydedilemedi: '+e.message}},700)};
+  const save=()=>{if(t===planDate)planHaricUygula(read().haric);clearTimeout(gunTimer);gunTimer=setTimeout(async()=>{gunTimer=null;try{k=await gunYaz(t,read());$('gMsg').textContent='✓ Kaydedildi '+new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'})}catch(e){$('gMsg').textContent='Kaydedilemedi: '+e.message}},700)};
   show();
   donemBagla('gTarih',v=>{gunSecili=v;renderGun()});
   el.querySelectorAll('.seg button').forEach(b=>b.onclick=async()=>{k={...read(),durum:b.dataset.d,neden:b.dataset.d==='gidilmedi'?(k.neden||NEDENLER[0]):null};try{k=await gunYaz(t,k)}catch(e){}renderGun()});
@@ -2072,8 +2136,8 @@ async function renderYakit(){
     try{await apiJSON('/api/yakit',item);delete ayCache[item.tarih.slice(0,7)];ozetAy=item.tarih.slice(0,7);renderYakit()}catch(e){$('yMsg').textContent='Kaydedilemedi: '+e.message}
   };
   try{
-    await guncelFiyatYukle();await depoTahmini(todayISO()).catch(()=>null);
-    const {yakitlar,rutlar}=await ayYukle(ay,true),top=yakitlar.reduce((a,y)=>a+y.tutar,0),gun=calisilanGun(rutlar);
+    yakitHazirla();
+    const {yakitlar,rutlar}=await ayYukleHizli(ay,()=>{if(ozetAy===ay||!ozetAy)renderYakit()}),top=yakitlar.reduce((a,y)=>a+y.tutar,0),gun=calisilanGun(rutlar);
     const ayLitre=rutlar.reduce((a,r)=>a+gunLitre(r),0),fy=aracAyar().fiyat;
     $('yOzet').innerHTML=`<div class="tiles"><div><b>${tl(top)}</b>bu ay alınan yakıt</div><div><b>${gun}</b>çalışılan gün</div>${(()=>{const gg=gunlukGercek(rutlar);return gg?`<div><b>${tl(gg.tl)}</b>günlük yakıt (gerçek km)<span class="tnot">≈ ${litreYaz(gg.litre)} / gün · ${gg.gun} günün km'si</span></div>`:`<div><b>${gun?tl(gunlukYakit(top,gun)):'—'}</b>günlük tahmini yakıt${gun?'<span class="tnot">alınan yakıt ÷ gün</span>':''}</div>`})()}${ayLitre?`<div><b>${litreYaz(ayLitre)}</b>km'ye göre yakılan${fy?`<span class="tnot">≈ ${tl(ayLitre*fy)}</span>`:''}</div>`:''}</div><div id="yDepo"></div>`;
     const ayBitis=ay===todayISO().slice(0,7)?todayISO():ay+'-'+String(new Date(+ay.slice(0,4),+ay.slice(5,7),0).getDate()).padStart(2,'0');
@@ -2095,8 +2159,8 @@ async function renderOzet(){
   const el=$('hesap_ozet'),ay=ozetAy||(gunSecili||todayISO()).slice(0,7);ozetAy=ay;
   el.innerHTML=`<div class="htool">${donemHTML('oAy','month',ay)}<div class="acts"><button class="tbtn" id="oYaz"><i class="ic" data-ic="file"></i> PDF</button><button class="tbtn" id="oCsv"><i class="ic" data-ic="download"></i> CSV</button></div></div><div id="oTablo" class="small">Yükleniyor…</div>`;
   donemBagla('oAy',v=>{ozetAy=v;renderOzet()});
-  await guncelFiyatYukle();await depoTahmini(todayISO()).catch(()=>null); // öğrenilen tüketim hazır olsun
-  let data;try{data=await ayYukle(ay,true)}catch(e){$('oTablo').textContent='Okunamadı: '+e.message;return}
+  yakitHazirla(); // fiyat ve öğrenilen tüketim arka planda
+  let data;try{data=await ayYukleHizli(ay,()=>{if(ozetAy===ay)renderOzet()})}catch(e){$('oTablo').textContent='Okunamadı: '+e.message;return}
   const [Y,M]=ay.split('-').map(Number),gunSay=new Date(Y,M,0).getDate();
   const byDay=Object.fromEntries(data.rutlar.map(r=>[r.tarih,r])),yakit={};data.yakitlar.forEach(y=>yakit[y.tarih]=(yakit[y.tarih]||0)+y.tutar);
   const rows=[],T={nokta:0,rut:0,ekKm:0,ekKmTl:0,ham:0,net:0,kdv:0,top:0,yakit:0,calisti:0,gidilmedi:0,km:0,kmGun:0,desi:0,kg:0},ayRutlar=[];
@@ -2166,7 +2230,7 @@ function savePlan(now){
     try{localStorage.setItem(PLAN_LOCAL,JSON.stringify(plan))}catch(e){}
     try{const r=await fetch('/api/plan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({plan})});
       $('planStatus').textContent=r.ok?'✓ Plan kaydedildi '+new Date(plan.savedAt).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}):'Plan bu cihaza kaydedildi; sunucuya kaydedilemedi.'}
-    catch(e){$('planStatus').textContent='Plan bu cihaza kaydedildi (sunucuya ulaşılamadı).'}
+    catch(e){$('planStatus').textContent='Plan bu cihaza kaydedildi; internet gelince sunucuya gönderilecek.'}
   },now?0:1500);
 }
 async function clearPlan(){
@@ -2473,7 +2537,10 @@ function uygulamaBaslat(){
   document.querySelectorAll('.pagenav button').forEach(b=>b.onclick=()=>sayfaAc(b.dataset.p));
   document.querySelectorAll('#hesapPage .tabs button').forEach(b=>b.onclick=()=>hesapSekme(b.dataset.t));
   let ilk='rota';try{ilk=['hesap','yonetim'].includes(localStorage.getItem('rota_sayfa'))?localStorage.getItem('rota_sayfa'):'rota'}catch(e){}
-  fiyatYukle().then(()=>restorePlan()).then(()=>sayfaAc(ilk));
+  if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('/sw.js').catch(()=>{});
+window.addEventListener('online',()=>{cevrimGoster();kuyrukGonder()});window.addEventListener('offline',cevrimGoster);
+setInterval(kuyrukGonder,60000);cevrimGoster();setTimeout(kuyrukGonder,3000);
+fiyatYukle().then(()=>restorePlan()).then(()=>sayfaAc(ilk)).then(()=>setTimeout(()=>{ayYukle(todayISO().slice(0,7)).catch(()=>{});yakitHazirla()},1500));
 }
 uygulamaBaslat();
 </script>

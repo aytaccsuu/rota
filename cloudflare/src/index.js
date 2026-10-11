@@ -347,6 +347,10 @@ export default {
     // Kullanıcılar tanımlanmadan yayında hiçbir şey açılmaz (yalnızca yerel geliştirmede YEREL_ACIK=1 ile girişsiz çalışır)
     if (!G.girisAcik(env) && env.YEREL_ACIK !== '1') return new Response('Kurulum tamamlanmadı: Cloudflare panelinde ROTA_KULLANICILAR gizli ayarını girin.', { status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' } });
     try {
+      if (yol === '/sw.js') { // çevrimdışı katmanı: giriş gerektirmez, içinde kişisel veri yok
+        const r = await env.ASSETS.fetch(new Request(new URL('/sw.js', request.url)));
+        return new Response(r.body, { status: r.status, headers: { 'Content-Type': 'application/javascript; charset=utf-8', 'Cache-Control': 'no-cache' } });
+      }
       if (yol === '/giris') {
         if (request.method === 'POST') return girisYap(env, request);
         if (G.girisAcik(env) && await G.oturumKullanicisi(env, request)) return yonlendir('/');
