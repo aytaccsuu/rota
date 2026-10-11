@@ -315,11 +315,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         path = urllib.parse.urlsplit(self.path).path
-        if path == "/sw.js":  # çevrimdışı katmanı: giriş gerektirmez, içinde kişisel veri yok
-            with open(os.path.join(KLASOR, "sw.js"), "rb") as f:
+        ACIK = {"/sw.js": "application/javascript; charset=utf-8", "/manifest.webmanifest": "application/manifest+json",
+                "/ikon-192.png": "image/png", "/ikon-512.png": "image/png"}
+        if path in ACIK:  # çevrimdışı katmanı ve uygulama simgeleri: giriş gerektirmez, içinde kişisel veri yok
+            with open(os.path.join(KLASOR, path.lstrip("/")), "rb") as f:
                 body = f.read()
             self.send_response(200)
-            self.send_header("Content-Type", "application/javascript; charset=utf-8")
+            self.send_header("Content-Type", ACIK[path])
             self.send_header("Cache-Control", "no-cache")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()

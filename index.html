@@ -3,6 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0a7c45">
+<meta name="mobile-web-app-capable" content="yes">
+<link rel="apple-touch-icon" href="/ikon-192.png">
 <title>Rota Oluşturucu</title>
 <style>
 :root{--bg:#f4f6f9;--card:#fff;--ink:#1c2430;--mute:#6b7686;--line:#dfe4ec;--pri:#1f6feb;--ok:#1a8f4c;--warn:#c77800;--bad:#c62f2f}
@@ -241,6 +245,7 @@ html[data-theme="dark"] .tk.on.acti{background:#1fbf63;border-color:#1fbf63;colo
   <div class="card hide-print" id="setCard" style="display:none">
     <h2><i class="ic" data-ic="settings"></i> Ayarlar</h2>
     <div class="ayar-bolum row" style="align-items:center;gap:8px"><b style="font-size:14px"><i class="ic" data-ic="clock"></i> Çıkış saati</b><span class="small">Evrak okutulduktan</span><input type="number" id="cikisDkIn" min="0" max="600" step="5" style="width:80px"><span class="small">dk sonra (rota o saatin trafiğine göre)</span><span class="small" id="cikisDkMsg"></span></div>
+    <div class="ayar-bolum row" id="yukleBolum" style="align-items:center;gap:8px"><b style="font-size:14px"><i class="ic" data-ic="download"></i> Uygulama</b><button class="p" id="yukleBtn" hidden>Uygulama olarak yükle</button><span class="small" id="yukleBilgi">Ana ekrana yüklenince tam ekran açılır ve konum izni bir kez verilir.</span></div>
     <div class="ayar-bolum"><b style="font-size:14px"><i class="ic" data-ic="fuel"></i> Araç ve yakıt</b><div class="grid2" style="margin-top:8px"><label>Araç<input type="text" id="aracAdIn" autocomplete="off" placeholder="ör. Iveco Daily 35S11"></label><label>Tüketim (L / 100 km)<input type="text" inputmode="decimal" id="aracTuketimIn" autocomplete="off" placeholder="11"></label><label>Depo (L)<input type="text" inputmode="decimal" id="aracDepoIn" autocomplete="off" placeholder="70"></label><label>Fiyat bölgesi<select id="fiyatYakaIn"><option value="anadolu">İstanbul Anadolu</option><option value="avrupa">İstanbul Avrupa</option></select></label><label>Motorin elle (₺ / L)<input type="text" inputmode="decimal" id="motorinFiyatIn" autocomplete="off" placeholder="boş: güncel fiyat kullanılır"></label></div><div class="small" id="guncelFiyatBilgi"></div><div class="small" id="aracMsg">Günlük km'ye göre yakılan yakıt ve depoda kalan yakıt bu bilgilerle tahmin edilir.</div></div>
     <details id="ptCard" class="ayar-bolum" open>
       <summary><b><i class="ic" data-ic="pin"></i> Başlangıç (depo) ve bitiş (ev)</b> <small id="ptOzet"></small></summary>
@@ -943,13 +948,16 @@ function konumHatirla(s,kaynak,dogruluk){
 // Tamamlandı'da telefonun konumu: doğruluk ≤ 60 m ve durağa ≤ 800 m ise bina girişi olarak öğrenilir
 function gpsIleOgren(s){
   if(!navigator.geolocation||!konumAnahtari(s))return;
-  navigator.geolocation.getCurrentPosition(p=>{
-    const g={lat:p.coords.latitude,lon:p.coords.longitude},acc=p.coords.accuracy;
+  konumTakipBaslat();
+  const isle=(g,acc)=>{
     // kesin bulunmuş (kapı no ile doğrulanmış) adreste yalnızca bina girişi düzeltilir (80 m); "Tamamlandı" başka yerde basılırsa yanlış konum öğrenilmez
     const bb=binaBilgi(s.raw),sinir=readyStop(s)?(bb.etap||bb.blok?0.3:0.08):0.8;
     if(acc>60||(validPoint(s)&&hav(g,s)>sinir))return;
     s._gps=g;konumHatirla(s,'gps',Math.round(acc));
-  },()=>{},{enableHighAccuracy:true,timeout:15000,maximumAge:30000});
+  };
+  // son 20 sn içindeki net konum varsa o kullanılır; yoksa bir kez ölçülür
+  if(konumum&&Date.now()-konumum.at<20000&&konumum.acc<=60)return isle({lat:konumum.lat,lon:konumum.lon},konumum.acc);
+  navigator.geolocation.getCurrentPosition(p=>isle({lat:p.coords.latitude,lon:p.coords.longitude},p.coords.accuracy),()=>{},{enableHighAccuracy:true,timeout:15000,maximumAge:10000});
 }
 // ---------- yapay zekâ adres denetimi ----------
 // Okuma bittiğinde evraktaki adres ile bulunan konum karşılaştırılır; konumun diğer duraklara uzaklığı da verilir.
@@ -1438,13 +1446,26 @@ function etaHesapla(legs,takip,siradaki){
   for(let k=0;k<legs.length;k++)if(eta[k]==null)eta[k]=k?eta[k-1]:Date.now();
   return {t0:z[0],eta,canli:true,kalan:n-sk,dongu,gps:g!=null};
 }
+// Konum: izin bir kez alınır, sonra uygulama açık kaldıkça yüksek doğrulukla sürekli izlenir (tek takip)
 function konumTakipBaslat(){
   if(konumTakipId!=null||!navigator.geolocation?.watchPosition)return;
   konumTakipId=navigator.geolocation.watchPosition(p=>{
     konumum={lat:p.coords.latitude,lon:p.coords.longitude,acc:p.coords.accuracy,at:Date.now()};
     ilkBacakGuncelle();
-  },()=>{},{enableHighAccuracy:true,maximumAge:30000,timeout:20000});
+  },e=>{
+    if(e?.code===1){navigator.geolocation.clearWatch(konumTakipId);konumTakipId=null;konumIzniUyari()}
+  },{enableHighAccuracy:true,maximumAge:5000,timeout:30000});
 }
+function konumIzniUyari(){
+  try{if(localStorage.getItem('rota_konum_uyari'))return;localStorage.setItem('rota_konum_uyari','1')}catch(e){}
+  alert('Konum izni kapalı.\n\nBir kez izin verin, sonra tekrar sorulmaz:\nChrome adres çubuğundaki kilit simgesi → İzinler / Site ayarları → Konum → İzin ver.\n\nEn iyisi uygulamayı ana ekrana yüklemek (Ayarlar → Uygulama olarak yükle): izin kalıcı olur.');
+}
+// Daha önce izin verildiyse açılışta takibi hemen başlat (soru çıkmaz)
+try{navigator.permissions?.query({name:'geolocation'}).then(p=>{if(p.state==='granted')konumTakipBaslat();p.onchange=()=>{if(p.state==='granted')konumTakipBaslat()}}).catch(()=>{})}catch(e){}
+// Uygulama olarak yükleme (ana ekran simgesi, tam ekran, kalıcı izinler)
+let yuklemeIstegi=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();yuklemeIstegi=e;const b=document.getElementById('yukleBtn');if(b)b.hidden=false});
+window.addEventListener('appinstalled',()=>{yuklemeIstegi=null;const b=document.getElementById('yukleBtn');if(b)b.hidden=true});
 // Sıradaki hedefe (durak ya da ev) konumdan yol süresi; en fazla 2 dakikada bir ya da 300 m hareket edince
 async function ilkBacakGuncelle(){
   if(!konumum||!routeOrder?.length||!sonRender||!takipAcik())return;
@@ -2540,6 +2561,12 @@ if($('aracAdIn')){
   $('fiyatYakaIn').value=t.fiyatYaka==='avrupa'?'avrupa':'anadolu';
   $('fiyatYakaIn').onchange=e=>kaydet('fiyatYaka',e.target.value).then(()=>guncelFiyatYukle(true));
   guncelFiyatYukle();
+}
+if($('yukleBtn')){
+  if(yuklemeIstegi)$('yukleBtn').hidden=false;
+  if(window.matchMedia?.('(display-mode: standalone), (display-mode: fullscreen)').matches)$('yukleBilgi').textContent='✓ Uygulama olarak açık.';
+  else if(!yuklemeIstegi)$('yukleBilgi').textContent='Chrome menüsü (⋮) → "Ana ekrana ekle" / "Uygulamayı yükle" ile de yükleyebilirsiniz.';
+  $('yukleBtn').onclick=async()=>{if(!yuklemeIstegi)return;yuklemeIstegi.prompt();const r=await yuklemeIstegi.userChoice.catch(()=>null);if(r?.outcome==='accepted')$('yukleBilgi').textContent='✓ Yüklendi; ana ekrandaki "Rota" simgesinden açın.';yuklemeIstegi=null;$('yukleBtn').hidden=true};
 }
 $('cikisDkIn').value=cikisDk();
 $('cikisDkIn').onchange=()=>{const v=Math.max(0,Math.min(600,Math.round(+$('cikisDkIn').value||0)));$('cikisDkIn').value=v;OTURUM.tercih={...OTURUM.tercih,cikisDk:v};

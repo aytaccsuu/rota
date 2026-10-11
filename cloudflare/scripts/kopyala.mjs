@@ -7,5 +7,5 @@ import { fileURLToPath } from 'node:url';
 const kok = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const hedef = join(dirname(fileURLToPath(import.meta.url)), '..', 'public');
 mkdirSync(hedef, { recursive: true });
-for (const ad of ['index.html', 'giris.html', 'sw.js']) copyFileSync(join(kok, ad), join(hedef, ad));
+for (const ad of ['index.html', 'giris.html', 'sw.js', 'manifest.webmanifest', 'ikon-192.png', 'ikon-512.png']) copyFileSync(join(kok, ad), join(hedef, ad));
 console.log('Arayüz kopyalandı →', hedef);
