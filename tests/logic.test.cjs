@@ -289,6 +289,11 @@ async function main(){
   const k1=run(`konumAnahtari({...parseAddress('Bostancı mah. Bahçe sok. No:334','Kadıköy')})`),k2=run(`konumAnahtari({...parseAddress('Bostancı Mahallesi Bahçe Sokak no 334','KADIKÖY')})`);
   assert.equal(k1,k2);assert.ok(k1.startsWith('adres2|kadikoy|bostanci|bahce|334'));
   assert.equal(run(`konumAnahtari({ilce:'Kadıköy',mah:'Bostancı',street:'Bahçe Sokak',no:''})`),null,'kapı no yoksa hafızaya alınmaz');
+  { const ka=a=>run('konumAnahtarlari({...parseAddress('+JSON.stringify(a)+',"Kadıköy"),raw:'+JSON.stringify(a)+'})');
+    assert.deepEqual(plain(ka('Dumlupınar mah. 16. Etap yenifikirtepe konutları yavuz sokak a1 blok kat 21 daire 128')),['bina3|kadikoy|dumlupinar|e16|A1'],'kapı no olmayan site adresi: etap+blok anahtarı');
+    assert.notEqual(ka('Dumlupınar mah. Çeşme sok. 3/1 Emlak konut 14. Etap A blok D:79')[0],ka('Dumlupınar mah. Çeşme sok. Emlak Konut 14. Etap No:3 B Blok K:11')[0],'aynı sitede farklı blok ayrı konum');
+    assert.equal(ka('Dumlupınar mah. 16. Etap yavuz sokak a1 blok')[0],ka('Dumlupınar mah. Kemalettin Sokak No: 7 Emlak Konut Yeni Fikirtepe 16. Etap A1 Blok Kat 16')[0],'aynı etap ve blok farklı yazılsa da aynı bina');
+    assert.equal(run('parseAddress("Optimist Residence Fikirtepe Mah. Yıldırım Sok. 10/1 A1 Blok","Kadıköy").mah'),'Fikirtepe','site adı mahalleye karışmaz'); }
   console.log('OK: adres/AVM ayrıştırma, ücretsiz yer teyidi, 250 rota senaryosu, teslimat devamı ve eski yanıt koruması');
 }
 main().catch(e=>{console.error(e);process.exitCode=1});

@@ -505,7 +505,7 @@ const STOPW=/^(mah|mahallesi|mahalle|no|apt|apartman|apartmanı|sitesi|site|sit|
 function parseAddress(raw,ilceRaw){
   // "no 2 /4" → "no 2/4" (kapı/daire)
   const s=String(raw).replace(/\s+/g,' ').replace(/(\d)\s*\/\s*(\d)/g,'$1/$2').trim();
-  const mm=[...s.matchAll(/(?:^|[,;])\s*([A-Za-zÇĞİÖŞÜçğıöşü0-9]+(?:\s+[A-Za-zÇĞİÖŞÜçğıöşü0-9]+){0,3})\s+mah(?:allesi)?(?=[\s.,/]|$)/gi)].map(x=>x[1]).filter(x=>!/^mah/i.test(x));
+  const mm=[...s.matchAll(/(?:^|[,;])\s*([A-Za-zÇĞİÖŞÜçğıöşü0-9]+(?:\s+[A-Za-zÇĞİÖŞÜçğıöşü0-9]+){0,3})\s+mah(?:allesi)?(?=[\s.,/]|$)/gi)].map(x=>x[1].replace(/^.*\b(residence|rezidans|residans|sitesi|konutları|konutlari|konut|evleri|apt\.?|apartmanı|apartman|plaza|towers?|blok)\s+/i,'')).filter(x=>!/^mah/i.test(x)); // "Optimist Residence Fikirtepe Mah." → Fikirtepe
   // "19 Mayıs Mah." rakamla başlayabilir; ama "No:5 GÖZTEPE MAH."daki 5 kapı numarasıdır, mahalle adına girmez
   const fallbackMah=[...s.matchAll(/((?:\d+\s+)?[A-Za-zÇĞİÖŞÜçğıöşü]{3,})\s+mah(?:allesi)?(?=[\s.,/]|$)/gi)]
     .map(x=>/(?:\bno|\bnu|\bnr|\bn|numara|:|\d\/)\s*[:.]?\s*$/i.test(s.slice(0,x.index))?x[1].replace(/^\d+\s+/,''):x[1]).find(x=>!/^mah/i.test(x));
@@ -912,15 +912,27 @@ async function locateCore(a){
 let geoRun=0;
 // ---------- ortak konum hafızası ----------
 // Anahtar: ilçe | mahalle | sokak | kapı no (yazım farkları sadeleşir: "Sok."="Sokak", "No:"="no"). Sokak yoksa yer adı (AVM/site).
-function konumAnahtari(s){
-  const ilce=core(s.ilce||''),mah=core(s.mah||'');
-  // 'adres2/yer2': sokak karşılaştırma hatası düzeltildikten sonraki kayıtlar (öncekiler güvenilir değil, kullanılmaz)
-  if(s.street&&s.no)return ['adres2',ilce,mah,core(s.street),normNo(s.no)].join('|');
-  if(s.place)return ['yer2',ilce,core(s.place)].join('|');
-  return null;
+// Site / toplu konut adresleri: "16. Etap ... A1 Blok", "Çeşme sok. 3/1 ... A blok" → etap ve blok
+function binaBilgi(raw){
+  const t=String(raw||'').toLocaleUpperCase('tr-TR');
+  const e=/(\d{1,2})\s*\.?\s*ETAP/.exec(t),b=/\b([A-ZÇĞİÖŞÜ]\d{0,2})\s*-?\s*BLO[KĞ]/.exec(t)||/BLO[KĞ]\s*:?\s*([A-ZÇĞİÖŞÜ]\d{0,2})\b/.exec(t);
+  return {etap:e?String(+e[1]):'',blok:b?b[1]:''};
 }
+// Konum hafızası anahtarları, en özelden genele. Etap/blok yazan adreste yalnız bina anahtarı kullanılır:
+// aynı sitenin başka bloğunda öğrenilmiş konum bu bloğa uygulanmaz.
+function konumAnahtarlari(s){
+  const ilce=core(s.ilce||''),mah=core(s.mah||''),{etap,blok}=binaBilgi(s.raw);
+  if(etap)return [['bina3',ilce,mah,'e'+etap,blok].join('|')];
+  if(blok&&s.street)return [['bina3',ilce,mah,core(s.street),normNo(s.no||''),blok].join('|')];
+  // 'adres2/yer2': sokak karşılaştırma hatası düzeltildikten sonraki kayıtlar (öncekiler güvenilir değil, kullanılmaz)
+  const k=[];
+  if(s.street&&s.no)k.push(['adres2',ilce,mah,core(s.street),normNo(s.no)].join('|'));
+  if(s.place)k.push(['yer2',ilce,core(s.place)].join('|'));
+  return k;
+}
+const konumAnahtari=s=>konumAnahtarlari(s)[0]||null;
 async function konumHafizasi(liste){
-  const keys=[...new Set(liste.map(konumAnahtari).filter(Boolean))];if(!keys.length||!srv)return {};
+  const keys=[...new Set(liste.flatMap(konumAnahtarlari))];if(!keys.length||!srv)return {};
   try{return (await apiJSON('/api/konum-bul',{anahtarlar:keys})).konumlar||{}}catch(e){return {}}
 }
 function konumHatirla(s,kaynak,dogruluk){
@@ -934,7 +946,7 @@ function gpsIleOgren(s){
   navigator.geolocation.getCurrentPosition(p=>{
     const g={lat:p.coords.latitude,lon:p.coords.longitude},acc=p.coords.accuracy;
     // kesin bulunmuş (kapı no ile doğrulanmış) adreste yalnızca bina girişi düzeltilir (80 m); "Tamamlandı" başka yerde basılırsa yanlış konum öğrenilmez
-    const sinir=readyStop(s)?0.08:0.8;
+    const bb=binaBilgi(s.raw),sinir=readyStop(s)?(bb.etap||bb.blok?0.3:0.08):0.8;
     if(acc>60||(validPoint(s)&&hav(g,s)>sinir))return;
     s._gps=g;konumHatirla(s,'gps',Math.round(acc));
   },()=>{},{enableHighAccuracy:true,timeout:15000,maximumAge:30000});
@@ -1002,7 +1014,7 @@ async function geocodeAll(force){
     if(run!==geoRun)return;
     let hafizadan=0;
     for(const s of todo.slice()){
-      const m=hafiza[konumAnahtari(s)];if(!m)continue;
+      const m=konumAnahtarlari(s).map(k=>hafiza[k]).find(Boolean);if(!m)continue;
       const kes=m.kaynak!=='arama';
       Object.assign(s,{lat:m.lat,lon:m.lon,quality:kes?'Elle':'Kapı',match:{source:'Hafıza',kaynak:m.kaynak,road:s.street,no:s.no,mah:s.mah,ilce:s.ilce,confirmed:kes,name:{gps:'durakta telefon konumu',elle:'elle düzeltilmiş',arama:'daha önce bulunmuş'}[m.kaynak]||''}});
       todo.splice(todo.indexOf(s),1);hafizadan++;done++;
