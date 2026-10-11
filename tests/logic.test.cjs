@@ -67,6 +67,8 @@ async function main(){
     assert.ok(kml.includes('Konum yaklaşık'));
   }
   assert.equal(run(`buildStops([{sip:'162409262477306',alici:'NAZİF ÖCAL',ilce:'Kadıköy',raw:'Göztepe mah. Arı apartmanı no: 171'},{sip:'162609262477306',alici:'NAZİF ÖCAL',ilce:'Kadıköy',raw:'Göztepe mah. Arı apartmanı no: 171'}]).reduce((a,s)=>a+s.orders.length,0)`),1,'sipariş no farklı okunsa da aynı alıcı+adres tek sipariş');
+  { const et=app(); const r=et.run(`(()=>{const hm=ms=>new Date(ms).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});const now=Date.now();routeOrder=[0,1,2,3,4].map(i=>({id:i+1,lat:41,lon:29}));[60,40,20].forEach((m,i)=>{routeOrder[i].tamam=true;routeOrder[i].tamamZaman=hm(now-m*60000)});const legs=Array.from({length:6},()=>({t:600,d:3000}));const e=etaHesapla(legs,true,3);return {canli:e.canli,kalan:e.kalan,d:Math.round(e.dongu/60000),a3:Math.round((e.eta[3]-now)/60000),a4:Math.round((e.eta[4]-now)/60000),ev:Math.round((e.eta[5]-now)/60000)}})()`);
+    assert.deepEqual(plain(r),{canli:true,kalan:2,d:20,a3:10,a4:30,ev:45},'kalan duraklar şimdiden: 10 dk yol, sonra bugünkü 20 dk durak başı, eve 5+10 dk'); }
   { const ro=app(); ro.run(`var M2={dist:[[0,5000,9000,14000],[5000,0,3000,9000],[9000,3000,0,5000],[14000,9000,5000,0]],dur:[[0,600,420,900],[600,0,300,420],[420,300,0,600],[900,420,600,0]]};`);
     assert.deepEqual(plain(ro.run(`solve(M2.dur,2)`)),[0,2,1,3],'yalnız süre: otoyoldan uzak durak önce');
     assert.deepEqual(plain(ro.run(`solve(rotaMaliyet(M2),2)`)),[0,1,2,3],'süre+mesafe: depoya yakın durak önce, toplam km az'); }

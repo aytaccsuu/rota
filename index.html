@@ -1379,6 +1379,61 @@ function teslimBilgiHTML(s){
 function teslimFormHTML(s,i){
   return `<div class="teslim-form hide-print"><label class="tf-kapi"><input type="checkbox" data-kb="${i}" ${s.kapiBirak?'checked':''}> Daire kapısına bırak</label><input type="text" data-ks="${i}" value="${esc(s.kapiSifre||'')}" placeholder="Bina kapı şifresi (varsa)" autocomplete="off" inputmode="text"><input type="text" data-kn="${i}" value="${esc(s.aramaNot||'')}" placeholder="Not (ör. kapıcıya bırak, 3. kat)" autocomplete="off"></div>`;
 }
+// ---------- varış saatleri ----------
+// Yola çıkmadan: çıkış saatinden itibaren yol süresi + durak başına bekleme.
+// Takipte durak tamamlandıkça: tamamlananlar gerçek saatiyle; kalanlar ŞİMDİDEN hesaplanır (önceden her yenilemede depodan
+// baştan hesaplandığı için bitiş saati gün boyu ileri kayıyordu). En az 3 durak bittiyse bugünkü gerçek "durak başı süre" kullanılır.
+// Telefonun konumu tazeyse sıradaki durağa (ya da eve) olan ilk yol süresi konumdan alınır.
+let konumum=null,ilkBacak=null,konumTakipId=null,ilkBacakIstek=0;
+const konumTaze=()=>!!konumum&&Date.now()-konumum.at<5*60000;
+function saatMs(hhmm){const m=/^(\d{1,2}):(\d{2})$/.exec(String(hhmm||''));if(!m)return null;const d=new Date();d.setHours(+m[1],+m[2],0,0);return d.getTime()}
+function etaHesapla(legs,takip,siradaki){
+  const svc=Math.max(0,+$('svc').value||0)*60000,n=routeOrder.length,plan0=Math.max(Date.now(),cikisZamani());
+  const biten=takip?routeOrder.map(s=>s.tamam?saatMs(s.tamamZaman):null):[];
+  const basladi=biten.some(Boolean),sk=siradaki<0?n:siradaki;
+  const hedef=k=>k<n?routeOrder[k].id:'ev';
+  const gpsBacak=k=>takip&&konumTaze()&&ilkBacak&&ilkBacak.hedef===hedef(k)&&Date.now()>=cikisZamani()-15*60000?ilkBacak.t*1000:null;
+  const eta=new Array(legs.length);
+  if(!basladi){
+    const g=gpsBacak(0);let t=g!=null?Date.now():plan0;
+    for(let k=0;k<legs.length;k++){t+=(k===0&&g!=null?g:legs[k].t*1000);eta[k]=t;t+=svc}
+    return {t0:g!=null?Date.now():plan0,eta,canli:false,gps:g!=null};
+  }
+  const z=biten.filter(Boolean).sort((a,b)=>a-b),dongu=z.length>=3?(z.at(-1)-z[0])/(z.length-1):null;
+  for(let k=0;k<n;k++)if(biten[k])eta[k]=biten[k];
+  const g=gpsBacak(sk);let t=Date.now();
+  for(let k=sk;k<legs.length;k++){
+    if(k===sk)t+=g!=null?g:legs[k].t*1000;
+    else if(k<n)t+=dongu||svc+legs[k].t*1000;
+    else t+=svc+legs[k].t*1000; // son duraktan eve
+    eta[k]=t;
+  }
+  for(let k=0;k<legs.length;k++)if(eta[k]==null)eta[k]=k?eta[k-1]:Date.now();
+  return {t0:z[0],eta,canli:true,kalan:n-sk,dongu,gps:g!=null};
+}
+function konumTakipBaslat(){
+  if(konumTakipId!=null||!navigator.geolocation?.watchPosition)return;
+  konumTakipId=navigator.geolocation.watchPosition(p=>{
+    konumum={lat:p.coords.latitude,lon:p.coords.longitude,acc:p.coords.accuracy,at:Date.now()};
+    ilkBacakGuncelle();
+  },()=>{},{enableHighAccuracy:true,maximumAge:30000,timeout:20000});
+}
+// Sıradaki hedefe (durak ya da ev) konumdan yol süresi; en fazla 2 dakikada bir ya da 300 m hareket edince
+async function ilkBacakGuncelle(){
+  if(!konumum||!routeOrder?.length||!sonRender||!takipAcik())return;
+  const sk=routeOrder.findIndex(s=>!s.tamam),hedef=sk<0?{id:'ev',lat:home?.lat,lon:home?.lon}:{id:routeOrder[sk].id,lat:routeOrder[sk].lat,lon:routeOrder[sk].lon};
+  if(!validPoint(hedef))return;
+  const ayni=ilkBacak&&ilkBacak.hedef===hedef.id&&Date.now()-ilkBacak.at<120000&&hav(ilkBacak.nereden,konumum)<0.3;
+  if(ayni||Date.now()-ilkBacakIstek<20000)return;
+  ilkBacakIstek=Date.now();
+  const nereden={lat:konumum.lat,lon:konumum.lon};
+  let t=null,d=null;
+  const j=await osrm('route/v1/driving/'+cstr([nereden,hedef])+'?overview=false').catch(()=>null);
+  if(j?.routes?.[0]){t=j.routes[0].duration;d=j.routes[0].distance}
+  else{d=hav(nereden,hedef)*1000*1.35;t=d/7}
+  ilkBacak={hedef:hedef.id,t,d,at:Date.now(),nereden};
+  if(sonRender&&$('result'))renderResult(...sonRender);
+}
 const saatNow=()=>new Date().toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
 function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=[]){
   sonRender=[seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison];
@@ -1395,11 +1450,11 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
   if(!draft)links.push(`<a href="${yx}" target="_blank" rel="noopener" data-app="${esc(yandexUygulama(yx))}"><button class="p"><i class="ic" data-ic="nav"></i> Rotayı Yandex'te aç</button></a>`);
   const names=s=>esc(stopNames(s));
   const delayTot=legs.reduce((a,l)=>a+(l.delay||0),0),withTraffic=legs.some(l=>'delay' in l);
-  // Tahmini varış saatleri: şimdi yola çıkılıyor, her durakta bekleme süresi eklenir
-  const svcEach=Math.max(0,+$('svc').value||0)*60,t0=Math.max(Date.now(),cikisZamani()),clock=ms=>new Date(ms).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
-  let acc=0;const eta=legs.map((l,k)=>{acc+=l.t*1000;const at=t0+acc;acc+=svcEach*1000;return at});lastRoute.eta=eta;
+  const clock=ms=>new Date(ms).toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'});
+  const ET=etaHesapla(legs,takip,siradaki),t0=ET.t0,eta=ET.eta;lastRoute.eta=eta;
+  if(takip)konumTakipBaslat();
   let h=`<div class="stat"><span>${routeOrder.length} durak</span><span><i class="ic" data-ic="route"></i> ${(dist/1000).toFixed(1)} km</span><span><i class="ic" data-ic="clock"></i> sürüş ${fmtT(dur)}</span><span>toplam ≈ ${fmtT(dur+svc)}</span>${withTraffic?`<span><i class="ic" data-ic="traffic"></i> trafik gecikmesi ${fmtT(delayTot)}</span>`:''}</div>`;
-  h+=`<div class="small yol-kaynak">Çıkış ${clock(t0)} → eve varış ≈ <b>${clock(eta.at(-1))}</b> · Yol verisi: ${esc(yolKaynagi||lastRoute?.kaynak||'kayıtlı rota')}</div>`;
+  h+=ET.canli?`<div class="small yol-kaynak">Şu an ${clock(Date.now())} · kalan ${ET.kalan} durak → eve varış ≈ <b>${clock(eta.at(-1))}</b>${ET.dongu?` · bugün durak başına ortalama ${Math.round(ET.dongu/60000)} dk`:''}${ET.gps?' · konumunuzdan':''}</div>`:`<div class="small yol-kaynak">Çıkış ${clock(t0)} → eve varış ≈ <b>${clock(eta.at(-1))}</b>${ET.gps?' · konumunuzdan':''} · Yol verisi: ${esc(yolKaynagi||lastRoute?.kaynak||'kayıtlı rota')}</div>`;
   if(draft)h+=`<div class="notice"><b>Bu bir taslaktır: ${unverified.length} bina konumu teyit edilmedi.</b></div>`;
   if(takip&&routeOrder.length){const bit=routeOrder.filter(s=>s.tamam).length;h+=siradaki<0?`<div class="next-stop"><small>TAMAMLANDI</small>Bütün duraklar tamamlandı (${bit}/${routeOrder.length}). Eve dönüş.</div>`:`<div class="next-stop"><small>SIRADAKİ · ${bit}/${routeOrder.length} tamamlandı</small>${siradaki+1+delivered.length}. ${names(routeOrder[siradaki])}<span class="ns-adr">${esc(routeOrder[siradaki].raw)}</span></div>`}
   else if(routeOrder.length)h+=`<div class="next-stop"><small>İLK TESLİMAT</small>${delivered.length?'Bulunduğunuz yerden':'Depodan'} ilk durak: ${names(routeOrder[0])} · ${(legs[0].d/1000).toFixed(1)} km · ${fmtT(legs[0].t)}</div>`;
