@@ -67,6 +67,9 @@ async function main(){
     assert.ok(kml.includes('Konum yaklaşık'));
   }
   assert.equal(run(`buildStops([{sip:'162409262477306',alici:'NAZİF ÖCAL',ilce:'Kadıköy',raw:'Göztepe mah. Arı apartmanı no: 171'},{sip:'162609262477306',alici:'NAZİF ÖCAL',ilce:'Kadıköy',raw:'Göztepe mah. Arı apartmanı no: 171'}]).reduce((a,s)=>a+s.orders.length,0)`),1,'sipariş no farklı okunsa da aynı alıcı+adres tek sipariş');
+  { const ro=app(); ro.run(`var M2={dist:[[0,5000,9000,14000],[5000,0,3000,9000],[9000,3000,0,5000],[14000,9000,5000,0]],dur:[[0,600,420,900],[600,0,300,420],[420,300,0,600],[900,420,600,0]]};`);
+    assert.deepEqual(plain(ro.run(`solve(M2.dur,2)`)),[0,2,1,3],'yalnız süre: otoyoldan uzak durak önce');
+    assert.deepEqual(plain(ro.run(`solve(rotaMaliyet(M2),2)`)),[0,1,2,3],'süre+mesafe: depoya yakın durak önce, toplam km az'); }
   { const fu=app(); fu.run(`OTURUM.tercih={aracTuketim:11,aracDepo:70,motorinFiyat:50};ayYukle=async ay=>ay==='2026-10'?{rutlar:[{tarih:'2026-10-02',rota:{toplamKm:100}},{tarih:'2026-10-03',rota:{toplamKm:100}},{tarih:'2026-10-05',rota:{toplamKm:60}}],yakitlar:[{tarih:'2026-10-01',tutar:1000,notu:'full'},{tarih:'2026-10-04',tutar:1500,notu:'full'}]}:{rutlar:[],yakitlar:[]}`);
     const dt=await fu.run(`depoTahmini('2026-10-05')`); assert.equal(fu.run(`ogrenilenTuketim`),15,'iki full arası 30 L / 200 km = 15 L/100 km'); assert.equal(Math.round(dt.litre*10)/10,61,'full sonrası 70 L − 60 km × 15/100'); }
   { const ya=app(); ya.run(`OTURUM.tercih={aracTuketim:10,aracDepo:70,motorinFiyat:50};ayYukle=async ay=>ay==='2026-10'?{rutlar:[{tarih:'2026-10-02',rota:{toplamKm:100}},{tarih:'2026-10-03',rota:{toplamKm:50}},{tarih:'2026-10-04',durum:'gidilmedi'}],yakitlar:[{tarih:'2026-10-01',tutar:2000,litre:null}]}:{rutlar:[],yakitlar:[{tarih:'2026-09-20',tutar:9999,litre:200}]}`);

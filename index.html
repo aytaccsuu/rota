@@ -1268,7 +1268,12 @@ function neighborhoodKey(s){
   return ilce&&mah?ilce+'|'+mah:'unknown:'+stableStopKey(s)+(validPoint(s)?'':':'+s.id);
 }
 function neighborhoodLabel(s){return [s.match?.mah||s.mah,s.match?.ilce||s.ilce].filter(Boolean).join(' / ')||'Mahalle bilgisi yok'}
-// Rota: depo sabit başlangıç, ev sabit bitiş; aradaki sıra toplam sürüş süresi (eve dönüş dahil) en az olacak şekilde seçilir.
+// Sıralama maliyeti: sürüş süresi + mesafe (1 km = 90 sn). Yalnız süreye bakılınca otoyoldan en uzak durağa gidip oradan
+// başlamak "hızlı" görünüyordu (10 Ekim: 45,7 km); mesafe de sayılınca depoya en yakın duraktan başlanır, duraklar arası
+// atlamalar kısalır ve km azalır (43,7 km), süre neredeyse aynı kalır.
+const KM_SANIYE=90;
+const rotaMaliyet=M=>M.dur.map((r,i)=>r.map((t,j)=>t+M.dist[i][j]/1000*KM_SANIYE));
+// Rota: depo sabit başlangıç, ev sabit bitiş; aradaki sıra toplam maliyet (eve dönüş dahil) en az olacak şekilde seçilir.
 // Mahalle sınırı ve "ilk durak en yakın" kuralı yoktur: sınırdaki sokak komşu mahalleye daha yakın olabilir.
 // Aynı girdi her zaman aynı planı verir (rastgelelik sabit tohumludur).
 function solve(D,n,keys=Array.from({length:n},(_,i)=>String(i)),distance=D,activeGroup=null){
@@ -1339,7 +1344,7 @@ async function buildRoute(){
     if(run!==routeRun)return;
     const H=M.dist.map(row=>row.at(-1));
     if(elleSira&&!elleSiraGecerli(ok))elleSira=null;
-    const path=elleSira?[0,...elleSira.map(id=>ok.findIndex(s=>s.id===id)+1),ok.length+1]:solve(M.dur,ok.length,ok.map(neighborhoodKey),M.dist,delivered.length?neighborhoodKey(origin()):null);
+    const path=elleSira?[0,...elleSira.map(id=>ok.findIndex(s=>s.id===id)+1),ok.length+1]:solve(rotaMaliyet(M),ok.length,ok.map(neighborhoodKey),M.dist,delivered.length?neighborhoodKey(origin()):null);
     const seq=path.map(i=>pts[i]);
     let legs=path.slice(0,-1).map((i,k)=>({d:M.dist[i][path[k+1]],t:M.dur[i][path[k+1]]}));
     let geom=null;
