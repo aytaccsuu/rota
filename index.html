@@ -2497,7 +2497,21 @@ $('drop').ondrop=e=>{e.preventDefault();$('drop').classList.remove('over');loadF
 document.addEventListener('paste',e=>{const f=[...(e.clipboardData?.files||[])];if(f.length&&!/input/i.test(document.activeElement?.tagName||'')){e.preventDefault();loadFiles(f)}});
 $('geoBtn').onclick=()=>geocodeAll(true);
 $('routeBtn').onclick=buildRoute;
-$('svc').onchange=()=>autoRoute();
+$('svc').onchange=()=>{try{localStorage.setItem('rota_svc_elle','1')}catch(e){}autoRoute()};
+// Durak başına süre geçmiş günlerden öğrenilir (Tamamlandı saatleri): elle değiştirilmediyse kullanılır
+function durakDkOgren(){
+  let elle=false;try{elle=localStorage.getItem('rota_svc_elle')==='1'}catch(e){}
+  if(elle)return;
+  const donguler=[];
+  for(const v of Object.values(ayCache))for(const r of v.rutlar||[]){
+    const z=(r.rota?.sira||[]).filter(m=>m.tamam&&m.tamamZaman).map(m=>saatMs(m.tamamZaman)).filter(Boolean).sort((a,b)=>a-b);
+    if(z.length>=5)donguler.push((z.at(-1)-z[0])/(z.length-1)/60000);
+  }
+  if(donguler.length<2)return;
+  donguler.sort((a,b)=>a-b);const orta=donguler[Math.floor(donguler.length/2)];
+  const dk=Math.max(3,Math.min(30,Math.round(orta-3))); // durak arası ortalama ~3 dk sürüş düşülür
+  if(+$('svc').value!==dk){$('svc').value=dk;if(sonRender&&routeOrder?.length)renderResult(...sonRender)}
+}
 $('mapCard').addEventListener('toggle',()=>{if($('mapCard').open)createMap()});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'){stopPick();closePicker()}});
 
@@ -2589,7 +2603,7 @@ function uygulamaBaslat(){
   if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('/sw.js').catch(()=>{});
 window.addEventListener('online',()=>{cevrimGoster();kuyrukGonder()});window.addEventListener('offline',cevrimGoster);
 setInterval(kuyrukGonder,60000);cevrimGoster();setTimeout(kuyrukGonder,3000);
-fiyatYukle().then(()=>restorePlan()).then(()=>sayfaAc(ilk)).then(()=>setTimeout(()=>{ayYukle(todayISO().slice(0,7)).catch(()=>{});yakitHazirla();if(navigator.serviceWorker?.controller)fetch(HTML2PDF_URL,{mode:'no-cors'}).catch(()=>{})},1500));
+fiyatYukle().then(()=>restorePlan()).then(()=>sayfaAc(ilk)).then(()=>setTimeout(()=>{ayYukle(todayISO().slice(0,7)).then(durakDkOgren).catch(()=>{});yakitHazirla();if(navigator.serviceWorker?.controller)fetch(HTML2PDF_URL,{mode:'no-cors'}).catch(()=>{})},1500));
 }
 uygulamaBaslat();
 </script>
