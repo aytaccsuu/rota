@@ -150,34 +150,55 @@ def ors_key(settings):
     return os.environ.get("ORS_API_KEY") or settings.get("orsKey", "")
 
 
-# Güncel akaryakıt fiyatı (Opet'in herkese açık fiyat servisi). 15 dakika önbellekte tutulur.
+# Güncel akaryakıt fiyatı: Petrol Ofisi İstanbul fiyat sayfası, olmazsa Opet servisi. 15 dakika önbellekte tutulur.
 YAKIT_ILLER = {"anadolu": 34, "avrupa": 934}
 _yakit_cache = {}
 
 
+def _po_fiyat(html, yaka):
+    """Petrol Ofisi fiyat sayfasından İstanbul (Anadolu/Avrupa) KDV dahil fiyatlar: 1. sütun benzin, 2. sütun motorin."""
+    import re as _re
+    ad = "ISTANBUL (AVRUPA)" if yaka == "avrupa" else "ISTANBUL (ANADOLU)"
+    i = html.find('data-disctrict-name="%s"' % ad)
+    if i < 0:
+        return None
+    satir = html[i:html.find("</tr>", i)]
+    f = [float(m.replace(",", ".")) for m in _re.findall(r'class="with-tax">\s*(\d{2,3}[.,]\d{1,2})\s*<', satir)]
+    return {"motorin": f[1], "benzin": f[0], "kaynak": "Petrol Ofisi"} if len(f) > 1 and 10 < f[1] < 1000 else None
+
+
 def yakit_fiyat(yaka):
-    code = YAKIT_ILLER.get(yaka, 34)
-    hit = _yakit_cache.get(code)
+    yaka = yaka if yaka in YAKIT_ILLER else "anadolu"
+    hit = _yakit_cache.get(yaka)
     if hit and time.time() - hit[0] < 15 * 60:
         return hit[1]
-    url = "https://api.opet.com.tr/api/fuelprices/prices?ProvinceCode=%d&IncludeAllProducts=true" % code
-    req = urllib.request.Request(url, headers={"User-Agent": "rota-plani/1.0", "Accept": "application/json"})
-    with urllib.request.urlopen(req, timeout=15, context=SSL_CONTEXT) as response:
-        data = json.load(response)
-    motorin, benzin = [], []
-    for district in data if isinstance(data, list) else []:
-        for item in district.get("prices") or []:
-            short, amount = str(item.get("productShortName") or ""), item.get("amount")
-            if isinstance(amount, (int, float)) and 10 < amount < 1000:
-                if short.startswith("MT"):
-                    motorin.append(float(amount))
-                elif short == "KURS":
-                    benzin.append(float(amount))
-    if not motorin:
-        raise ValueError("motorin fiyatı yok")
-    result = {"motorin": min(motorin), "benzin": min(benzin) if benzin else None, "yaka": yaka if yaka in YAKIT_ILLER else "anadolu",
-              "kaynak": "Opet", "zaman": int(time.time() * 1000)}
-    _yakit_cache[code] = (time.time(), result)
+    result = None
+    try:
+        req = urllib.request.Request("https://www.petrolofisi.com.tr/akaryakit-fiyatlari/istanbul-akaryakit-fiyatlari",
+                                     headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130 Safari/537.36"})
+        with urllib.request.urlopen(req, timeout=12, context=SSL_CONTEXT) as response:
+            result = _po_fiyat(response.read().decode("utf-8", "replace"), yaka)
+    except (OSError, ValueError, urllib.error.URLError):
+        result = None
+    if not result:
+        url = "https://api.opet.com.tr/api/fuelprices/prices?ProvinceCode=%d&IncludeAllProducts=true" % YAKIT_ILLER[yaka]
+        req = urllib.request.Request(url, headers={"User-Agent": "rota-plani/1.0", "Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=10, context=SSL_CONTEXT) as response:
+            data = json.load(response)
+        motorin, benzin = [], []
+        for district in data if isinstance(data, list) else []:
+            for item in district.get("prices") or []:
+                short, amount = str(item.get("productShortName") or ""), item.get("amount")
+                if isinstance(amount, (int, float)) and 10 < amount < 1000:
+                    if short.startswith("MT"):
+                        motorin.append(float(amount))
+                    elif short == "KURS":
+                        benzin.append(float(amount))
+        if not motorin:
+            raise ValueError("motorin fiyatı yok")
+        result = {"motorin": min(motorin), "benzin": min(benzin) if benzin else None, "kaynak": "Opet"}
+    result = {**result, "yaka": yaka, "zaman": int(time.time() * 1000)}
+    _yakit_cache[yaka] = (time.time(), result)
     return result
 
 

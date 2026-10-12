@@ -36,6 +36,16 @@ async function kullaniciListesi(env) {
 const ADMIN = (env, user) => { if (!G.yoneticiMi(env, user)) throw new HttpHata(403, 'Bu işlem yalnızca yönetici içindir.', 'forbidden'); };
 const KULLANICI_ADI = /^[a-zçğıöşü][a-z0-9çğıöşü._-]{1,31}$/;
 
+// Petrol Ofisi fiyat sayfasından İstanbul (Anadolu/Avrupa) KDV dahil fiyatlar: 1. sütun benzin, 2. sütun motorin
+function poFiyat(html, yaka) {
+  const ad = yaka === 'avrupa' ? 'ISTANBUL (AVRUPA)' : 'ISTANBUL (ANADOLU)';
+  const i = html.indexOf('data-disctrict-name="' + ad + '"');
+  if (i < 0) return null;
+  const satir = html.slice(i, html.indexOf('</tr>', i));
+  const f = [...satir.matchAll(/class="with-tax">\s*(\d{2,3}[.,]\d{1,2})\s*</g)].map(m => Number(m[1].replace(',', '.')));
+  return f[1] > 10 && f[1] < 1000 ? { motorin: f[1], benzin: f[0] || null, kaynak: 'Petrol Ofisi' } : null;
+}
+
 async function statik(env, request, yol) {
   const r = await env.ASSETS.fetch(new Request(new URL(yol, request.url), { headers: request.headers }));
   const h = new Headers(r.headers); h.set('Cache-Control', 'no-store');
@@ -63,22 +73,27 @@ async function get(env, request, url, user) {
   if (yol === '/api/plan') return yanit(200, { plan: await depo.planOku(env, user), backend: 'd1' });
   if (yol === '/api/fiyat') return yanit(200, { fiyat: JSON.parse(await depo.ayarOku(env, 'fiyat') || 'null') });
   if (yol === '/api/yakit-fiyat') {
-    // Güncel akaryakıt fiyatı (Opet'in herkese açık fiyat servisi), 15 dakika önbellekte
-    const yaka = q.get('yaka') === 'avrupa' ? 'avrupa' : 'anadolu', kod = yaka === 'avrupa' ? 934 : 34, ak = 'yakitfiyat:' + kod;
+    // Güncel motorin fiyatı, 15 dk önbellekte. Önce Petrol Ofisi'nin İstanbul fiyat sayfası (Opet'in servisi Cloudflare'den
+    // erişilemiyor: 522), olmazsa Opet.
+    const yaka = q.get('yaka') === 'avrupa' ? 'avrupa' : 'anadolu', ak = 'yakitfiyat:' + yaka;
     try { const c = JSON.parse(await depo.ayarOku(env, ak) || 'null'); if (c && Date.now() - c.zaman < 15 * 60 * 1000) return yanit(200, c); } catch { /* yenisi alınır */ }
+    let sonuc = null;
     try {
-      const r = await fetch(`https://api.opet.com.tr/api/fuelprices/prices?ProvinceCode=${kod}&IncludeAllProducts=true`, { headers: { Accept: 'application/json', 'User-Agent': 'rota-plani/1.0' }, signal: AbortSignal.timeout(15000) });
-      if (!r.ok) throw new Error('opet ' + r.status);
-      const motorin = [], benzin = [];
-      for (const d of await r.json()) for (const p of d.prices || []) {
-        const a = Number(p.amount), k = String(p.productShortName || '');
-        if (a > 10 && a < 1000) { if (k.startsWith('MT')) motorin.push(a); else if (k === 'KURS') benzin.push(a); }
+      const r = await fetch('https://www.petrolofisi.com.tr/akaryakit-fiyatlari/istanbul-akaryakit-fiyatlari', { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130 Safari/537.36', Accept: 'text/html' }, signal: AbortSignal.timeout(12000) });
+      if (r.ok) sonuc = poFiyat(await r.text(), yaka);
+    } catch { /* yedeğe geç */ }
+    if (!sonuc) try {
+      const r = await fetch('https://api.opet.com.tr/api/fuelprices/prices?ProvinceCode=' + (yaka === 'avrupa' ? 934 : 34) + '&IncludeAllProducts=true', { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(6000) });
+      if (r.ok) {
+        const motorin = [], benzin = [];
+        for (const d of await r.json()) for (const p of d.prices || []) { const a = Number(p.amount), k = String(p.productShortName || ''); if (a > 10 && a < 1000) { if (k.startsWith('MT')) motorin.push(a); else if (k === 'KURS') benzin.push(a); } }
+        if (motorin.length) sonuc = { motorin: Math.min(...motorin), benzin: benzin.length ? Math.min(...benzin) : null, kaynak: 'Opet' };
       }
-      if (!motorin.length) throw new Error('motorin yok');
-      const sonuc = { motorin: Math.min(...motorin), benzin: benzin.length ? Math.min(...benzin) : null, yaka, kaynak: 'Opet', zaman: Date.now() };
-      await depo.ayarYaz(env, ak, JSON.stringify(sonuc));
-      return yanit(200, sonuc);
-    } catch { return yanit(502, { error: 'Güncel yakıt fiyatı alınamadı.', code: 'upstream' }); }
+    } catch { /* yok */ }
+    if (!sonuc) return yanit(502, { error: 'Güncel yakıt fiyatı alınamadı.', code: 'upstream' });
+    sonuc = { ...sonuc, yaka, zaman: Date.now() };
+    await depo.ayarYaz(env, ak, JSON.stringify(sonuc)).catch(() => {});
+    return yanit(200, sonuc);
   }
   if (yol === '/api/rutlar' || yol === '/api/yakitlar') {
     const ay = q.get('ay') || '';
