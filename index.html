@@ -2636,7 +2636,8 @@ $('yKeyIn').value=yKey;
 $('yKeySave').onclick=async()=>{const k=$('yKeyIn').value.trim();if(!k)return;try{const r=await fetch('/ayarlar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ykey:k})});if(!r.ok)throw new Error();yKey=k;localStorage.setItem('ykey',JSON.stringify(k));location.reload()}catch(e){$('yWarn').style.display='block';$('yWarn').textContent='Anahtar kaydedilemedi. Yerel sunucuyu kontrol edin.'}};
 async function refreshGoogleStatus(){
   try{const r=await fetch('/ayarlar');if(!r.ok)throw new Error();const a=await r.json();googleConfigured=!!a.googleConfigured;$('trafficWrap').style.display=(a.providers||{}).tomtom?'inline-flex':'none';if(a.authOn){$('userBadge').innerHTML='<i class="ic" data-ic="user"></i> '+esc(a.user||'');$('logoutBtn').style.display='inline-block'}$('orsStatus').textContent=a.orsConfigured?'✓ openrouteservice anahtarı kayıtlı'+(a.orsHint?' (…'+a.orsHint+')':'')+' · yol yedeği: TomTom (trafiksiz) → openrouteservice → OSRM':'openrouteservice anahtarı yok · yol yedeği: TomTom (trafiksiz) → OSRM';aiOcr=!!a.ocrConfigured;$('gemStatus').textContent=aiOcr?'✓ Gemini anahtarı kayıtlı (…'+(a.ocrHint||'')+'). Fotoğraflar yapay zekâ ile okunur.':'Gemini anahtarı yok: fotoğraflar daha az isabetli yerel okuyucuyla okunur.';$('gemKeyIn').placeholder=aiOcr?'Kayıtlı: ••••••••'+(a.ocrHint||'')+' — değiştirmek için yenisini yapıştırın':'Fotoğraf okuma için Google Gemini anahtarı';configuredProviders=a.providers||{};const hints=a.hints||{};for(const p of Object.keys(providerFields)){if(!$(p+'Key').dataset.ph)$(p+'Key').dataset.ph=$(p+'Key').placeholder;showProviderStatus(p,configuredProviders[p]?'✓ Anahtar kayıtlı (…'+(hints[p]||'')+') · Bağlantıyı test edin':'Anahtar eklenmedi');$(p+'Key').placeholder=hints[p]?'Kayıtlı: ••••••••'+hints[p]+' — değiştirmek için yenisini yapıştırın':$(p+'Key').dataset.ph||$(p+'Key').placeholder;}
-    $('gStatus').textContent=googleConfigured?'Google API yalnızca ücretli arama düğmesine basıldığında kullanılır. Varsayılan arama ücretsizdir.':'Google anahtarı gerekmez: varsayılan arama ücretsiz Photon/OpenStreetMap kullanır. İsterseniz ayrıca ücretli Google API ekleyebilirsiniz.';
+    $('gKeyIn').placeholder=a.googleHint?'Kayıtlı: ••••••••'+a.googleHint+' — değiştirmek için yenisini yapıştırın':'Google Places API (New) anahtarı';
+    $('gStatus').textContent=googleConfigured?'✓ Google anahtarı kayıtlı'+(a.googleHint?' (…'+a.googleHint+')':'')+' · yalnızca adres kontrolündeki Google ile ara düğmesinde kullanılır.':'Google anahtarı gerekmez: varsayılan arama ücretsiz Photon/OpenStreetMap kullanır. İsterseniz ayrıca ücretli Google API ekleyebilirsiniz.';
   }catch(e){$('gStatus').textContent='Ücretsiz arama hazır. İsteğe bağlı Google API için yerel sunucu gerekir.'}
 }
 async function saveGemini(v){
@@ -2653,8 +2654,9 @@ $('orsKeySave').onclick=()=>{const v=$('orsKeyIn').value.trim();if(v)saveOrs(v)}
 $('orsKeyRemove').onclick=()=>saveOrs('');
 $('gKeySave').onclick=async()=>{
   const gkey=$('gKeyIn').value.trim();if(!gkey)return;
-  try{const r=await fetch('/ayarlar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({gkey})});if(!r.ok)throw new Error();$('gKeyIn').value='';await refreshGoogleStatus()}
-  catch(e){$('gStatus').textContent='Anahtar kaydedilemedi. Sunucuyu yeniden başlatın.'}
+  $('gStatus').textContent='Kaydediliyor…';
+  try{const r=await fetch('/ayarlar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({gkey})});const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'sunucu hatası');$('gKeyIn').value='';await refreshGoogleStatus();bildirim('Google anahtarı kaydedildi')}
+  catch(e){$('gStatus').textContent='Anahtar kaydedilemedi: '+e.message}
 };
 for(const p of Object.keys(providerFields)){
   async function saveProvider(value){

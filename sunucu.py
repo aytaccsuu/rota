@@ -356,7 +356,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             admin = is_admin(self.user)
             if not admin:
                 hints = {}  # anahtar ipuçları yalnızca yöneticiye (Yandex harita anahtarı tarayıcıda harita için zorunlu)
-            return self.reply(200, {**data, "isAdmin": admin, "providers": configured, "hints": hints, "googleConfigured": bool(os.environ.get("GOOGLE_MAPS_API_KEY") or key), "ocrConfigured": bool(gem), "ocrHint": gem[-4:] if gem and admin else "", "orsConfigured": bool(ors), "orsHint": ors[-4:] if ors and admin else "", "user": self.user, "authOn": auth_enabled()})
+            return self.reply(200, {**data, "isAdmin": admin, "providers": configured, "hints": hints, "googleConfigured": bool(os.environ.get("GOOGLE_MAPS_API_KEY") or key), "googleHint": (os.environ.get("GOOGLE_MAPS_API_KEY") or key)[-4:] if (os.environ.get("GOOGLE_MAPS_API_KEY") or key) and admin else "", "ocrConfigured": bool(gem), "ocrHint": gem[-4:] if gem and admin else "", "orsConfigured": bool(ors), "orsHint": ors[-4:] if ors and admin else "", "user": self.user, "authOn": auth_enabled()})
         if path == "/api/yonetim/ozet":
             if not is_admin(self.user):
                 return self.reply(403, {"error": "Bu işlem yalnızca yönetici içindir.", "code": "forbidden"})
