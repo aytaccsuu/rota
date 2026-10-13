@@ -38,12 +38,15 @@ npm run deploy
 
 ## Mail hesabı
 
-1. Bu iş için yeni bir Gmail açın (ör. `marmarakamyonet@gmail.com`). Kişisel hesabınızı kullanmayın.
-2. Google hesabı → Güvenlik → **2 Adımlı Doğrulama**'yı açın.
-3. <https://myaccount.google.com/apppasswords> adresinden bir **uygulama şifresi** alın (16 harf).
-4. İş Bul → **Ayarlar**: mail adresini ve uygulama şifresini yazın (sunucu `smtp.gmail.com`, port `465`). **Kendime deneme maili gönder** ile deneyin.
+Varsayılan hesap: **kocatepefilo@zohomail.eu** (sunucu `smtp.zoho.eu`, port `465`).
 
-Yeni Gmail hesabıyla ilk 2 hafta günde 20–30 mail gönderin. Fazlası hesabı spam'e düşürebilir. Günlük sınır Ayarlar'dan değişir (varsayılan 40). Daha çok gönderim için alan adlı bir adres (ör. `teklif@ekibiniz.com`, Yandex/Zoho mail) daha güvenilirdir. Ayarlar'daki sunucu ve port bilgisini değiştirmeniz yeterli.
+1. Zoho Mail → Ayarlar → **Posta Hesapları** → **IMAP Erişimi**'nin açık olduğundan emin olun.
+2. Zoho'da 2 adımlı doğrulama açıksa <https://accounts.zoho.eu> → Güvenlik → **Uygulama Şifreleri**'nden "İş Bul" adıyla şifre oluşturun. Kapalıysa normal Zoho şifreniz kullanılır.
+3. İş Bul → **Ayarlar**: şifreyi yazın, **Kaydet**, sonra **Kendime deneme maili gönder**.
+
+"Giriş reddedildi" hatası çıkarsa sunucu adını Zoho Mail → Ayarlar → Posta Hesapları → **Sunucu Yapılandırma Ayrıntıları**'ndaki "giden sunucu" ile karşılaştırın.
+
+Yeni hesapla ilk 2 hafta günde 20–30 mail gönderin; fazlası spam'e düşürebilir. Günlük sınır Ayarlar'dan değişir (varsayılan 40). İleride alan adlı bir adrese (ör. `info@kocatepefilo.com`) geçmek için Ayarlar'da adresi ve sunucuyu değiştirmeniz yeterli.
 
 ## Google anahtarı (isteğe bağlı, önerilir)
 
