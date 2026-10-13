@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>İş Bul</title>
+<style>
+:root{--bg:#f4f7f6;--card:#fff;--surf2:#f1f5f3;--ink:#17302b;--mute:#5d6f6a;--line:#dde6e2;--pri:#13795b;--onpri:#fff;--ok:#1d8a5f;--bad:#b3261e;--badbg:#fbe9e7}
+@media(prefers-color-scheme:dark){:root{--bg:#0b1110;--card:#141d1b;--surf2:#1b2624;--ink:#e6efec;--mute:#9cb0a9;--line:#27332f;--pri:#3ccf98;--onpri:#06231a;--ok:#2fb47d;--bad:#ff8a80;--badbg:#3a1d1b}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:960px;margin:0 auto;padding:16px}a{color:var(--pri)}
+header{display:flex;align-items:center;gap:10px;margin-bottom:12px}header h1{font-size:20px;margin:0;flex:1}header a{font-size:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}.card h2{font-size:17px;margin:0 0 6px}
+button{font:inherit;padding:9px 13px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:9px;cursor:pointer;white-space:nowrap}
+button.p{background:var(--pri);color:var(--onpri);border-color:var(--pri);font-weight:700}button:disabled{opacity:.5;cursor:default}
+input[type=text],input[type=number],input[type=password],select{width:100%;min-width:0;padding:9px 10px;border:1px solid var(--line);border-radius:9px;font:inherit;background:var(--surf2);color:var(--ink)}
+.small{font-size:13px;color:var(--mute)}.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+.tabs{display:flex;gap:6px;margin:12px 0}.tabs button{flex:1}.tabs button.on{background:var(--pri);color:var(--onpri);border-color:var(--pri)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:12px 0}.tiles div{border:1px solid var(--line);border-radius:12px;padding:10px;font-size:12px;color:var(--mute)}.tiles b{display:block;font-size:19px;color:var(--ink)}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px}.grid2 label,.fl{display:flex;flex-direction:column;gap:3px;font-size:12px;font-weight:600;color:var(--mute)}.fl{margin:10px 0}
+.av{display:flex;gap:8px;flex-wrap:wrap;align-items:center;min-width:0}.av input,.av select{flex:1 1 220px;min-width:0}
+.ibf{border-top:1px solid var(--line);padding:12px 0;display:flex;gap:10px;align-items:flex-start}.ibf>input[type=checkbox]{width:20px;height:20px;margin-top:3px;flex:none}.ibf>div{flex:1;min-width:0}.ibf b{font-size:15px}.ibf .small{overflow-wrap:anywhere}.ibf details{margin-top:6px}.ibf textarea{width:100%;min-height:280px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;font:inherit;font-size:14px;line-height:1.5;background:var(--surf2);color:var(--ink)}.ibf .av{margin-top:6px}.ibf .av button{flex:none}
+.ibdurum{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:9px;background:var(--surf2);color:var(--mute);margin-left:6px}.ibdurum.olumlu{background:var(--ok);color:#fff}.ibdurum.hata,.ibdurum.olumsuz,.ibdurum.red{background:var(--badbg);color:var(--bad)}
+.ibk{border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0}.ibk h3{font-size:14px;margin:0 0 8px}.ibk ol{margin:0;padding-left:20px}.ibk li{margin:6px 0}.ibk li.ok{color:var(--mute);text-decoration:line-through}
+.ibcheck{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:4px 10px;max-height:240px;overflow:auto;border:1px solid var(--line);border-radius:9px;padding:8px}.ibcheck label{display:flex;gap:6px;align-items:center;font-size:13px;font-weight:400;color:var(--ink)}.ibcheck input{width:16px;height:16px}
+.ibbar{position:sticky;top:0;z-index:2;background:var(--card);padding:8px 0;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+@media(max-width:700px){.tabs{flex-wrap:wrap}.tabs button{flex:1 1 30%}.grid2{grid-template-columns:1fr}}
+</style></head>
+<body><main>
+<header><h1>İş Bul</h1><a href="/filo" target="_blank" rel="noopener">Tanıtım sayfası</a><a href="/cikis">Çıkış</a></header>
+<section id="isbulPage" class="card">
+  <h2>Firmalara teklif maili</h2>
+  <div class="small">Sistem firmaları bulur, sitelerinden mail adresini çıkarır ve size özel teklif mailini hazırlar. Siz kontrol edip <b>Gönder</b> dersiniz. Belirlenen gün içinde cevap gelmeyenlere bir kez takip maili hazırlanır. Her sabah 09:00'da otomatik yeni firma aranır.</div>
+  <div id="ibOzet"></div>
+  <div id="ibKurulum"></div>
+  <div class="tabs ibtabs"><button data-t="onay" class="on">Onay bekleyen</button><button data-t="bul">Firma bul</button><button data-t="giden">Gönderilen</button><button data-t="cevap">Cevaplar</button><button data-t="tel">Telefonla</button><button data-t="ayar">Ayarlar</button></div>
+  <div id="ib_onay"></div><div id="ib_bul" hidden></div><div id="ib_giden" hidden></div><div id="ib_cevap" hidden></div><div id="ib_tel" hidden></div><div id="ib_ayar" hidden></div>
+</section>
+</main>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function apiJSON(url,body){
+  const r=await fetch(url,body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  if(r.status===401){location.href='/giris';throw new Error('Oturum kapandı')}
+  if(r.status===204)return {};const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||'sunucu hatası');return j;
+}
+let IB=null,ibSekme='onay',ibSec=new Set(),ibMesgul=false;
+const IB_DURUM={arama:'e-posta aranıyor',eposta_yok:'e-posta yok',hazir:'onay bekliyor',gonderildi:'gönderildi',takip_hazir:'takip onayı',takip_gonderildi:'takip gönderildi',cevap:'cevap geldi',olumlu:'olumlu',olumsuz:'olumsuz',red:'listeden çıktı',iptal:'iptal',hata:'hata'};
+const ibTarih=t=>t?new Date(t.replace(' ','T')+'Z').toLocaleDateString('tr-TR'):'';
+async function isbulAc(){
+  try{IB=await apiJSON('/api/isbul/durum')}catch(e){$('ibOzet').innerHTML=`<p class="small">Yüklenemedi: ${esc(e.message)}</p>`;return}
+  ibOzetCiz();ibSekmeAc(ibSekme);
+}
+function ibOzetCiz(){
+  const s=IB.sayac||{},n=k=>k.reduce((t,x)=>t+(s[x]||0),0),a=IB.ayar,f=IB.filo;
+  $('ibOzet').innerHTML=`<div class="tiles"><div><b>${n(['hazir','takip_hazir'])}</b>onay bekliyor</div><div><b>${n(['gonderildi','takip_gonderildi'])}</b>gönderildi</div><div><b>${n(['cevap','olumlu'])}</b>cevap / olumlu</div><div><b>${IB.bugun} / ${a.gunlukLimit}</b>bugün gönderilen</div><div><b>${n(['arama'])}</b>e-posta aranıyor</div><div><b>${n(['eposta_yok'])}</b>telefonla aranacak</div></div>`;
+  const adim=[[!!(f.ad&&f.telefon),'Ayarlar sekmesinde ekip/firma adınızı, telefonunuzu ve araç sayınızı girin.'],[!!(a.smtpKullanici&&a.smtpSifreVar),'Mailin gideceği hesabı bağlayın: yeni bir Gmail açın, 2 adımlı doğrulamayı açın, <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">uygulama şifresi</a> alın; adresi ve şifreyi Ayarlar sekmesine yazın.'],[IB.googleHazir,'(İsteğe bağlı, önerilir) Google Places anahtarı: çok daha fazla firma bulur; Ayarlar sekmesine yazın. Yoksa ücretsiz OpenStreetMap kullanılır.']];
+  $('ibKurulum').innerHTML=adim.every(x=>x[0])?'':`<div class="ibk"><h3>Kurulum</h3><ol>${adim.map(([ok,m])=>`<li class="${ok?'ok':''}">${m}</li>`).join('')}</ol></div>`;
+}
+function ibSekmeAc(t){
+  ibSekme=t;
+  for(const k of ['onay','bul','giden','cevap','tel','ayar']){$('ib_'+k).hidden=k!==t;document.querySelector(`#isbulPage .ibtabs [data-t="${k}"]`).classList.toggle('on',k===t)}
+  ({onay:ibOnay,bul:ibBul,giden:()=>ibListe('ib_giden','gonderilenler'),cevap:()=>ibListe('ib_cevap','cevaplar'),tel:()=>ibListe('ib_tel','eposta_yok'),ayar:ibAyar})[t]();
+}
+async function ibFirmalar(durum,q='',sayfa=0){return apiJSON(`/api/isbul/firmalar?durum=${durum}&q=${encodeURIComponent(q)}&sayfa=${sayfa}`)}
+async function ibGuncelle(id,degisen){const r=await apiJSON('/api/isbul/firma',{id,...degisen});return r.firma}
+function ibBaslik(f){return `<b>${esc(f.ad)}</b><span class="ibdurum ${f.durum}">${IB_DURUM[f.durum]||f.durum}</span>
+  <div class="small">${[f.ilce,f.il].filter(Boolean).join(', ')}${f.sektor&&IB.sektorler[f.sektor]?' · '+esc(IB.sektorler[f.sektor].ad):''}${f.telefon?` · <a href="tel:${esc(f.telefon.replace(/[^\d+]/g,''))}">${esc(f.telefon)}</a>`:''}${f.web?` · <a href="${esc(/^https?:/i.test(f.web)?f.web:'https://'+f.web)}" target="_blank" rel="noopener">site</a>`:''}${f.eposta?' · '+esc(f.eposta):''}${f.ilk_gonderim?' · ilk mail '+ibTarih(f.ilk_gonderim):''}${f.takip_sayisi?' · takip '+ibTarih(f.son_gonderim):''}${f.hata?' · <span style="color:var(--bad)">'+esc(f.hata)+'</span>':''}</div>`}
+
+async function ibOnay(){
+  const el=$('ib_onay');el.innerHTML='<p class="small">Yükleniyor…</p>';
+  let r;try{r=await Promise.all([ibFirmalar('hazir'),ibFirmalar('takip_hazir')])}catch(e){el.innerHTML=`<p class="small">${esc(e.message)}</p>`;return}
+  const liste=[...r[1].firmalar,...r[0].firmalar];ibSec=new Set([...ibSec].filter(id=>liste.some(f=>f.id===id)));
+  if(!liste.length){el.innerHTML=`<p class="small">Onay bekleyen mail yok. <b>Firma bul</b> sekmesinden arama yapın; sistem her sabah kendisi de arar.</p>`;return}
+  el.innerHTML=`<div class="ibbar"><button id="ibTumu">Tümünü seç</button><button class="p" id="ibGonder">Seçilenleri gönder</button><span class="small" id="ibGDurum">Bugün kalan hak: ${Math.max(0,IB.ayar.gunlukLimit-IB.bugun)}</span></div>
+  <div class="small">Her mailin altına ekip bilgileriniz ve "listeden çık" bağlantısı kendiliğinden eklenir. ${r[0].toplam+r[1].toplam>liste.length?`İlk ${liste.length} gösteriliyor.`:''}</div>`+
+  liste.map(f=>`<div class="ibf" data-id="${f.id}"><input type="checkbox" ${ibSec.has(f.id)?'checked':''} aria-label="Seç"><div>${ibBaslik(f)}
+    <details><summary class="small">Maili gör / düzenle: ${esc(f.konu)}</summary>
+      <div class="av"><input type="text" class="ibE" value="${esc(f.eposta)}" placeholder="e-posta"><input type="text" class="ibK" value="${esc(f.konu)}" placeholder="konu"></div>
+      <textarea class="ibM">${esc(f.metin)}</textarea>
+      <div class="av"><button class="ibKaydet p">Kaydet</button><button class="ibYeni">Metni baştan oluştur</button><button class="ibIptal">Gönderme</button><span class="small ibSonuc"></span></div>
+    </details></div></div>`).join('');
+  const say=()=>{$('ibGonder').textContent=ibSec.size?`Seçilen ${ibSec.size} maili gönder`:'Seçilenleri gönder';$('ibGonder').disabled=!ibSec.size};say();
+  $('ibTumu').onclick=()=>{const hepsi=ibSec.size<liste.length;ibSec=new Set(hepsi?liste.map(f=>f.id):[]);el.querySelectorAll('.ibf>input').forEach(c=>c.checked=hepsi);say()};
+  el.querySelectorAll('.ibf').forEach(d=>{
+    const id=+d.dataset.id,sonuc=d.querySelector('.ibSonuc');
+    d.querySelector('input[type=checkbox]').onchange=e=>{e.target.checked?ibSec.add(id):ibSec.delete(id);say()};
+    d.querySelector('.ibKaydet').onclick=async()=>{try{await ibGuncelle(id,{eposta:d.querySelector('.ibE').value,konu:d.querySelector('.ibK').value,metin:d.querySelector('.ibM').value});sonuc.textContent='✓ Kaydedildi'}catch(e){sonuc.textContent=e.message}};
+    d.querySelector('.ibYeni').onclick=async()=>{try{const f=await ibGuncelle(id,{yeniTaslak:true});d.querySelector('.ibK').value=f.konu;d.querySelector('.ibM').value=f.metin;sonuc.textContent='✓ Yeni metin'}catch(e){sonuc.textContent=e.message}};
+    d.querySelector('.ibIptal').onclick=async()=>{try{await ibGuncelle(id,{durum:'iptal'});ibSec.delete(id);d.remove();say()}catch(e){sonuc.textContent=e.message}};
+  });
+  $('ibGonder').onclick=async()=>{
+    if(ibMesgul||!ibSec.size)return;
+    if(!confirm(`${ibSec.size} firmaya mail gönderilecek. Devam edilsin mi?`))return;
+    ibMesgul=true;$('ibGonder').disabled=true;let gonderilen=0;const hatalar=[];
+    try{
+      // açık düzenlemeler kaydedilmemişse önce kaydedilir
+      for(const d of el.querySelectorAll('.ibf details[open]')){const k=d.closest('.ibf'),id=+k.dataset.id;if(ibSec.has(id))await ibGuncelle(id,{eposta:k.querySelector('.ibE').value,konu:k.querySelector('.ibK').value,metin:k.querySelector('.ibM').value})}
+      let kalan=[...ibSec];
+      while(kalan.length){
+        $('ibGDurum').textContent=`Gönderiliyor… ${gonderilen} gitti, ${kalan.length} kaldı`;
+        const parca=kalan.splice(0,5),r=await apiJSON('/api/isbul/gonder',{idler:parca});
+        gonderilen+=r.gonderilen;hatalar.push(...r.hatalar);
+        if(r.hatalar.some(h=>/sınır|giriş|şifre|bağlan|zaman|meşgul/i.test(h.hata)))break;
+      }
+    }catch(e){hatalar.push({hata:e.message})}
+    ibMesgul=false;ibSec.clear();await isbulAc();
+    $('ibGDurum').innerHTML=`✓ ${gonderilen} mail gönderildi.${hatalar.length?' <span style="color:var(--bad)">'+esc([...new Set(hatalar.map(h=>h.hata))].join(' · '))+'</span>':''}`;
+  };
+}
+
+function ibBul(){
+  const el=$('ib_bul'),il=localStorage.getItem('ib_il')||'İstanbul';
+  const sekOpt=Object.entries(IB.sektorler).map(([k,v])=>`<option value="${k}">${esc(v.ad)}</option>`).join('');
+  el.innerHTML=`<div class="grid2 ib"><label>İl<select id="ibIl">${IB.iller.map(x=>`<option ${x===il?'selected':''}>${x}</option>`).join('')}</select></label>
+    <label>İlçe<select id="ibIlce"></select></label>
+    <label>Firma türü<select id="ibSek">${sekOpt}</select></label>
+    <label>Aranacak<select id="ibArama"></select></label>
+    <label>Kaynak<select id="ibKaynak"><option value="google" ${IB.googleHazir?'':'disabled'}>Google Haritalar${IB.googleHazir?'':' (anahtar yok)'}</option><option value="osm" ${IB.googleHazir?'':'selected'}>OpenStreetMap (ücretsiz, az kayıt)</option></select></label>
+    <label>Ya da kendi aramanız<input type="text" id="ibOzel" placeholder="ör. su dağıtım firması"></label></div>
+  <div class="row" style="margin-top:10px"><button class="p" id="ibAra">Firmaları bul</button><button id="ibDevam" hidden>Devamını getir</button><span class="small" id="ibAraDurum"></span></div>
+  <div class="small">Bulunan firmaların sitelerinden mail adresi otomatik aranır; bulunanlar <b>Onay bekleyen</b>'e, bulunamayanlar <b>Telefonla</b>'ya düşer. Aynı firma iki kez eklenmez. Otomatik tarama: ${IB.imlec % Math.max(1,IB.toplamArama)} / ${IB.toplamArama} arama yapıldı.</div>
+  <div class="ibk"><h3>Elle firma ekle</h3><div class="grid2 ib"><label>Firma adı<input type="text" id="ibEAd"></label><label>E-posta<input type="text" id="ibEEp" inputmode="email"></label><label>Telefon<input type="text" id="ibETel"></label><label>Firma türü<select id="ibESek">${sekOpt}</select></label></div>
+    <div class="row" style="margin-top:8px"><button id="ibEkle">Ekle</button><span class="small" id="ibEDurum"></span></div></div>`;
+  const ilceDoldur=()=>{const l=IB.ilceler[$('ibIl').value]||[];$('ibIlce').innerHTML=`<option value="">${l.length?'Tüm il (tek arama)':'Tüm il'}</option>`+l.map(x=>`<option>${x}</option>`).join('')};
+  const aramaDoldur=()=>{$('ibArama').innerHTML=IB.sektorler[$('ibSek').value].aramalar.map(x=>`<option>${esc(x)}</option>`).join('')};
+  ilceDoldur();aramaDoldur();$('ibIl').onchange=()=>{try{localStorage.setItem('ib_il',$('ibIl').value)}catch(e){}ilceDoldur()};$('ibSek').onchange=aramaDoldur;
+  let sonraki='';
+  const ara=async devam=>{
+    if(ibMesgul)return;ibMesgul=true;$('ibAra').disabled=true;$('ibDevam').hidden=true;const d=$('ibAraDurum');
+    try{
+      d.textContent='Firmalar aranıyor…';
+      const r=await apiJSON('/api/isbul/ara',{il:$('ibIl').value,ilce:$('ibIlce').value,sektor:$('ibSek').value,arama:$('ibOzel').value.trim()||$('ibArama').value,kaynak:$('ibKaynak').value,sayfa:devam?sonraki:''});
+      sonraki=r.sonraki||'';let bulunanEp=0,t={kalan:1};
+      d.textContent=`${r.bulunan} firma bulundu, ${r.eklenen} yeni. Sitelerde mail adresi aranıyor…`;
+      for(let i=0;i<40&&t.kalan;i++){t=await apiJSON('/api/isbul/eposta-tara',{});bulunanEp+=t.bulunan;d.textContent=`${r.bulunan} firma bulundu, ${r.eklenen} yeni. Mail aranıyor… ${bulunanEp} adres bulundu, ${t.kalan} site kaldı`}
+      d.textContent=`✓ ${r.bulunan} firma bulundu, ${r.eklenen} yeni; ${bulunanEp} mail adresi bulundu → Onay bekleyen.`;
+      $('ibDevam').hidden=!sonraki;IB=await apiJSON('/api/isbul/durum');ibOzetCiz();
+    }catch(e){d.textContent=e.message}
+    ibMesgul=false;$('ibAra').disabled=false;
+  };
+  $('ibAra').onclick=()=>ara(false);$('ibDevam').onclick=()=>ara(true);
+  $('ibEkle').onclick=async()=>{try{await apiJSON('/api/isbul/firma-ekle',{ad:$('ibEAd').value,eposta:$('ibEEp').value,telefon:$('ibETel').value,sektor:$('ibESek').value,il:$('ibIl').value});$('ibEDurum').textContent='✓ Eklendi';$('ibEAd').value=$('ibEEp').value=$('ibETel').value='';IB=await apiJSON('/api/isbul/durum');ibOzetCiz()}catch(e){$('ibEDurum').textContent=e.message}};
+}
+
+async function ibListe(kutu,durum,sayfa=0){
+  const el=$(kutu);el.innerHTML='<p class="small">Yükleniyor…</p>';
+  let r;try{r=await ibFirmalar(durum,'',sayfa)}catch(e){el.innerHTML=`<p class="small">${esc(e.message)}</p>`;return}
+  const bos={gonderilenler:'Henüz mail gönderilmedi.',cevaplar:'Cevap işaretlenen firma yok. Gmail\'e cevap gelince Gönderilen sekmesinden "Cevap geldi" deyin.',eposta_yok:'Mail adresi bulunamayan firma yok.'}[durum];
+  const not={gonderilenler:'Cevaplar doğrudan mail kutunuza gelir. Cevap gelen firmayı burada işaretleyin; işaretlenmeyenlere süre dolunca bir kez takip maili hazırlanır.',eposta_yok:'Bu firmaların sitesinde mail adresi bulunamadı. Telefonla arayın ya da mail adresini öğrenip yazın; teklif maili hazırlanır.'}[durum]||'';
+  el.innerHTML=(not?`<div class="small">${not}</div>`:'')+(r.firmalar.length?r.firmalar.map(f=>`<div class="ibf" data-id="${f.id}"><div>${ibBaslik(f)}
+    <div class="av">${durum==='eposta_yok'?`<input type="text" class="ibE" placeholder="mail adresini yazın" inputmode="email"><button class="ibEpKaydet">Kaydet</button>`:`<button data-d="cevap">Cevap geldi</button><button data-d="olumlu">Olumlu</button><button data-d="olumsuz">Olumsuz</button>`}<input type="text" class="ibN" placeholder="not" value="${esc(f.notu)}"><button class="ibNKaydet">Notu kaydet</button><span class="small ibSonuc"></span></div></div></div>`).join(''):`<p class="small">${bos}</p>`)+
+    (r.toplam>(sayfa+1)*50?`<button class="ibSonraki">Sonraki 50</button>`:'');
+  el.querySelectorAll('.ibf').forEach(d=>{
+    const id=+d.dataset.id,sonuc=d.querySelector('.ibSonuc');
+    d.querySelectorAll('[data-d]').forEach(b=>b.onclick=async()=>{try{await ibGuncelle(id,{durum:b.dataset.d});ibListe(kutu,durum,sayfa);IB=await apiJSON('/api/isbul/durum');ibOzetCiz()}catch(e){sonuc.textContent=e.message}});
+    d.querySelector('.ibNKaydet').onclick=async()=>{try{await ibGuncelle(id,{notu:d.querySelector('.ibN').value});sonuc.textContent='✓'}catch(e){sonuc.textContent=e.message}};
+    const ep=d.querySelector('.ibEpKaydet');if(ep)ep.onclick=async()=>{try{await ibGuncelle(id,{eposta:d.querySelector('.ibE').value});d.remove();IB=await apiJSON('/api/isbul/durum');ibOzetCiz()}catch(e){sonuc.textContent=e.message}};
+  });
+  const s=el.querySelector('.ibSonraki');if(s)s.onclick=()=>ibListe(kutu,durum,sayfa+1);
+}
+
+function ibAyar(){
+  const a=IB.ayar,f=IB.filo,el=$('ib_ayar');
+  const onde=['İstanbul','Kocaeli','Tekirdağ','Sakarya','Bursa','Yalova','Kırklareli','Edirne','Bilecik','Balıkesir','Çanakkale','Düzce'];
+  const iller=[...onde,...IB.iller.filter(x=>!onde.includes(x))];
+  el.innerHTML=`<div class="ibk"><h3>Ekip / firma bilgileri (mailin altında ve tanıtım sayfasında görünür)</h3><div class="grid2 ib">
+    <label>Ekip / firma adı<input type="text" id="ibfAd" value="${esc(f.ad)}" placeholder="ör. Marmara Kamyonet Dağıtım"></label>
+    <label>Yetkili adı<input type="text" id="ibfYet" value="${esc(f.yetkili)}"></label>
+    <label>Telefon<input type="text" id="ibfTel" value="${esc(f.telefon)}" inputmode="tel"></label>
+    <label>Cevapların geleceği mail (boşsa gönderen adres)<input type="text" id="ibfEp" value="${esc(f.eposta)}" inputmode="email"></label>
+    <label>Araç sayısı<input type="number" id="ibfArac" value="${+f.aracSayisi||''}"></label>
+    <label>Çalışılan bölgeler<input type="text" id="ibfBol" value="${esc(f.bolgeler)}"></label>
+    <label>Ticari unvan / şahıs adı (yasal bilgi)<input type="text" id="ibfUnvan" value="${esc(f.unvan)}"></label>
+    <label>Adres (isteğe bağlı)<input type="text" id="ibfAdres" value="${esc(f.adres)}"></label>
+    <label>Web sitesi (boşsa tanıtım sayfası)<input type="text" id="ibfWeb" value="${esc(f.web)}" placeholder="${esc(location.origin)}/filo"></label>
+    <label style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="ibfDepo" ${f.depolama?'checked':''} style="width:18px;height:18px"> Depolama hizmeti de veriyoruz</label></div>
+    <div class="small" style="margin-top:6px">Tanıtım sayfanız: <a href="/filo" target="_blank" rel="noopener">${esc(location.origin)}/filo</a> (giriş gerektirmez, maillerde bağlantı olarak kullanılabilir).</div></div>
+  <div class="ibk"><h3>Gönderen mail hesabı</h3><div class="grid2 ib">
+    <label>Mail adresi<input type="text" id="ibsKul" value="${esc(a.smtpKullanici)}" placeholder="ekibiniz@gmail.com" inputmode="email"></label>
+    <label>Uygulama şifresi ${a.smtpSifreVar?'(kayıtlı …'+esc(a.smtpIpucu)+')':''}<input type="password" id="ibsSif" autocomplete="new-password" placeholder="${a.smtpSifreVar?'değiştirmek için yazın':'16 haneli uygulama şifresi'}"></label>
+    <label>Mail sunucusu<input type="text" id="ibsHost" value="${esc(a.smtpHost)}"></label>
+    <label>Port<select id="ibsPort"><option ${a.smtpPort==465?'selected':''}>465</option><option ${a.smtpPort==587?'selected':''}>587</option></select></label></div>
+    <div class="small">Gmail: smtp.gmail.com / 465. Yandex: smtp.yandex.com / 465. Outlook: smtp-mail.outlook.com / 587. Gmail'de normal şifre çalışmaz; Google hesabı → Güvenlik → 2 adımlı doğrulama açık olmalı → <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">Uygulama şifreleri</a>.</div>
+    <div class="row" style="margin-top:8px"><button id="ibDeneme">Kendime deneme maili gönder</button><span class="small" id="ibDenemeD"></span></div></div>
+  <div class="ibk"><h3>Google Places anahtarı (isteğe bağlı)</h3><div class="grid2 ib"><label>Anahtar ${IB.googleHazir?'(kayıtlı …'+esc(IB.googleIpucu)+')':''}<input type="password" id="ibGkey" autocomplete="off" placeholder="${IB.googleHazir?'değiştirmek için yazın':'AIza…'}"></label></div>
+    <div class="small"><a href="https://console.cloud.google.com/google/maps-apis/credentials" target="_blank" rel="noopener">Google Cloud</a> → yeni proje → faturalandırmayı açın → "Places API (New)" etkinleştirin → API anahtarı oluşturun. Ayda belirli sayıda arama ücretsizdir; sistem günde 4 otomatik arama yapar.</div></div>
+  <div class="ibk"><h3>Otomatik çalışma</h3>
+    <label class="small" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="ibOto" ${a.otomatik?'checked':''} style="width:18px;height:18px"> Her sabah yeni firma ara, mail adreslerini bul, takip maillerini hazırla (gönderim yine sizin onayınızla)</label>
+    <div class="grid2 ib" style="margin-top:8px"><label>Günlük en çok mail<input type="number" id="ibLimit" value="${a.gunlukLimit}" min="1" max="200"></label><label>Takip maili kaç gün sonra<input type="number" id="ibTakip" value="${a.takipGun}" min="2" max="30"></label></div>
+    <div class="small">Yeni Gmail hesabında ilk 2 hafta günde 20–30 mail önerilir; fazlası spam'e düşürebilir.</div>
+    <div class="fl">Aranacak firma türleri<div class="ibcheck">${Object.entries(IB.sektorler).map(([k,v])=>`<label><input type="checkbox" class="ibSk" value="${k}" ${a.sektorler.includes(k)?'checked':''}>${esc(v.ad)}</label>`).join('')}</div></div>
+    <div class="fl">Aranacak iller (İstanbul, Kocaeli, Tekirdağ ilçe ilçe aranır)<div class="ibcheck">${iller.map(x=>`<label><input type="checkbox" class="ibIlc" value="${x}" ${a.iller.includes(x)?'checked':''}>${x}</label>`).join('')}</div></div></div>
+  <div class="row"><button class="p" id="ibAyarKaydet">Kaydet</button><a href="/api/isbul/csv" download>Tüm firmaları indir (CSV)</a><span class="small" id="ibAyarD"></span></div>`;
+  $('ibAyarKaydet').onclick=async()=>{
+    const g={ayar:{smtpKullanici:$('ibsKul').value.trim(),smtpHost:$('ibsHost').value.trim(),smtpPort:+$('ibsPort').value,otomatik:$('ibOto').checked,gunlukLimit:+$('ibLimit').value,takipGun:+$('ibTakip').value,
+      sektorler:[...el.querySelectorAll('.ibSk:checked')].map(x=>x.value),iller:[...el.querySelectorAll('.ibIlc:checked')].map(x=>x.value)},
+      filo:{ad:$('ibfAd').value,yetkili:$('ibfYet').value,telefon:$('ibfTel').value,eposta:$('ibfEp').value.trim(),aracSayisi:$('ibfArac').value,bolgeler:$('ibfBol').value,unvan:$('ibfUnvan').value,adres:$('ibfAdres').value,web:$('ibfWeb').value.trim()||location.origin+'/filo',depolama:$('ibfDepo').checked}};
+    if($('ibsSif').value)g.smtpSifre=$('ibsSif').value;
+    if($('ibGkey').value)g.googleKey=$('ibGkey').value;
+    try{await apiJSON('/api/isbul/ayar',g);$('ibAyarD').textContent='✓ Kaydedildi';IB=await apiJSON('/api/isbul/durum');ibOzetCiz();ibAyar();$('ibAyarD').textContent='✓ Kaydedildi'}catch(e){$('ibAyarD').textContent=e.message}
+  };
+  $('ibDeneme').onclick=async()=>{$('ibDenemeD').textContent='Gönderiliyor…';try{const r=await apiJSON('/api/isbul/deneme',{});$('ibDenemeD').textContent=`✓ ${r.gonderildi} adresine deneme maili gitti; gelen kutunuzu kontrol edin.`}catch(e){$('ibDenemeD').textContent=e.message}};
+}
+
+
+document.querySelectorAll('.ibtabs button').forEach(b=>b.onclick=()=>ibSekmeAc(b.dataset.t));
+isbulAc();
+</script>
+</body></html>

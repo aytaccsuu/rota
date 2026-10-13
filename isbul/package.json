@@ -1,0 +1,15 @@
+{
+  "name": "isbul",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --local --port 8788",
+    "db:local": "wrangler d1 migrations apply isbul --local",
+    "db:remote": "wrangler d1 migrations apply isbul --remote",
+    "deploy": "wrangler deploy",
+    "test": "node test_isbul.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

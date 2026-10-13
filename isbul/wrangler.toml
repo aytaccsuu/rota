@@ -1,0 +1,27 @@
+# İş Bul — Cloudflare Workers (ücretsiz plan yeterli)
+name = "isbul"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+compatibility_flags = ["nodejs_compat"]
+keep_vars = true
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+run_worker_first = true
+
+# Firma listesi, gönderimler, ayarlar. "npx wrangler d1 create isbul" çıktısındaki database_id buraya yazılır.
+[[d1_databases]]
+binding = "DB"
+database_name = "isbul"
+database_id = "BURAYA_DATABASE_ID"
+migrations_dir = "migrations"
+
+# Her sabah 09:00 (Türkiye): takip taslakları + yeni firma araması + sitelerden mail adresi
+[triggers]
+crons = ["0 6 * * *"]
+
+# Gizli ayarlar ("npx wrangler secret put AD" ya da Cloudflare paneli → Settings → Variables and Secrets):
+#   ISBUL_SIFRE   giriş şifresi (zorunlu)
+#   ISBUL_GIZLI   rastgele uzun bir metin (oturum ve "listeden çık" bağlantılarının imzası)
+# Mail şifresi ve Google anahtarı uygulamanın Ayarlar sekmesinden girilir.
