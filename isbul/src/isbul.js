@@ -8,7 +8,7 @@ import { ILLER, ILCELER, SEKTORLER, aramaListesi, googleFirmaAra, osmFirmaAra, s
 
 const DURUMLAR = ['arama', 'eposta_yok', 'hazir', 'gonderildi', 'takip_hazir', 'takip_gonderildi', 'cevap', 'olumlu', 'olumsuz', 'red', 'iptal', 'hata'];
 const ELLE_DURUM = ['hazir', 'cevap', 'olumlu', 'olumsuz', 'iptal', 'eposta_yok', 'gonderildi'];
-const VARSAYILAN = { iller: ['İstanbul', 'Kocaeli', 'Tekirdağ'], sektorler: Object.keys(SEKTORLER), otomatik: true, gunlukLimit: 40, takipGun: 5, smtpHost: 'smtp.zoho.eu', smtpPort: 465, smtpKullanici: 'kocatepefilo@zohomail.eu' };
+const VARSAYILAN = { iller: ['İstanbul', 'Kocaeli', 'Tekirdağ'], sektorler: Object.keys(SEKTORLER), otomatik: true, gunlukLimit: 40, takipGun: 5, smtpHost: 'smtp.gmail.com', smtpPort: 465, smtpKullanici: '' };
 const FILO_ALAN = ['ad', 'unvan', 'yetkili', 'telefon', 'eposta', 'web', 'adres', 'bolgeler', 'hizmetler'];
 
 const json = async (env, k, v = {}) => { try { return { ...v, ...JSON.parse(await depo.ayarOku(env, k) || '{}') }; } catch { return { ...v }; } };

@@ -52,7 +52,7 @@ async function isbulAc(){
 function ibOzetCiz(){
   const s=IB.sayac||{},n=k=>k.reduce((t,x)=>t+(s[x]||0),0),a=IB.ayar,f=IB.filo;
   $('ibOzet').innerHTML=`<div class="tiles"><div><b>${n(['hazir','takip_hazir'])}</b>onay bekliyor</div><div><b>${n(['gonderildi','takip_gonderildi'])}</b>gönderildi</div><div><b>${n(['cevap','olumlu'])}</b>cevap / olumlu</div><div><b>${IB.bugun} / ${a.gunlukLimit}</b>bugün gönderilen</div><div><b>${n(['arama'])}</b>e-posta aranıyor</div><div><b>${n(['eposta_yok'])}</b>telefonla aranacak</div></div>`;
-  const adim=[[!!(f.ad&&f.telefon),'Ayarlar sekmesinde ekip/firma adınızı, telefonunuzu ve araç sayınızı girin.'],[!!(a.smtpKullanici&&a.smtpSifreVar),'Mail hesabını bağlayın: Ayarlar sekmesinde kocatepefilo@zohomail.eu için Zoho şifrenizi (2 adımlı doğrulama açıksa <a href="https://accounts.zoho.eu/home#security/app_password" target="_blank" rel="noopener">uygulama şifresi</a>) yazın ve deneme maili gönderin.'],[IB.googleHazir,'(İsteğe bağlı, önerilir) Google Places anahtarı: çok daha fazla firma bulur; Ayarlar sekmesine yazın. Yoksa ücretsiz OpenStreetMap kullanılır.']];
+  const adim=[[!!(f.ad&&f.telefon),'Ayarlar sekmesinde ekip/firma adınızı, telefonunuzu ve araç sayınızı girin.'],[!!(a.smtpKullanici&&a.smtpSifreVar),'Mail hesabını bağlayın: Ayarlar sekmesine mail adresinizi ve uygulama şifresini yazın (Gmail: <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">uygulama şifresi al</a>), sonra deneme maili gönderin.'],[IB.googleHazir,'(İsteğe bağlı, önerilir) Google Places anahtarı: çok daha fazla firma bulur; Ayarlar sekmesine yazın. Yoksa ücretsiz OpenStreetMap kullanılır.']];
   $('ibKurulum').innerHTML=adim.every(x=>x[0])?'':`<div class="ibk"><h3>Kurulum</h3><ol>${adim.map(([ok,m])=>`<li class="${ok?'ok':''}">${m}</li>`).join('')}</ol></div>`;
 }
 function ibSekmeAc(t){
@@ -198,6 +198,9 @@ function ibAyar(){
     if($('ibGkey').value)g.googleKey=$('ibGkey').value;
     try{await apiJSON('/api/isbul/ayar',g);$('ibAyarD').textContent='✓ Kaydedildi';IB=await apiJSON('/api/isbul/durum');ibOzetCiz();ibAyar();$('ibAyarD').textContent='✓ Kaydedildi'}catch(e){$('ibAyarD').textContent=e.message}
   };
+  // adrese göre mail sunucusu kendiliğinden seçilir (elle de değiştirilebilir)
+  const SUNUCU=[[/@(gmail|googlemail)\.com$/,'smtp.gmail.com',465],[/@zoho(mail)?\.eu$/,'smtp.zoho.eu',465],[/@zoho(mail)?\.com$/,'smtp.zoho.com',465],[/@(yandex\.(com|ru)|ya\.ru)$/,'smtp.yandex.com',465],[/@(outlook|hotmail|live)\.[a-z.]+$/,'smtp-mail.outlook.com',587],[/@(yahoo)\.[a-z.]+$/,'smtp.mail.yahoo.com',465],[/@icloud\.com$/,'smtp.mail.me.com',587]];
+  $('ibsKul').onchange=()=>{const e=$('ibsKul').value.trim().toLowerCase(),m=SUNUCU.find(([r])=>r.test(e));if(m){$('ibsHost').value=m[1];$('ibsPort').value=String(m[2])}};
   $('ibDeneme').onclick=async()=>{$('ibDenemeD').textContent='Gönderiliyor…';try{const r=await apiJSON('/api/isbul/deneme',{});$('ibDenemeD').textContent=`✓ ${r.gonderildi} adresine deneme maili gitti; gelen kutunuzu kontrol edin.`}catch(e){$('ibDenemeD').textContent=e.message}};
 }
 
