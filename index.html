@@ -108,7 +108,7 @@ html:not(.yonetici) .yonetici-only{display:none!important}
 .kul-sifre{display:flex;gap:6px;width:100%}.kul-sifre input{flex:1}
 .kul-ekle{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;margin-top:8px}@media(max-width:520px){.kul-ekle{grid-template-columns:1fr}}
 .yotab td:first-child,.yotab th:first-child{text-align:left}.yotab th:nth-child(2),.yotab td:nth-child(2){text-align:right}
-.sira>.sira-tas{display:flex;flex-direction:column;gap:4px;flex:none;min-width:0}.sira-tas button{width:34px;height:30px;padding:0;display:grid;place-items:center;border-radius:8px}.sira.duzen{background:var(--surf2);border-radius:10px;padding-left:6px;padding-right:6px}.sira.duzen:before{display:none}
+.sira>.sira-tas{display:flex;flex-direction:column;gap:4px;flex:none;min-width:0}.sira-tas button{width:46px;height:42px;padding:0;display:grid;place-items:center;border-radius:10px;border-width:2px}.sira-tas button .ic{width:1.3em;height:1.3em}.sira-tas button:disabled{opacity:.3}.sira.duzen{background:var(--surf2);border-radius:10px;padding-left:6px;padding-right:6px}.sira.duzen:before{display:none}
 .sira-not{margin:10px 0 4px;padding:9px 12px;border-radius:10px;background:var(--warnbg);color:var(--warnink);font-size:12px}
 .gidilecek .gnot{display:block;font-size:12px;color:var(--warnink);margin-top:2px}
 .gidilecek{display:flex;gap:6px;align-items:flex-start;font-size:13px;margin:2px 0 6px;color:var(--ok)}.gidilecek.no{color:var(--bad)}.gidilecek span{color:var(--ink)}.gidilecek.no span{color:var(--bad)}
@@ -1630,7 +1630,11 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
   if($('otoSiraBtn'))$('otoSiraBtn').onclick=()=>{elleSira=null;siraDuzenle=false;buildRoute()};
   $('result').querySelectorAll('[data-tas]').forEach(b=>b.onclick=()=>{
     const i=+b.dataset.tas,j=i+ +b.dataset.y,o=routeOrder.slice();if(j<0||j>=o.length)return;
-    [o[i],o[j]]=[o[j],o[i]];elleSira=o.map(x=>x.id);routeOrder=o;buildRoute();
+    [o[i],o[j]]=[o[j],o[i]];elleSira=o.map(x=>x.id);routeOrder=o;
+    // ekranda hemen göster: eski bacak süreleri yer değiştirmiş duraklarla geçici olarak kullanılır
+    const [sq,lg,...kalan]=sonRender,sq2=[sq[0],...o.map(x=>({...x})),sq.at(-1)];
+    renderResult(sq2,lg,...kalan);bildirim('Sıra değişti; yol süreleri hesaplanıyor…',1800);
+    clearTimeout(window._siraZ);window._siraZ=setTimeout(buildRoute,700);
   });
 }
 
