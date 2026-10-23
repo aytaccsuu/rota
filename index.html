@@ -2220,14 +2220,17 @@ async function depoTahmini(son){
   }
   const gunler=[...new Set([...km.keys(),...alim.keys()])].sort();
   // 1) iki fulleme arası: (ikinci fullemede alınan + aradaki alımlar) / aradaki km
-  let fullT=null,arada=0,kmArada=0;const oranlar=[];
+  // İki fulleme arasında 3 günden fazla iş günü olmayan boşluk varsa araç iş dışında da kullanılmıştır: o aralık sayılmaz
+  const gunFark=(a,b)=>Math.round((Date.parse(b+'T12:00')-Date.parse(a+'T12:00'))/864e5);
+  let fullT=null,arada=0,kmArada=0,isGunu=0;const oranlar=[];
   for(const t of gunler){
     const al=alim.get(t);
-    if(al&&al.full){if(fullT&&kmArada>=80){const r=(arada+al.l)/kmArada*100;if(r>=4&&r<=40)oranlar.push(r)}fullT=t;arada=0;kmArada=0}
+    if(al&&al.full){if(fullT&&kmArada>=80&&gunFark(fullT,t)-isGunu<=3){const r=(arada+al.l)/kmArada*100;if(r>=4&&r<=40)oranlar.push(r)}fullT=t;arada=0;kmArada=0;isGunu=0}
     else if(al&&fullT)arada+=al.l;
-    if(fullT)kmArada+=km.get(t)||0;
+    if(fullT&&km.get(t)){kmArada+=km.get(t);isGunu++}
   }
-  ogrenilenTuketim=oranlar.length?Math.round(oranlar.slice(-3).reduce((a,b)=>a+b,0)/Math.min(3,oranlar.length)*10)/10:null;
+  const sonOran=oranlar.slice(-3).sort((a,b)=>a-b);
+  ogrenilenTuketim=sonOran.length?Math.round(sonOran[Math.floor((sonOran.length-1)/2)]*10)/10:null;
   const a=aracAyar();
   if(!alim.size||![...alim.values()].some(x=>x.l>0))return {eksik:!fiyat,sonAlim};
   // 2) depo: full gününde dolu, kısmi alımda eklenir (kapasiteyle sınırlı), her gün km × tüketim düşülür
@@ -2411,7 +2414,7 @@ async function restorePlan(){
     if(planEskiMi()){
       if(r&&order&&order.every(Boolean)&&order.length){routeOrder=order;lastRoute=r}
       const kayit=await gunKaydi(planDate).catch(()=>null);
-      if(kayit?.rota?.sira?.length){clearTimeout(rotaGunTimer);clearTimeout(planTimer);await clearPlan();planDate=null;stops=[];delivered=[];planEvraklar=[];lastRoute=null;routeOrder=null;$('fileInfo').innerHTML='';renderStops();updateState();refreshMarkers();return}
+      if(kayit?.rota?.sira?.length||await planBaskaGundeMi(planDate)){clearTimeout(rotaGunTimer);clearTimeout(planTimer);await clearPlan();planDate=null;stops=[];delivered=[];planEvraklar=[];lastRoute=null;routeOrder=null;$('fileInfo').innerHTML='';renderStops();updateState();refreshMarkers();return}
       planRestoring=false;await planiKapat(trTarih(planDate)+' rotası Özet’e kaydedildi; yeni gün için rota sayfası boşaltıldı.');return;
     }
     if(r&&order&&order.every(Boolean)&&order.length&&!dusen){
@@ -2423,6 +2426,16 @@ async function restorePlan(){
   }finally{planRestoring=false}
 }
 let planBackend='';
+// Bu plandaki siparişlerin yarısından çoğu ±10 gün içinde başka bir günün kaydında varsa plan o gündür (tarihi değiştirilmiş eski kopya)
+async function planBaskaGundeMi(t){
+  const no=x=>String(x||'').replace(/\D/g,''),bu=stops.flatMap(s=>(s.orders||[]).map(o=>no(o.sip))).filter(x=>x.length>=6);
+  if(!bu.length)return false;
+  const d=new Date(t+'T12:00'),aylar=[...new Set([-10,0,10].map(g=>{const x=new Date(d);x.setDate(x.getDate()+g);return x.toLocaleDateString('sv-SE').slice(0,7)}))];
+  for(const ay of aylar){let v;try{v=await ayYukle(ay)}catch(e){continue}
+    for(const r of v.rutlar){if(r.tarih===t||Math.abs(Date.parse(r.tarih)-Date.parse(t))>10*864e5)continue;
+      const k=new Set((r.rota?.sira||[]).flatMap(m=>m.sip||[]).map(no));if(bu.filter(x=>k.has(x)).length/bu.length>0.5)return true}}
+  return false;
+}
 // ---------- cihazlar arası eşitleme (telefon ↔ tablet) ----------
 // 30 sn'de bir, uygulamaya dönünce ve internet gelince: sunucudaki plan bu cihazdakinden yeniyse alınır;
 // bu cihazdaki daha yeniyse gönderilir; plan diğer cihazda kapatıldıysa (gün bitti / temizlendi) burada da kapanır.
