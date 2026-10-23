@@ -544,16 +544,29 @@ function renderPts(){
 }
 
 // ---------- adres ayrıştırma (evrak metni → mahalle / sokak / kapı no) ----------
-const STREET={cad:'Caddesi',cd:'Caddesi',cadde:'Caddesi',caddesi:'Caddesi',sok:'Sokak',sk:'Sokak',sokak:'Sokak','sokağı':'Sokak',bulvar:'Bulvarı','bulvarı':'Bulvarı',blv:'Bulvarı'};
-const STOPW=/^(mah|mahallesi|mahalle|no|apt|apartman|apartmanı|sitesi|site|sit|blok|kat|daire|d|istanbul|i̇stanbul|\/|-)$/;
+const STREET={cad:'Caddesi',cd:'Caddesi',cadde:'Caddesi',caddesi:'Caddesi',sok:'Sokak',sk:'Sokak',sokak:'Sokak','sokağı':'Sokak',bulvar:'Bulvarı','bulvarı':'Bulvarı',blv:'Bulvarı','çıkmazı':'Çıkmazı','çıkmaz':'Çıkmazı','cıkmazı':'Çıkmazı',cikmazi:'Çıkmazı'};
+const STOPW=/^(mah|mh|mahallesi|mahalle|no|apt|apartman|apartmanı|sitesi|site|sit|blok|kat|daire|d|istanbul|i̇stanbul|\/|-)$/;
 function parseAddress(raw,ilceRaw){
   // "no 2 /4" → "no 2/4" (kapı/daire)
-  const s=String(raw).replace(/\s+/g,' ').replace(/(\d)\s*\/\s*(\d)/g,'$1/$2').trim();
-  const mm=[...s.matchAll(/(?:^|[,;])\s*([A-Za-zÇĞİÖŞÜçğıöşü0-9]+(?:\s+[A-Za-zÇĞİÖŞÜçğıöşü0-9]+){0,3})\s+mah(?:allesi)?(?=[\s.,/]|$)/gi)].map(x=>x[1].replace(/^.*\b(residence|rezidans|residans|sitesi|konutları|konutlari|konut|evleri|apt\.?|apartmanı|apartman|plaza|towers?|blok)\s+/i,'')).filter(x=>!/^mah/i.test(x)); // "Optimist Residence Fikirtepe Mah." → Fikirtepe
+  const s=String(raw).replace(/\s+/g,' ').replace(/(\d)\s*\/\s*(\d)/g,'$1/$2')
+    // "Cad.Panorama", "SK.TANINDI", "mah.103" → nokta sonrası boşluk; "mh,itir sk,prava" → virgül sonrası boşluk
+    .replace(/\b(cad|cd|sok|sk|mah|mh|blv|bul|apt|cikm|çık)\.(?=[A-Za-zÇĞİÖŞÜçğıöşü0-9])/gi,'$1. ').replace(/,(?=\S)/g,', ')
+    // bitişik yazılmış yol türü: "akartlarcıkmazı" → "akartlar çıkmazı", "patikayol sokakyıldırım" → "sokak yıldırım"
+    .replace(/([a-zçğıöşü]{3,})(çıkmazı|cıkmazı|cikmazi)(?=[\s,.;/]|$)/gi,'$1 $2').replace(/\b(sokak|sokağı|caddesi)(?!lar|lari|ları)(?=[a-zçğıöşü]{3,})/gi,'$1 ')
+    .replace(/(\d)_(\d)/g,'$1-$2').trim();
+  const mm=[...s.matchAll(/(?:^|[,;])\s*([A-Za-zÇĞİÖŞÜçğıöşü0-9]+(?:\s+[A-Za-zÇĞİÖŞÜçğıöşü0-9]+){0,3})\s+(?:mah(?:allesi)?|mh)(?=[\s.,/]|$)/gi)].map(x=>x[1].replace(/^.*\b(residence|rezidans|residans|sitesi|konutları|konutlari|konut|evleri|apt\.?|apartmanı|apartman|plaza|towers?|blok)\s+/i,'')).filter(x=>!/^mah/i.test(x)); // "Optimist Residence Fikirtepe Mah." → Fikirtepe
   // "19 Mayıs Mah." rakamla başlayabilir; ama "No:5 GÖZTEPE MAH."daki 5 kapı numarasıdır, mahalle adına girmez
   const fallbackMah=[...s.matchAll(/((?:\d+\s+)?[A-Za-zÇĞİÖŞÜçğıöşü]{3,})\s+mah(?:allesi)?(?=[\s.,/]|$)/gi)]
     .map(x=>/(?:\bno|\bnu|\bnr|\bn|numara|:|\d\/)\s*[:.]?\s*$/i.test(s.slice(0,x.index))?x[1].replace(/^\d+\s+/,''):x[1]).find(x=>!/^mah/i.test(x));
-  const mah=mm[0]||fallbackMah||'';
+  // "Anadolu Kavağı mah. Göztepe mh": evrak mahallesinin hemen ardından müşterinin yazdığı ikinci mahalle (baştaki ilçe adı atılır)
+  for(const x of s.matchAll(/(?:mah(?:allesi)?|mh)\.?\s+((?:\d+\s+)?[A-Za-zÇĞİÖŞÜçğıöşü]{3,}(?:\s+[A-Za-zÇĞİÖŞÜçğıöşü]{3,})?)\s+(?:mah(?:allesi)?|mh)(?=[\s.,/]|$)/gi)){
+    const w=x[1].split(/\s+/);while(w.length>1&&ILCELER.some(i=>fold(i)===fold(w[0])))w.shift();
+    const ad=w.join(' ');if(ad&&!/^mah/i.test(ad))mm.push(ad);
+  }
+  // iki farklı mahalle (ilçe adı olmayan): müşterinin adreste yazdığı (sonraki) asıl, baştaki evrak mahallesi yedek
+  const mmF=[...new Set(mm.map(x=>fold(x).replace(/\s+/g,'')))].length>1?mm.filter(x=>!ILCELER.some(i=>fold(i)===fold(x))):mm;
+  const mah=(mmF.length>1&&fold(mmF.at(-1)).replace(/\s+/g,'')!==fold(mmF[0]).replace(/\s+/g,'')?mmF.at(-1):mm[0])||fallbackMah||'';
+  const mahAlt=mmF.length>1&&mah!==mmF[0]?mmF[0]:'';
   // bitişik yazımları ayır: "KadıköyBostancı" → "Kadıköy Bostancı", "Apartmanı24/A" → "Apartmanı 24/A"
   const rest=s.replace(/([a-zçğıöşü])([A-ZÇĞİÖŞÜ])/g,'$1 $2').replace(/([A-Za-zÇĞİÖŞÜçğıöşü]{3,})(\d)/g,'$1 $2');
   // Virgül sokak adının sınırıdır ("Baytur Konutları, Şakacı Sokak"): virgül bilgisini koruyarak böl
@@ -563,13 +576,14 @@ function parseAddress(raw,ilceRaw){
   const numIdx=toks.findIndex(isNoTok);
   const cands=[];
   for(let i=1;i<toks.length;i++){
-    const t=tr(bare(toks[i])).replace(/\.$/,'');
+    const t=tr(bare(toks[i])).replace(/\.$/,''),cikmaz=x=>/^(çıkmazı|çıkmaz|cıkmazı|cikmazi)$/.test(x);
     if(!STREET[t])continue;
+    if(cikmaz(t)&&i+1<toks.length&&STREET[tr(bare(toks[i+1])).replace(/\.$/,'')])continue;
     const name=[];
     for(let j=i-1;j>=0&&name.length<4;j--){
       if(/[,;]$/.test(toks[j]))break;
       const p=tr(bare(toks[j])).replace(/[.:]$/,'');
-      if(STOPW.test(p)||/:$/.test(toks[j])||STREET[p])break;
+      if(STOPW.test(p)||/:$/.test(toks[j])||(STREET[p]&&!cikmaz(p)))break;
       if(/\d/.test(p)){if(j===i-1&&/^\d+\.?$/.test(toks[j]))name.unshift(toks[j].replace(/\.$/,''));break}
       name.unshift(bare(toks[j]).replace(/\.$/,''));
     }
@@ -579,11 +593,14 @@ function parseAddress(raw,ilceRaw){
     cands.push({i,street:name.join(' ')+' '+STREET[t],no:n?n[1]:''});
   }
   // Birden çok yol varsa kapı numarasından hemen önce yazılan yol ("Çetin Emeç Bulvarı Su Yanı Sokak No:7" → Su Yanı Sokak)
-  const pick=(numIdx>=0?cands.filter(c=>c.i<numIdx).at(-1):null)||cands[0];
+  // "No" yoksa: arkasında numara yazan yol ("Ekinci Sokak 52/2"), o da yoksa en son yazılan yol ("Dumlupınar Bulvarı Barış Sk." → Barış Sokak)
+  const pick=(numIdx>=0?cands.filter(c=>c.i<numIdx).at(-1):null)||cands.filter(c=>c.no).at(-1)||cands.at(-1);
   let street=pick?.street||'',no=pick?.no||'';
   if(!no){const n=rest.match(/\b(?:no|nu|nr|numara|n)\s*[:.]?\s*(\d+[A-Za-z]?(?:[-/](?:\d+[A-Za-z]?|[A-Za-z](?![A-Za-z])))?)/i);if(n)no=n[1]}
+  // "Fahrettin Kerim Gökay Cad. Eğitim mah. 103-105": yoldan sonra mahalle, hemen ardından numara → kapı no
+  if(!no&&street){const n=rest.match(/\b(?:mah(?:allesi)?|mh)\.?\s+(\d+[A-Za-z]?(?:[-/]\d+[A-Za-z]?)?)(?=\s|[.,]|$)(?!\s*\.?\s*etap)/i);if(n)no=n[1]}
   // "Tepegöz sk Nil apt 53": No yazılmadan apartman/site adından sonra gelen numara kapı numarasıdır
-  if(!no&&street){const n=rest.match(/(?:apt\.?|apartman[ıi]?|sitesi|site|evleri|konutlar[ıi]|plaza|rezidans)\s+(\d+[A-Za-z]?(?:\/[A-Za-z0-9]+)?)(?=\s|[.,]|$)/i);if(n)no=n[1]}
+  if(!no&&street){const n=rest.match(/(?:apt\.?|apartman[ıi]?|sitesi|site|evleri|konutlar[ıi]|plaza|rezidans)\s+(\d+[A-Za-z]?(?:\/[A-Za-z0-9]+)?)(?=\s|[.,]|$)(?!\s*\.?\s*etap)/i);if(n)no=n[1]}
   const ilce=ilceMap[fold(ilceRaw)]||matchIlce(ilceRaw||'')||ILCELER.find(x=>new RegExp('(?:^|[^a-z])'+fold(x)+'(?:$|[^a-z])').test(fold(s)))||String(ilceRaw||'').trim();
   // AVM/site/apartman adını sokaktan bağımsız koru; yalnızca isim girilmişse de ara.
   const placeParts=s.split(/(?:mah(?:allesi)?\.?|sokak|sokağı|sok\.?\b|sk\.|sk\b|caddesi|cad\.|cd\.)\s*/i);
@@ -592,7 +609,7 @@ function parseAddress(raw,ilceRaw){
   let place=pm?pm[1].replace(/^\d+[A-Za-z]?\s+/,'').trim():'';
   if(!place&&!street)place=s.replace(/\b(?:no|kat|daire|blok)\s*[:.]?\s*[^,; ]+/gi,'').replace(/[,;].*$/,'').trim();
   if(place&&ilce)place=place.replace(new RegExp(ilce,'i'),'').trim();
-  return {mah,street,no,ilce,place};
+  return {mah,mahAlt,street,no,ilce,place};
 }
 
 // ---------- adres servisi: Yandex (izin varsa) → Photon/OpenStreetMap ----------
@@ -611,7 +628,7 @@ async function providerSearch(p,q,mode='address',fresh=false){
     const r=await fetch('/api/location-search?provider='+encodeURIComponent(p)+'&mode='+mode+'&q='+encodeURIComponent(q),{signal:AbortSignal.timeout(16000)});
     const j=await r.json();if(!r.ok){const e=new Error(j.error||'Servis yanıt vermedi.');e.code=j.code;throw e}
     if(!Array.isArray(j.candidates))throw new Error('Sunucu güncel değil veya yanıt anlaşılamadı. başlat.bat ile yeniden başlatın.');
-    const items=j.candidates.filter(validPoint).map(c=>({...c,ilce:ILCELER.find(x=>(c.areas||[]).some(r=>core(r)===core(x)||core(r)===core(x)+'ilcesi'))||'',mah:(c.areas||[]).find(r=>/mahallesi|mah\./i.test(r))||'',types:c.types||[],areas:c.areas||[]}));
+    const items=j.candidates.filter(validPoint).map(c=>({...c,ilce:ilceBul(c.areas),mah:(c.areas||[]).find(r=>/mahallesi|mah\./i.test(r))||'',types:c.types||[],areas:c.areas||[]}));
     if(epoch===providerEpoch){delete providerErrors[p];providerCache.set(ck,{at:Date.now(),items});showProviderStatus(p,'Bağlantı başarılı · '+items.length+' sonuç');}
     return items;
   }catch(e){if(epoch===providerEpoch){providerErrors[p]=e.message;showProviderStatus(p,e.message);}throw e}
@@ -631,11 +648,16 @@ async function extraProviderSearch(q,mode='address'){
   const results=await Promise.allSettled(providers.map(p=>providerSearch(p,q,mode)));
   return results.flatMap(r=>r.status==='fulfilled'?r.value:[]);
 }
+// Sonucun bölge adlarından ilçe: mahalle adı ("Bahçelievler Mah." → Üsküdar'daki mahalle) Bahçelievler ilçesi sayılmaz
+function ilceBul(adlar){
+  for(const r of (adlar||[]).filter(r=>r&&!/\b(mah(alle(si)?)?|mh)\b\.?/i.test(r))){const x=ILCELER.find(x=>core(r)===core(x)||core(r)===core(x)+'ilcesi');if(x)return x}
+  return '';
+}
 function photonCandidate(f){
   const p=f.properties||{},[lon,lat]=f.geometry?.coordinates||[];
   const isSt=p.osm_key==='highway',isArea=['district','locality','city','county','state','country'].includes(p.type);
   const regions=[p.district,p.locality,p.city,p.county,p.state].filter(Boolean);
-  const ilce=ILCELER.find(x=>regions.some(r=>core(r)===core(x)||core(r)===core(x)+'ilcesi'))||'';
+  const ilce=ilceBul([p.county,p.city,p.locality,p.district].filter(Boolean));
   const types=p.osm_key==='shop'&&p.osm_value==='mall'?['shopping_mall']:
     p.osm_key==='building'?['premise']:p.housenumber?['street_address']:
     isSt?['route']:isArea?['locality']:['amenity','shop','tourism','leisure','office'].includes(p.osm_key)?['establishment']:['locality'];
@@ -727,13 +749,15 @@ async function findHouse(st,no){
 function sameLoose(x,y){
   if(same(x,y))return true;
   const w=t=>fold(t).replace(/\b(sokagi|sokak|sok|sk|caddesi|cadde|cad|cd|bulvari|bulvar|blv|cikmazi|cikmaz)\b\.?/g,' ').split(/[^a-z0-9]+/).filter(v=>v.length>=4);
-  const close=(p,q)=>p===q||(Math.abs(p.length-q.length)===1&&(p.startsWith(q)||q.startsWith(p)))||(p.length===q.length&&p.length>=5&&lev(p,q)===1);
+  const unvan=t=>t.replace(/(bey|pasa|efendi|hanim)$/,'');
+  const close=(p,q)=>p===q||(Math.abs(p.length-q.length)===1&&(p.startsWith(q)||q.startsWith(p)))||(p.length===q.length&&p.length>=5&&lev(p,q)===1)||(unvan(p)!==p||unvan(q)!==q)&&unvan(p).length>=4&&unvan(p)===unvan(q);
   const A=w(x),B=w(y);return A.some(p=>B.some(q=>close(p,q)));
 }
 // "16" evrakı Yandex'teki "16/1" binasıyla eşleşebilir (aynı parselin alt binası) — yalnızca tam eşleşme yoksa.
 const baseNoOk=(cno,no)=>!!cno&&!!no&&!/[/-]/.test(String(no))&&normNo(cno).split(/[/-]/)[0]===normNo(no);
 // Adresin tamamını (sokak + kapı no + mahalle) doğrudan sor; mahalle ve numara tutan kesin bina sonucu kabul edilir.
 async function directHouse(a){
+  if(a.mahAlt&&!a._alt){const r=await directHouse({...a,_alt:true});if(r)return r;return directHouse({...a,mah:a.mahAlt,mahAlt:'',_alt:true})}
   if(a.street&&a.no&&!a.mah&&a.ilce)return directHouseIlce(a);
   if(!a.street||!a.no||!a.mah)return null;
   for(const v of noVariants(a.no)){
@@ -815,7 +839,7 @@ const googleLink=q=>'https://www.google.com/maps/search/?api=1&query='+encodeURI
 function googleCandidate(p){
   const parts=p.addressComponents||[],names=parts.map(c=>c.longText||'');
   const get=t=>parts.find(c=>(c.types||[]).includes(t))?.longText||'';
-  const ilce=ILCELER.find(x=>names.some(n=>core(n)===core(x)||core(n)===core(x)+'ilcesi'))||'';
+  const ilce=ilceBul([get('administrative_area_level_2'),...names]);
   return {lat:p.location?.latitude,lon:p.location?.longitude,name:p.displayName?.text||'',address:p.formattedAddress||'',
     road:get('route'),no:get('street_number'),mah:get('administrative_area_level_4')||get('sublocality_level_1')||get('neighborhood'),
     areas:names,ilce,types:p.types||[],placeId:p.id,source:'Google',url:googleLink(p.formattedAddress||p.displayName?.text||'')+'&query_place_id='+encodeURIComponent(p.id||'')};
@@ -1001,6 +1025,7 @@ function konumHatirla(s,kaynak,dogruluk){
   apiJSON('/api/konum-kaydet',{anahtar:key,lat,lon,kaynak,dogruluk,adres:s.raw}).catch(()=>{});
 }
 // Tamamlandı'da telefonun konumu: doğruluk ≤ 60 m ve durağa ≤ 800 m ise bina girişi olarak öğrenilir
+const sonGpsOgrenme=[];
 function gpsIleOgren(s){
   if(!navigator.geolocation||!konumAnahtari(s))return;
   konumTakipBaslat();
@@ -1008,6 +1033,9 @@ function gpsIleOgren(s){
     // kesin bulunmuş (kapı no ile doğrulanmış) adreste yalnızca bina girişi düzeltilir (80 m); "Tamamlandı" başka yerde basılırsa yanlış konum öğrenilmez
     const bb=binaBilgi(s.raw),sinir=readyStop(s)?(bb.etap||bb.blok?0.3:0.08):0.8;
     if(acc>60||(validPoint(s)&&hav(g,s)>sinir))return;
+    // aynı noktada (50 m) 3 dk içinde başka bir durak da tamamlandıysa araç iki adresin arasında duruyordur: konum öğrenilmez
+    if(sonGpsOgrenme.some(x=>x.id!==s.id&&Date.now()-x.at<180000&&hav(x,g)<0.05))return;
+    sonGpsOgrenme.push({id:s.id,at:Date.now(),lat:g.lat,lon:g.lon});
     s._gps=g;konumHatirla(s,'gps',Math.round(acc));
   };
   // son 20 sn içindeki net konum varsa o kullanılır; yoksa bir kez ölçülür

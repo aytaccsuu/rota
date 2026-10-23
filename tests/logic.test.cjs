@@ -296,6 +296,29 @@ async function main(){
     assert.notEqual(ka('Dumlupınar mah. Çeşme sok. 3/1 Emlak konut 14. Etap A blok D:79')[0],ka('Dumlupınar mah. Çeşme sok. Emlak Konut 14. Etap No:3 B Blok K:11')[0],'aynı sitede farklı blok ayrı konum');
     assert.equal(ka('Dumlupınar mah. 16. Etap yavuz sokak a1 blok')[0],ka('Dumlupınar mah. Kemalettin Sokak No: 7 Emlak Konut Yeni Fikirtepe 16. Etap A1 Blok Kat 16')[0],'aynı etap ve blok farklı yazılsa da aynı bina');
     assert.equal(run('parseAddress("Optimist Residence Fikirtepe Mah. Yıldırım Sok. 10/1 A1 Blok","Kadıköy").mah'),'Fikirtepe','site adı mahalleye karışmaz'); }
+  { const pa=a=>{const p=run('parseAddress('+JSON.stringify(a)+',"Kadıköy")');return p.street+'|'+p.no};
+    assert.equal(pa('Sahrayı Cedit mah. İnönü Cad.Panorama Sok Mor Yoyla Apt.N2 Daire 30'),'Panorama Sokak|2','bitişik "Cad.Panorama"');
+    assert.equal(pa('Fikirtepe mah. Dumlupınar Bulvarı Barış Sk. Emlak Konut 6. Etap A Blok'),'Barış Sokak|','No yoksa en son yazılan yol');
+    assert.equal(pa('Hazreti Yuşa Caddesi Ekinci Sokak 52/2 TOKATKÖY MAH. /'),'Ekinci Sokak|52/2','numara hangi yolun arkasındaysa o yol');
+    assert.equal(pa('Dumlupınar mah. barış sk. istanbul 216 konutları 1. Etap C blok'),'barış Sokak|','etap numarası kapı no değil');
+    assert.equal(pa('Erenköy mah. ŞERAFETTİN SK.TANINDI APT. NO:9 DAİRE:24'),'ŞERAFETTİN Sokak|9','bitişik "SK.TANINDI"');
+    assert.equal(pa('Göztepe mh akartlarcıkmazı no 3/1 A Hisarı'),'akartlar Çıkmazı|3/1','bitişik çıkmazı');
+    assert.equal(pa('Orhantepe mah. Üskudar cd,orhantepe mh,itir sk,prava kartalsitesi'),'itir Sokak|','virgülle bitişik');
+    assert.equal(pa('Eğitim mah. Fahrettin Kerim Gokay Cad.Egitim mah.103_105 A Meriç apt'),'Fahrettin Kerim Gokay Caddesi|103-105','mahalleden sonraki numara');
+    assert.equal(pa('Eğitim mah. Eğitim mahallesi patikayol sokakyıldırım sitesi no:10'),'patikayol Sokak|10','bitişik "sokakyıldırım"'); }
+  { const pm=a=>{const p=run('parseAddress('+JSON.stringify(a)+',"Kadıköy")');return p.mah+'|'+(p.mahAlt||'')};
+    assert.equal(pm('Anadolu Kavağı mah. Göztepe mh akartlarcıkmazı no 3/1'),'Göztepe|Anadolu Kavağı','iki mahalle: müşterinin yazdığı asıl, evrakınki yedek');
+    assert.equal(pm('Feneryolu mah. Kadıköy Mah. Bozkır Sk, Barış Apt No 3'),'Feneryolu|','ilçe adı mahalle sayılmaz');
+    assert.equal(pm('Caddebostan mah. Caddebostan Mah. Ethemefendi caddesi No:14'),'Caddebostan|','aynı mahalle iki kez');
+    assert.equal(pm('Sahrayı Cedit mah. Sahrayıcedit Mh. Üstçeşme Sk. No: 18'),'Sahrayı Cedit|','yazım farkı aynı mahalle');
+    assert.equal(run('ilceBul(["Türkiye","İstanbul","Üsküdar","Bahçelievler Mah.","Ege Sok."])'),'Üsküdar','mahalle adı ilçe sayılmaz');
+    assert.ok(run('sameLoose("Rızabey Sok.","Rıza Sokak")'),'bey eki');assert.ok(!run('sameLoose("Rıza Sokak","Ruhi Sokak")')); }
+  { const p=a=>{const r=run('parseAddress('+JSON.stringify(a)+',"Kadıköy")');return r.street+'|'+r.no+'|'+r.mah};
+    assert.equal(p('Göztepe mah. Göztepe Mahallesi, Tercüman Çıkmazı Sokak, No:4 Onur Apartmanı'),'Tercüman Çıkmazı Sokak|4|Göztepe');
+    assert.equal(p('19 Mayıs mah. 19 mayıs mah. gültekin çıkmazı sk. no:1 kat:2'),'gültekin çıkmazı Sokak|1|19 Mayıs');
+    assert.equal(p('Fenerbahçe mah. kadiköy fenerbahçe mahallesi bağdat caddesi no 94'),'bağdat Caddesi|94|Fenerbahçe');
+    assert.equal(p('Tambur Çk Sk. Pera Camping CUMHURİYET MAH. /'),'Tambur Çk Sokak||CUMHURİYET');
+    assert.equal(p('Yavuztürk mah. Yavuztürk mah. Karadeniz cad. Goncagül sk. Goncagül çıkmazı No:11/1 Üsküdar'),'Goncagül Çıkmazı|11/1|Yavuztürk'); }
   { const ka=a=>run('konumAnahtarlari({...parseAddress('+JSON.stringify(a)+',"Kadıköy"),raw:'+JSON.stringify(a)+'})');
     assert.ok(!ka('Kozyatağı mah. şenesenevler Forsa sokak Dilek apt kat:7').some(k=>k.startsWith('yer2|')),'sokaklı adreste yalnız apartman adıyla anahtar yok');
     assert.notEqual(ka('Kozyatağı mah. Forsa sokak Dilek apt')[0],ka('Göztepe mah. Tütüncü Mehmet Efendi cad. Dilek apt')[0],'farklı sokaktaki aynı adlı apartman ayrı'); }
