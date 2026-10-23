@@ -575,13 +575,13 @@ function parseAddress(raw,ilceRaw){
     }
     if(!name.length)continue;
     const after=toks.slice(i+1).map(bare).join(' ');
-    const n=after.match(/^(?:(?:no|nu|nr|numara|n)\s*[:.]?\s*)?(\d+[A-Za-z]?(?:[-/]\d+[A-Za-z]?)?)(?=\s|[.,]|$)/i)||after.match(/\b(?:no|nu|nr|numara|n)\s*[:.]?\s*(\d+[A-Za-z]?(?:[-/]\d+[A-Za-z]?)?)/i);
+    const n=after.match(/^(?:(?:no|nu|nr|numara|n)\s*[:.]?\s*)?(\d+[A-Za-z]?(?:[-/](?:\d+[A-Za-z]?|[A-Za-z](?![A-Za-z])))?)(?=\s|[.,]|$)/i)||after.match(/\b(?:no|nu|nr|numara|n)\s*[:.]?\s*(\d+[A-Za-z]?(?:[-/](?:\d+[A-Za-z]?|[A-Za-z](?![A-Za-z])))?)/i);
     cands.push({i,street:name.join(' ')+' '+STREET[t],no:n?n[1]:''});
   }
   // Birden çok yol varsa kapı numarasından hemen önce yazılan yol ("Çetin Emeç Bulvarı Su Yanı Sokak No:7" → Su Yanı Sokak)
   const pick=(numIdx>=0?cands.filter(c=>c.i<numIdx).at(-1):null)||cands[0];
   let street=pick?.street||'',no=pick?.no||'';
-  if(!no){const n=rest.match(/\b(?:no|nu|nr|numara|n)\s*[:.]?\s*(\d+[A-Za-z]?(?:[-/]\d+[A-Za-z]?)?)/i);if(n)no=n[1]}
+  if(!no){const n=rest.match(/\b(?:no|nu|nr|numara|n)\s*[:.]?\s*(\d+[A-Za-z]?(?:[-/](?:\d+[A-Za-z]?|[A-Za-z](?![A-Za-z])))?)/i);if(n)no=n[1]}
   // "Tepegöz sk Nil apt 53": No yazılmadan apartman/site adından sonra gelen numara kapı numarasıdır
   if(!no&&street){const n=rest.match(/(?:apt\.?|apartman[ıi]?|sitesi|site|evleri|konutlar[ıi]|plaza|rezidans)\s+(\d+[A-Za-z]?(?:\/[A-Za-z0-9]+)?)(?=\s|[.,]|$)/i);if(n)no=n[1]}
   const ilce=ilceMap[fold(ilceRaw)]||matchIlce(ilceRaw||'')||ILCELER.find(x=>new RegExp('(?:^|[^a-z])'+fold(x)+'(?:$|[^a-z])').test(fold(s)))||String(ilceRaw||'').trim();
@@ -686,7 +686,7 @@ function noVariants(no){
   no=String(no||'').replace(/\s/g,'');if(!no)return [];
   const out=[{no,daire:''}],add=(n,d='')=>{if(n&&!out.some(v=>v.no===n))out.push({no:n,daire:d})};
   const i=no.indexOf('/'),pre=i>0?no.slice(0,i):no,post=i>0?no.slice(i+1):'';
-  if(post){add(pre,/^\d+$/.test(post)?post:'');if(/^[A-Za-z]$/.test(post))add(pre+post.toUpperCase())} // 4/2 → 4 (daire 2); 465/A → 465, 465A
+  if(post){if(/^[A-Za-z]$/.test(post))add(pre+post.toUpperCase());add(pre,/^\d+$/.test(post)?post:'')} // 4/2 → 4 (daire 2); 465/A → önce 465A, sonra 465
   const r=pre.match(/^(\d+[A-Za-z]?)-\d+/);if(r)add(r[1],post&&/^\d+$/.test(post)?post:''); // 45-47/1 → 45
   return out;
 }
@@ -734,6 +734,7 @@ function sameLoose(x,y){
 const baseNoOk=(cno,no)=>!!cno&&!!no&&!/[/-]/.test(String(no))&&normNo(cno).split(/[/-]/)[0]===normNo(no);
 // Adresin tamamını (sokak + kapı no + mahalle) doğrudan sor; mahalle ve numara tutan kesin bina sonucu kabul edilir.
 async function directHouse(a){
+  if(a.street&&a.no&&!a.mah&&a.ilce)return directHouseIlce(a);
   if(!a.street||!a.no||!a.mah)return null;
   for(const v of noVariants(a.no)){
     const q=[`${a.street} ${v.no}`,a.mah+' Mahallesi',a.ilce,'İstanbul'].filter(Boolean).join(', ');
@@ -743,6 +744,20 @@ async function directHouse(a){
     const hits=pool.filter(ok).sort((x,y)=>rank(x)-rank(y));
     const h=hits.find(c=>noOk(c.no,v.no))||hits.find(c=>baseNoOk(c.no,v.no));
     if(h)return {...h,quality:same(h.road,a.street)?'Kapı':'Kontrol',daire:v.daire,road:h.road||a.street};
+  }
+  return null;
+}
+// Mahallesi yazılmamış adres: ilçede aynı sokak + aynı kapı no tek bir binaysa (tüm sonuçlar 60 m içinde) kapı düzeyinde kabul;
+// ilçede birden çok aday varsa (ör. aynı adlı iki sokak) otomatik seçilmez.
+async function directHouseIlce(a){
+  for(const v of noVariants(a.no)){
+    const q=[a.street+' '+v.no,a.ilce,'İstanbul'].join(', ');
+    const pool=[...((await yandexSearch(q))||[]),...await extraProviderSearch(q).catch(()=>[])];
+    const hits=pool.filter(c=>c.type==='house'&&(!c.precision||c.precision==='exact')&&c.ilce&&same(c.ilce,a.ilce)&&sameLoose(c.road,a.street)&&noOk(c.no,v.no));
+    if(!hits.length)continue;
+    if(hits.some(c=>dist(c,hits[0])>60))return null;
+    const h=hits.find(c=>same(c.road,a.street))||hits[0];
+    return {...h,quality:same(h.road,a.street)?'Kapı':'Kontrol',daire:v.daire,road:h.road||a.street,notu:'Evrakta mahalle yazmıyor; ilçede bu sokak ve kapı no tek.'};
   }
   return null;
 }
@@ -971,7 +986,8 @@ function konumAnahtarlari(s){
   // 'adres2/yer2': sokak karşılaştırma hatası düzeltildikten sonraki kayıtlar (öncekiler güvenilir değil, kullanılmaz)
   const k=[];
   if(s.street&&s.no)k.push(['adres2',ilce,mah,core(s.street),normNo(s.no)].join('|'));
-  if(s.place)k.push(['yer2',ilce,core(s.place)].join('|'));
+  // yer adı tek başına belirsiz ("Dilek apt" İstanbul'da yüzlerce): sokak varsa mahalle + sokak da anahtara girer
+  if(s.place)k.push(s.street?['yer3',ilce,mah,core(s.street),core(s.place)].join('|'):['yer2',ilce,core(s.place)].join('|'));
   return k;
 }
 const konumAnahtari=s=>konumAnahtarlari(s)[0]||null;

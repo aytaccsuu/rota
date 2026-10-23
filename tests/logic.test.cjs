@@ -161,7 +161,9 @@ async function main(){
   assert.equal(run(`JSON.stringify(noVariants('4-6').map(v=>v.no))`),JSON.stringify(['4-6','4']));
   assert.equal(run(`JSON.stringify(noVariants('12A').map(v=>v.no))`),JSON.stringify(['12A']),'12A ile 12 farklı bina');
   assert.equal(run(`JSON.stringify(noVariants('45-47/1').map(v=>v.no))`),JSON.stringify(['45-47/1','45-47','45']));
-  assert.equal(run(`JSON.stringify(noVariants('465/A').map(v=>v.no))`),JSON.stringify(['465/A','465','465A']));
+  assert.equal(run(`JSON.stringify(noVariants('465/A').map(v=>v.no))`),JSON.stringify(['465/A','465A','465']),'harfli kapı no önce harfli bina');
+  assert.equal(run(`parseAddress('19 Mayıs mah Sinan Ercan cad Erdemirliler Sitesi No19/A Daire 2','Kadıköy').no`),'19/A','No19/A harfi korunur');
+  assert.equal(run(`parseAddress('Bağdat Caddesi No 334 Erenköy','Kadıköy').no`),'334');
   assert.equal(run(`noVariants('45-47/1').at(-1).daire`),'1');
   assert.equal(run(`noMatches('32','32/17')`),true,'32/17 evrakı 32 numaralı binayla eşleşmeli');
   assert.equal(run(`noOk('No:49','49')`),true,'Yandex No:49 yazar');
@@ -294,6 +296,9 @@ async function main(){
     assert.notEqual(ka('Dumlupınar mah. Çeşme sok. 3/1 Emlak konut 14. Etap A blok D:79')[0],ka('Dumlupınar mah. Çeşme sok. Emlak Konut 14. Etap No:3 B Blok K:11')[0],'aynı sitede farklı blok ayrı konum');
     assert.equal(ka('Dumlupınar mah. 16. Etap yavuz sokak a1 blok')[0],ka('Dumlupınar mah. Kemalettin Sokak No: 7 Emlak Konut Yeni Fikirtepe 16. Etap A1 Blok Kat 16')[0],'aynı etap ve blok farklı yazılsa da aynı bina');
     assert.equal(run('parseAddress("Optimist Residence Fikirtepe Mah. Yıldırım Sok. 10/1 A1 Blok","Kadıköy").mah'),'Fikirtepe','site adı mahalleye karışmaz'); }
+  { const ka=a=>run('konumAnahtarlari({...parseAddress('+JSON.stringify(a)+',"Kadıköy"),raw:'+JSON.stringify(a)+'})');
+    assert.ok(!ka('Kozyatağı mah. şenesenevler Forsa sokak Dilek apt kat:7').some(k=>k.startsWith('yer2|')),'sokaklı adreste yalnız apartman adıyla anahtar yok');
+    assert.notEqual(ka('Kozyatağı mah. Forsa sokak Dilek apt')[0],ka('Göztepe mah. Tütüncü Mehmet Efendi cad. Dilek apt')[0],'farklı sokaktaki aynı adlı apartman ayrı'); }
   console.log('OK: adres/AVM ayrıştırma, ücretsiz yer teyidi, 250 rota senaryosu, teslimat devamı ve eski yanıt koruması');
 }
 main().catch(e=>{console.error(e);process.exitCode=1});
