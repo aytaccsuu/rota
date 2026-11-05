@@ -1500,7 +1500,8 @@ function solve(D,n,keys=Array.from({length:n},(_,i)=>String(i)),distance=D,activ
 }
 const fmtT=s=>{const m=Math.round(s/60);return m>=60?Math.floor(m/60)+' sa '+(m%60)+' dk':m+' dk'};
 // Sürücünün elle düzelttiği sıra (durak kimlikleri). Duraklar değişirse geçersizdir.
-let elleSira=null,siraDuzenle=false;
+// elleSiraOto: sıra sürücü tarafından değil, teslimata başlanınca kendiliğinden donduruldu (değişiklikte kalan kısım yeniden en iyilenir)
+let elleSira=null,siraDuzenle=false,elleSiraOto=false;
 function elleSiraGecerli(ok){return !!elleSira&&elleSira.length===ok.length&&ok.every(s=>elleSira.includes(s.id))}
 // Elle sıradaki durak listesi değiştiyse (müşteri eklendi/çıkarıldı): olmayanlar düşer, yeniler en az yol ekleyen yere girer
 // (tamamlanmış durakların önüne girmez)
@@ -1519,6 +1520,17 @@ function elleSiraTamamla(ok){
   }
   return sira;
 }
+// Teslimata başlanmış rotada durak eklenir/çıkarılır/geri eklenirse: tamamlananlar yerinde kalır,
+// kalan duraklar son tamamlanan duraktan eve en kısa sırayla yeniden dizilir (sona eklemek yolu uzatıyordu: 4 Kasım +2,8 km)
+function kalanEniyi(ok,M){
+  const idx=new Map(ok.map((s,k)=>[s.id,k+1])),biten=elleSira.filter(id=>idx.has(id)&&ok[idx.get(id)-1].tamam);
+  ok.forEach(s=>{if(s.tamam&&!biten.includes(s.id))biten.push(s.id)});
+  const kalan=ok.filter(s=>!s.tamam);if(kalan.length<2)return [...biten,...kalan.map(s=>s.id)];
+  const nodes=[biten.length?idx.get(biten.at(-1)):0,...kalan.map(s=>idx.get(s.id)),ok.length+1],C=rotaMaliyet(M);
+  const alt=m=>nodes.map(a=>nodes.map(b=>m[a][b]));
+  const p=solve(alt(C),kalan.length,undefined,alt(M.dist));
+  return [...biten,...p.slice(1,-1).map(i=>ok[nodes[i]-1].id)];
+}
 async function buildRoute(){
   clearTimeout(autoT);
   const ok=planningStops();
@@ -1531,8 +1543,8 @@ async function buildRoute(){
     if(run!==routeRun)return;
     const H=M.dist.map(row=>row.at(-1));
     // teslimata başlanmışsa (tamamlanan durak var) yeni/çıkan durakta sıra baştan karıştırılmaz
-    if(!elleSira&&routeOrder?.some(x=>x.tamam))elleSira=routeOrder.map(x=>x.id);
-    if(elleSira&&!elleSiraGecerli(ok))elleSira=elleSiraTamamla(ok);
+    if(!elleSira&&routeOrder?.some(x=>x.tamam)){elleSira=routeOrder.map(x=>x.id);elleSiraOto=true}
+    if(elleSira&&!elleSiraGecerli(ok))elleSira=elleSiraOto?kalanEniyi(ok,M):elleSiraTamamla(ok);
     const path=elleSira?[0,...elleSira.map(id=>ok.findIndex(s=>s.id===id)+1),ok.length+1]:solve(rotaMaliyet(M),ok.length,ok.map(neighborhoodKey),M.dist,delivered.length?neighborhoodKey(origin()):null);
     const seq=path.map(i=>pts[i]);
     let legs=path.slice(0,-1).map((i,k)=>({d:M.dist[i][path[k+1]],t:M.dur[i][path[k+1]]}));
@@ -1714,14 +1726,14 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
   $('musteriEkleBtn').onclick=musteriEkleAc;
   $('siraBtn').onclick=()=>{siraDuzenle=!siraDuzenle;renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison)};
   if(ortalaIstek)siradakiOrtala(ortalaIstek==='kayarak');
-  if($('otoSiraBtn'))$('otoSiraBtn').onclick=()=>{elleSira=null;siraDuzenle=false;buildRoute()};
+  if($('otoSiraBtn'))$('otoSiraBtn').onclick=()=>{elleSira=null;elleSiraOto=false;siraDuzenle=false;buildRoute()};
   // Elle sıra: yalnız tamamlanmamış duraklar yer değiştirir, tamamlananlar yerinde kalır
   const siraTasi=(from,to)=>{
     const o=routeOrder.slice(),acik=o.map((x,k)=>x.tamam?null:k).filter(k=>k!=null);
     if(!acik.includes(from)||!acik.length)return;
     const hedef=acik.reduce((b,k)=>Math.abs(k-to)<Math.abs(b-to)?k:b,acik[0]);if(hedef===from){renderResult(...sonRender);return}
     const P=acik.map(k=>o[k]),[x]=P.splice(acik.indexOf(from),1);P.splice(acik.indexOf(hedef),0,x);acik.forEach((k,n)=>o[k]=P[n]);
-    elleSira=o.map(x=>x.id);routeOrder=o;
+    elleSira=o.map(x=>x.id);elleSiraOto=false;routeOrder=o;
     // ekranda hemen göster; yol süreleri arkadan hesaplanır
     const [sq,lg,...kalan]=sonRender,sq2=[sq[0],...o.map(x=>({...x})),sq.at(-1)];
     renderResult(sq2,lg,...kalan);bildirim('Sıra değişti; yol süreleri hesaplanıyor…',1800);
@@ -1859,7 +1871,9 @@ function siraKoru(){
   const baslandi=(routeOrder||[]).some(x=>x.tamam);
   if(!elleSira&&!baslandi)return;
   const aktif=planningStops().map(x=>x.id),temel=elleSira||(routeOrder||[]).map(x=>x.id);
-  elleSira=[...temel.filter(id=>aktif.includes(id)),...aktif.filter(id=>!temel.includes(id))];
+  if(!elleSira)elleSiraOto=true;
+  // çıkan düşer; geri eklenen durak rota çizilirken en uygun yere girer (elle sırada en az yol ekleyen yere, otomatikte kalan yeniden dizilir)
+  elleSira=temel.filter(id=>aktif.includes(id));
 }
 // Plandan günün müşteri listesi (rota sırasıyla) ve otomatik bilgiler
 function planMusteriler(){
@@ -2504,7 +2518,7 @@ function planData(){
   const strip=(k,v)=>(k==='placeCandidates'||k==='candidates'||k==='placeError')?undefined:v;
   const ids=list=>(list||[]).map(s=>s.id);
   return JSON.parse(JSON.stringify({v:1,savedAt:Date.now(),fileInfo:$('fileInfo').innerHTML,svc:$('svc').value,
-    planDate,evraklar:planEvraklar,elleSira,planEvrakZamani,planCikis,stops,delivered:ids(delivered),route:lastRoute&&routeOrder?{...lastRoute,order:ids(routeOrder)}:null},strip));
+    planDate,evraklar:planEvraklar,elleSira,elleSiraOto,planEvrakZamani,planCikis,stops,delivered:ids(delivered),route:lastRoute&&routeOrder?{...lastRoute,order:ids(routeOrder)}:null},strip));
 }
 // Planın anlamlı içeriği (saat/rota çizgisi gibi her yenilemede değişen alanlar hariç): cihazlar arası eşitlemede karşılaştırılır
 function planImza(p){
@@ -2540,7 +2554,7 @@ async function restorePlan(){
   if(!plan||stops.length)return;
   planRestoring=true;planSonImza=planImza(plan);planSunucuT=Math.max(planSunucuT,server?.savedAt||0);
   try{
-    stops=plan.stops;const byId=new Map(stops.map(s=>[s.id,s]));planDate=plan.planDate||new Date(plan.savedAt).toLocaleDateString('sv-SE');planEvraklar=plan.evraklar||[];elleSira=plan.elleSira||null;siraDuzenle=false;planEvrakZamani=plan.planEvrakZamani||null;planCikis=plan.planCikis||null;cikisGoster();
+    stops=plan.stops;const byId=new Map(stops.map(s=>[s.id,s]));planDate=plan.planDate||new Date(plan.savedAt).toLocaleDateString('sv-SE');planEvraklar=plan.evraklar||[];elleSira=plan.elleSira||null;elleSiraOto=!!plan.elleSiraOto;siraDuzenle=false;planEvrakZamani=plan.planEvrakZamani||null;planCikis=plan.planCikis||null;cikisGoster();
     delivered=(plan.delivered||[]).map(id=>byId.get(id)).filter(Boolean);
     // Eski sürümde "kesin" kaydedilmiş konumlar bugünkü kurallarla yeniden doğrulanır (ör. Kaptan Arif yerine Taşmektep)
     let dusen=0;

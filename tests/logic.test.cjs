@@ -282,6 +282,14 @@ async function main(){
     getMatrix=async p=>{const m=p.map((_,i)=>p.map((_,j)=>Math.abs(i-j)));return {dur:m,dist:m,osrm:true}};osrm=async()=>null;`);
   await run('buildRoute()');assert.equal(run('routeOrder.map(s=>s.id).join()'),'3,1,2','elle sıra korunur');
   run(`stops.pop();clearTimeout(autoT)`);await run('buildRoute()');assert.deepEqual(plain(run('elleSira')),[1,2],'durak çıkınca elle sıra korunur, yalnız çıkan düşer');assert.equal(run('routeOrder.length'),2);
+  // Teslimata başlanmış (otomatik dondurulmuş) rotaya durak eklenince kalan duraklar son tamamlanandan yeniden dizilir;
+  // sürücünün elle yaptığı sırada ise yeni durak yalnız en uygun yere girer
+  run(`clearTimeout(autoT);stops=[1,2,3,4].map(i=>({id:i,lat:41+i/100,lon:29,quality:'Elle',orders:[],raw:'D'+i,tamam:i===1}));elleSira=[1,4,2,3];elleSiraOto=true;
+    getMatrix=async p=>{const L=p.map((x,i)=>i===0?41:i===p.length-1?41.1:x.lat),m=L.map(a=>L.map(b=>Math.round(Math.abs(a-b)*1e4)));return {dur:m,dist:m,osrm:true}};
+    stops.push({id:5,lat:41.05,lon:29,quality:'Elle',orders:[],raw:'D5'})`);
+  await run('buildRoute()');assert.deepEqual(plain(run('elleSira')),[1,2,3,4,5],'otomatik dondurulmuş sırada kalan yeniden dizilir');
+  run(`clearTimeout(autoT);elleSira=[1,4,2,3];elleSiraOto=false;stops.push({id:6,lat:41.055,lon:29,quality:'Elle',orders:[],raw:'D6'})`);
+  await run('buildRoute()');assert.deepEqual(plain(run('elleSira')),[1,4,2,3,5,6],'elle sırada yalnız yeni duraklar eklenir');
   // Elle rut: bölge ve ilçe sayısı seçilir (24 nokta, Avrupa 1, 2+ ilçe → 1,5 rut 8.700)
   assert.equal(run(`gunHesap({durum:'calisti',nokta:24,bolge:'avrupa1',ilceSayisi:2,ilceler:[]}).net`),8700);
   assert.equal(run(`gunHesap({durum:'calisti',nokta:28,parcalar:[{nokta:24,bolge:'avrupa1',ilceSayisi:2},{nokta:4,bolge:'anadolu',ilceSayisi:1}]}).net`),13700);
