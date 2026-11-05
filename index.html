@@ -554,7 +554,9 @@ function parseAddress(raw,ilceRaw){
     .replace(/\b(cad|cd|sok|sk|mah|mh|blv|bul|apt|cikm|çık)\.(?=[A-Za-zÇĞİÖŞÜçğıöşü0-9])/gi,'$1. ').replace(/,(?=\S)/g,', ')
     // bitişik yazılmış yol türü: "akartlarcıkmazı" → "akartlar çıkmazı", "patikayol sokakyıldırım" → "sokak yıldırım"
     .replace(/([a-zçğıöşü]{3,})(çıkmazı|cıkmazı|cikmazi)(?=[\s,.;/]|$)/gi,'$1 $2').replace(/\b(sokak|sokağı|caddesi)(?!lar|lari|ları)(?=[a-zçğıöşü]{3,})/gi,'$1 ')
-    .replace(/(\d)_(\d)/g,'$1-$2').trim();
+    .replace(/(\d)_(\d)/g,'$1-$2')
+    // "SKNO:37SEPAŞ SİTESİA" → "SK NO:37 SEPAŞ SİTESİA"
+    .replace(/\b(sk|sok|cd|cad)(no)(?=[:.\d])/gi,'$1 $2').replace(/(\d)([A-ZÇĞİÖŞÜ]{3,})/g,'$1 $2').trim();
   const mm=[...s.matchAll(/(?:^|[,;])\s*([A-Za-zÇĞİÖŞÜçğıöşü0-9]+(?:\s+[A-Za-zÇĞİÖŞÜçğıöşü0-9]+){0,3})\s+(?:mah(?:allesi)?|mh)(?=[\s.,/]|$)/gi)].map(x=>x[1].replace(/^.*\b(residence|rezidans|residans|sitesi|konutları|konutlari|konut|evleri|apt\.?|apartmanı|apartman|plaza|towers?|blok)\s+/i,'')).filter(x=>!/^mah/i.test(x)); // "Optimist Residence Fikirtepe Mah." → Fikirtepe
   // "19 Mayıs Mah." rakamla başlayabilir; ama "No:5 GÖZTEPE MAH."daki 5 kapı numarasıdır, mahalle adına girmez
   const fallbackMah=[...s.matchAll(/((?:\d+\s+)?[A-Za-zÇĞİÖŞÜçğıöşü]{3,})\s+mah(?:allesi)?(?=[\s.,/]|$)/gi)]
@@ -589,6 +591,8 @@ function parseAddress(raw,ilceRaw){
       name.unshift(bare(toks[j]).replace(/\.$/,''));
     }
     if(!name.length)continue;
+    // site/rezidans adındaki "Cadde/Sokak" yol değildir ("Four Winds Residences Cadde No:2")
+    if(/\b(residences?|rezidans|residans|sitesi|site|konutlar[ıi]|apt\.?|apartman[ıi]?|plaza|towers?|avm)$/i.test(name.join(' ')))continue;
     const after=toks.slice(i+1).map(bare).join(' ');
     const n=after.match(/^(?:(?:no|nu|nr|numara|n)\s*[:.]?\s*)?(\d+[A-Za-z]?(?:[-/](?:\d+[A-Za-z]?|[A-Za-z](?![A-Za-z])))?)(?=\s|[.,]|$)/i)||after.match(/\b(?:no|nu|nr|numara|n)\s*[:.]?\s*(\d+[A-Za-z]?(?:[-/](?:\d+[A-Za-z]?|[A-Za-z](?![A-Za-z])))?)/i);
     cands.push({i,street:name.join(' ')+' '+STREET[t],no:n?n[1]:''});
@@ -917,7 +921,14 @@ async function snapToYandex(a,r){
   const nos=noVariants(no).map(v=>v.no);
   const hs=items.filter(c=>c.type==='house'&&c.precision==='exact'&&sameLoose(c.road,road)&&(!a.mah||mahOk(c,a.mah)||dist(c,r)<300)&&dist(c,r)<(r.quality==='Kapı'||r.quality==='OSM'?300:1500));
   const h=hs.find(c=>nos.some(n=>noOk(c.no,n)))||hs.find(c=>nos.some(n=>baseNoOk(c.no,n)));
-  if(!h)return yandexTersKontrol(a,r,road,nos);
+  if(!h){
+    // Başka servisin noktası 300 m'den uzakta ama Yandex aynı sokak + kapı no + mahalle/ilçe için tam bina biliyor:
+    // navigasyon Yandex'le yapıldığı için Yandex'in binası esas alınır (Emek Cad. 281 örneği: 532 m fark)
+    const uzak=items.find(c=>c.type==='house'&&c.precision==='exact'&&sameLoose(c.road,road)&&nos.some(n=>noOk(c.no,n))&&(a.mah?(mahOk(c,a.mah)||!c.mah&&(!a.ilce||!c.ilce||same(c.ilce,a.ilce))):(!a.ilce||!c.ilce||same(c.ilce,a.ilce))));
+    if(uzak&&dist(uzak,r)>=300){const tam=same(uzak.road,road)&&(!a.mah||mahOk(uzak,a.mah));
+      return {...r,lat:uzak.lat,lon:uzak.lon,no:uzak.no,road:uzak.road||road,source:'Yandex',yandexAddress:uzak.address,areas:uzak.areas||r.areas,quality:tam&&['Kapı','OSM','Sokak'].includes(r.quality)?'Kapı':'Kontrol',notu:'Başka harita servisi farklı yer gösterdi; Yandex’teki kapı numarası esas alındı.'}}
+    return yandexTersKontrol(a,r,road,nos);
+  }
   // Kesinlik yalnızca sokak adı birebir, mahalle ve kapı no tam tutuyorsa yükselir; aksi halde önceki kesinlik korunur
   const tam=same(h.road,road)&&(!a.mah||mahOk(h,a.mah))&&nos.some(n=>noOk(h.no,n));
   return {...r,lat:h.lat,lon:h.lon,no:h.no,road:h.road||road,source:'Yandex',yandexAddress:h.address,areas:h.areas||r.areas,
@@ -928,7 +939,7 @@ async function snapToYandex(a,r){
 async function yandexTersKontrol(a,r,road,nos){
   if(!['Kapı','OSM'].includes(r.quality)||!validPoint(r))return r;
   let items=null;try{items=await providerSearch('yandex',`${(+r.lon).toFixed(6)},${(+r.lat).toFixed(6)}`,'reverse')}catch(e){}
-  const yakin=(items||[]).filter(c=>c.type==='house'&&c.no&&dist(c,r)<40).sort((x,y)=>dist(x,r)-dist(y,r))[0];
+  const yakin=(items||[]).filter(c=>c.type==='house'&&c.no&&dist(c,r)<60).sort((x,y)=>dist(x,r)-dist(y,r))[0];
   if(!yakin)return r; // Yandex'te o noktada bina yok: çelişki de yok
   const sokakAyni=sameLoose(yakin.road,road),noAyni=nos.some(n=>noOk(yakin.no,n)||baseNoOk(yakin.no,n));
   if(sokakAyni&&noAyni)return {...r,yandexAddress:yakin.address||r.yandexAddress};
@@ -1032,11 +1043,19 @@ function gpsIleOgren(s){
   konumTakipBaslat();
   const isle=(g,acc)=>{
     // kesin bulunmuş (kapı no ile doğrulanmış) adreste yalnızca bina girişi düzeltilir (80 m); "Tamamlandı" başka yerde basılırsa yanlış konum öğrenilmez
-    const bb=binaBilgi(s.raw),sinir=readyStop(s)?(bb.etap||bb.blok?0.3:0.08):0.8;
+    const bb=binaBilgi(s.raw),sinir=readyStop(s)?(bb.etap||bb.blok?0.3:0.08):0.25;
     if(acc>60||(validPoint(s)&&hav(g,s)>sinir))return;
     // aynı noktada (50 m) 3 dk içinde başka bir durak da tamamlandıysa araç iki adresin arasında duruyordur: konum öğrenilmez
     if(sonGpsOgrenme.some(x=>x.id!==s.id&&Date.now()-x.at<180000&&hav(x,g)<0.05))return;
     sonGpsOgrenme.push({id:s.id,at:Date.now(),lat:g.lat,lon:g.lon});
+    // kesin olmayan durak: telefonun konumu Yandex'e göre evraktaki sokağın üzerinde (100 m) değilse öğrenilmez
+    // (Acun Sokak örneği: Tamamlandı 636 m uzakta basılmış, sonraki gün oraya yönlendirdi)
+    if(!readyStop(s)&&s.street){
+      providerSearch('yandex',g.lon.toFixed(6)+','+g.lat.toFixed(6),'reverse').then(items=>{
+        if((items||[]).some(c=>c.road&&sameLoose(c.road,s.street)&&hav(c,g)<0.1)){s._gps=g;konumHatirla(s,'gps',Math.round(acc))}
+      }).catch(()=>{});
+      return;
+    }
     s._gps=g;konumHatirla(s,'gps',Math.round(acc));
   };
   // son 20 sn içindeki net konum varsa o kullanılır; yoksa bir kez ölçülür
@@ -1198,17 +1217,32 @@ async function pkSearch(){
     d.onclick=()=>{pkSel=c;[...box.children].forEach(x=>x.classList.remove('sel'));d.classList.add('sel');tmpMark(c);$('pkStep2').style.display='block';$('pkMsg').textContent='';$('pkNo').focus()};
     box.appendChild(d);
   });
+  // en uygun sokak (mahallesi tutan, yoksa ilki) seçili gelir; başka sokak için listeden dokunulur
+  const enIyi=cands.findIndex(c=>mahOk(c,mah));box.children[enIyi>=0?enIyi:0]?.click();
 }
 async function pkSave(){
-  if(!pkSel)return;
+  if(!pkSel){$('pkMsg').innerHTML='<b style="color:var(--bad)">Önce yukarıdaki listeden sokağı seçin.</b>';return}
   const run=++pickerRun,selected=pkSel,s=pkStop;
   const no=$('pkNo').value.trim().match(/\d+[A-Za-z]?(?:[-/]\d+[A-Za-z]?)?/)?.[0]||'';
   $('pkMsg').textContent='Bina aranıyor…';
-  const h=await findHouse(selected,no);
+  let h=await findHouse(selected,no);
+  if(!h&&no){ // Yandex'te doğrudan sokak + kapı no + mahalle + ilçe
+    const q=[selected.road+' '+no,s.mah?s.mah+' Mahallesi':'',$('pkIlce').value.trim()||s.ilce,'İstanbul'].filter(Boolean).join(', ');
+    const pool=await yandexSearch(q).catch(()=>null)||[];
+    h=pool.find(c=>c.type==='house'&&sameLoose(c.road,selected.road)&&noMatches(c.no,no)&&(!c.ilce||!s.ilce||same(c.ilce,s.ilce)))||null;
+  }
   if(run!==pickerRun)return;
-  if(!h){$('pkMsg').textContent='Bina doğrulanamadı. Ücretsiz yer aramasını kullanın veya haritadan doğru bina noktasını seçin; sokak merkezi rotaya alınmaz.';return}
-  Object.assign(s,{lat:h.lat,lon:h.lon,quality:'Kapı',match:{road:selected.road,no:h.no,mah:selected.mah}});
-  s.street=$('pkStreet').value.trim();if(no)s.no=no;
+  if(!h){
+    $('pkMsg').innerHTML=`<b style="color:var(--bad)">${no?'Bu sokakta '+esc(no)+' numaralı bina bulunamadı.':'Kapı numarası yazılmadı.'}</b><br>Kapı numarasını kontrol edin ya da sokak üzerine kaydedin (sokak yeterli). <button class="p" id="pkSokakKaydet" style="margin-top:6px"><i class="ic" data-ic="pin"></i> Sokak üzerine kaydet</button>`;
+    $('pkSokakKaydet').onclick=()=>{
+      Object.assign(s,{lat:selected.lat,lon:selected.lon,quality:'Elle',match:{road:selected.road,no:'',mah:selected.mah,name:'sokak üzerinde (kapı no bulunamadı)',confirmed:true},placeError:'',aiDenetim:null});
+      s.street=$('pkStreet').value.trim();if(no)s.no=no;
+      bildirim('Sokak üzerine kaydedildi: '+selected.road);closePicker();clearRoute();renderStops();refreshMarkers();updateState();
+    };
+    return;
+  }
+  Object.assign(s,{lat:h.lat,lon:h.lon,quality:'Kapı',match:{road:selected.road,no:h.no,mah:selected.mah},placeError:'',aiDenetim:null});
+  s.street=$('pkStreet').value.trim();if(no)s.no=no;konumHatirla(s,'elle');bildirim('Kaydedildi: '+(selected.road||'')+' '+(h.no||no));
   closePicker();clearRoute();renderStops();refreshMarkers();updateState();mp.setView(s.lat,s.lon,17);
 }
 function confirmPlace(s,c){
@@ -1451,6 +1485,23 @@ const fmtT=s=>{const m=Math.round(s/60);return m>=60?Math.floor(m/60)+' sa '+(m%
 // Sürücünün elle düzelttiği sıra (durak kimlikleri). Duraklar değişirse geçersizdir.
 let elleSira=null,siraDuzenle=false;
 function elleSiraGecerli(ok){return !!elleSira&&elleSira.length===ok.length&&ok.every(s=>elleSira.includes(s.id))}
+// Elle sıradaki durak listesi değiştiyse (müşteri eklendi/çıkarıldı): olmayanlar düşer, yeniler en az yol ekleyen yere girer
+// (tamamlanmış durakların önüne girmez)
+function elleSiraTamamla(ok){
+  const byId=new Map(ok.map(s=>[s.id,s])),sira=elleSira.filter(id=>byId.has(id));
+  for(const s of ok.filter(x=>!sira.includes(x.id))){
+    if(!validPoint(s)){sira.push(s.id);continue}
+    const son=sira.reduce((k,id,n)=>byId.get(id)?.tamam?n+1:k,0);
+    let en=sira.length,enM=Infinity;
+    for(let k=son;k<=sira.length;k++){
+      const a=k?byId.get(sira[k-1]):origin(),b=k<sira.length?byId.get(sira[k]):home;
+      if(!validPoint(a)||!validPoint(b))continue;
+      const m=hav(a,s)+hav(s,b)-hav(a,b);if(m<enM){enM=m;en=k}
+    }
+    sira.splice(en,0,s.id);
+  }
+  return sira;
+}
 async function buildRoute(){
   clearTimeout(autoT);
   const ok=planningStops();
@@ -1462,7 +1513,9 @@ async function buildRoute(){
     const M=await getMatrix(pts);yolKaynagi=M.kaynak||'';
     if(run!==routeRun)return;
     const H=M.dist.map(row=>row.at(-1));
-    if(elleSira&&!elleSiraGecerli(ok))elleSira=null;
+    // teslimata başlanmışsa (tamamlanan durak var) yeni/çıkan durakta sıra baştan karıştırılmaz
+    if(!elleSira&&routeOrder?.some(x=>x.tamam))elleSira=routeOrder.map(x=>x.id);
+    if(elleSira&&!elleSiraGecerli(ok))elleSira=elleSiraTamamla(ok);
     const path=elleSira?[0,...elleSira.map(id=>ok.findIndex(s=>s.id===id)+1),ok.length+1]:solve(rotaMaliyet(M),ok.length,ok.map(neighborhoodKey),M.dist,delivered.length?neighborhoodKey(origin()):null);
     const seq=path.map(i=>pts[i]);
     let legs=path.slice(0,-1).map((i,k)=>({d:M.dist[i][path[k+1]],t:M.dur[i][path[k+1]]}));
@@ -1593,7 +1646,7 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
   if(!exact)h+='<div class="small" style="color:var(--warn)">Yol bilgisi alınamadı; mesafeler tahminidir.</div>';
   const unknown=routeOrder.filter(s=>neighborhoodKey(s).startsWith('unknown:')).length;
   if(unknown)h+=`<div class="small" style="color:var(--warn)">${unknown} durakta ilçe/mahalle eksik.</div>`;
-  h+=`<div class="row hide-print result-actions">${links.join('')}${ileriCikis()?'<button class="p" id="simdiBtn"><i class="ic" data-ic="nav"></i> Şimdi çıkıyorum</button>':''}<button id="siraBtn" class=""${siraDuzenle?'p':''}"><i class="ic" data-ic="${siraDuzenle?'check':'edit'}"></i> ${siraDuzenle?'Düzenlemeyi bitir':'Sırayı elle düzenle'}</button>${elleSira?'<button id="otoSiraBtn"><i class="ic" data-ic="refresh"></i> En kısa sıraya dön</button>':''}<button class="danger" id="rotaSilBtn"><i class="ic" data-ic="trash"></i> Rotayı sil</button></div>`;
+  h+=`<div class="row hide-print result-actions">${links.join('')}${ileriCikis()?'<button class="p" id="simdiBtn"><i class="ic" data-ic="nav"></i> Şimdi çıkıyorum</button>':''}<button id="musteriEkleBtn"><i class="ic" data-ic="plus"></i> Müşteri ekle</button><button id="siraBtn" class=""${siraDuzenle?'p':''}"><i class="ic" data-ic="${siraDuzenle?'check':'edit'}"></i> ${siraDuzenle?'Düzenlemeyi bitir':'Sırayı elle düzenle'}</button>${elleSira?'<button id="otoSiraBtn"><i class="ic" data-ic="refresh"></i> En kısa sıraya dön</button>':''}<button class="danger" id="rotaSilBtn"><i class="ic" data-ic="trash"></i> Rotayı sil</button></div>`;
   if(elleSira||siraDuzenle)h+=`<div class="sira-not hide-print"><i class="ic" data-ic="edit"></i> ${siraDuzenle?'Okları kullanarak durakların sırasını değiştirin; süreler ve varış saatleri her değişiklikte yeniden hesaplanır.':'Bu sıra elle düzenlendi. Süreler bu sıraya göre hesaplandı.'}</div>`;
   h+=`<div class="sira"><span class="n" style="background:#1a8f4c">D</span><div><div class="ad">${delivered.length?'Son teslimat konumundan devam':'Depodan çıkış'}</div></div></div>`;
   routeOrder.forEach((s,i)=>{
@@ -1628,6 +1681,7 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
   $('result').querySelectorAll('[data-tk]').forEach(b=>b.onclick=()=>{const s=routeOrder[+b.dataset.tk],v=b.dataset.v;if(s.arama===v){s.arama=null;s.aramaZaman=null}else{s.arama=v;s.aramaZaman=saatNow()}renderResult(...sonRender)});
   $('result').querySelectorAll('[data-tm]').forEach(b=>b.onclick=()=>{const s=routeOrder[+b.dataset.tm];s.tamam=!s.tamam;s.tamamZaman=s.tamam?saatNow():null;if(s.tamam)gpsIleOgren(s);renderResult(...sonRender);
     if(s.tamam&&routeOrder.length&&routeOrder.every(x=>x.tamam)){clearTimeout(window._bitisZ);window._bitisZ=setTimeout(()=>{if(routeOrder?.length&&routeOrder.every(x=>x.tamam))planiKapat('Bütün duraklar tamamlandı; rota Özet’e kaydedildi.')},4000)}if(s.tamam)setTimeout(()=>document.getElementById('siradakiDurak')?.scrollIntoView({behavior:'smooth',block:'center'}),60)});
+  $('musteriEkleBtn').onclick=musteriEkleAc;
   $('siraBtn').onclick=()=>{siraDuzenle=!siraDuzenle;renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison)};
   if($('otoSiraBtn'))$('otoSiraBtn').onclick=()=>{elleSira=null;siraDuzenle=false;buildRoute()};
   // Elle sıra: yalnız tamamlanmamış duraklar yer değiştirir, tamamlananlar yerinde kalır
@@ -1738,6 +1792,35 @@ function planHaricUygula(haric){
   if(degisti){siraKoru();savePlan();renderStops();clearRoute()}
 }
 // Rota sayfasından: "Ürün yok" → rotadan çıkar; geri al → rotaya ekle
+// Rota oluşturulduktan sonra gelen müşteri: adres bulunur, durak rotaya eklenir (hakediş nokta sayısına girer)
+function musteriEkleAc(){
+  let m=document.getElementById('ekleModal');
+  if(!m){m=document.createElement('div');m.id='ekleModal';m.className='modal';document.body.appendChild(m)}
+  const ilceler=stops.map(x=>x.ilce).filter(Boolean),sik=ilceler.sort((a,b)=>ilceler.filter(x=>x===b).length-ilceler.filter(x=>x===a).length)[0]||'';
+  m.innerHTML=`<div class="box"><h3><i class="ic" data-ic="plus"></i> Rotaya müşteri ekle</h3><p class="small">Sonradan gelen sipariş. Adres bulunur ve rotaya eklenir; hakedişte müşteri sayısına girer.</p>
+    <label class="fl">Alıcı adı<input type="text" id="emAd" autocomplete="off" placeholder="ör. Ayşe Yılmaz"></label>
+    <label class="fl">Adres<textarea id="emAdres" rows="3" placeholder="Mahalle, cadde / sokak, kapı no (ör. Erenköy mah. Acun sokak no 3 daire 22)"></textarea></label>
+    <div class="grid2"><label>İlçe<input type="text" id="emIlce" list="emIlceler" value="${esc(sik)}" autocomplete="off"></label><label>Koli<input type="number" id="emKoli" min="0" value="1"></label></div>
+    <datalist id="emIlceler">${ILCELER.map(x=>'<option value="'+esc(x)+'">').join('')}</datalist>
+    <label class="tf-kapi" style="margin:10px 0"><input type="checkbox" id="emGeri"> Geri alım</label>
+    <div class="small" id="emMsg"></div>
+    <div class="row" style="gap:8px;margin-top:10px"><button class="p" id="emKaydet">Ekle ve adresi bul</button><button id="emVazgec">Vazgeç</button></div></div>`;
+  m.style.display='flex';$('emAd').focus();
+  $('emVazgec').onclick=()=>{m.style.display='none'};
+  $('emKaydet').onclick=async()=>{
+    const ad=$('emAd').value.trim(),adres=$('emAdres').value.trim(),ilce=$('emIlce').value.trim();
+    if(!ad||adres.length<6){$('emMsg').textContent='Alıcı adı ve adres gerekli.';return}
+    const o={musteri:'Sonradan eklendi',sip:'',alici:ad,not:'',adet:Math.max(0,parseInt($('emKoli').value,10)||0),ilce,raw:adres,geri:$('emGeri').checked,sonradan:true};
+    const yeni=buildStops([o])[0];yeni.id=Math.max(0,...stops.map(x=>x.id))+1;
+    // aynı adreste zaten durak varsa siparişi ona ekle
+    const ayni=stops.find(x=>!x.skip&&fold(x.raw)===fold(yeni.raw));
+    if(ayni)ayni.orders.push(o);else stops.push(yeni);
+    m.style.display='none';bildirim(ayni?'Sipariş aynı adresteki durağa eklendi.':ad+' eklendi; adres aranıyor…',2500);
+    savePlan(true);renderStops();
+    if(ayni){if(sonRender)renderResult(...sonRender);return}
+    await geocodeAll();
+  };
+}
 function durakCikar(s,cikar){s.skip=!!cikar;siraKoru();savePlan();renderStops();clearRoute()}
 // Elle sıra varsa ya da teslimata başlanmışsa (tamamlanan durak var) mevcut sıra korunur: çıkan durak sıradan düşer,
 // geri eklenen durak sona eklenir. Böylece "Ürün yok" elle yapılan sıralamayı bozmaz.

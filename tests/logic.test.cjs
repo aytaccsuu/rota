@@ -281,7 +281,7 @@ async function main(){
   await new Promise(r=>setTimeout(r,50));run(`clearTimeout(autoT);delivered=[];stops=[{id:1,lat:41.2,lon:29,quality:'Elle',orders:[],raw:'A'},{id:2,lat:41.15,lon:29,quality:'Elle',orders:[],raw:'B'},{id:3,lat:41.1,lon:29,quality:'Elle',orders:[],raw:'C'}];elleSira=[3,1,2];
     getMatrix=async p=>{const m=p.map((_,i)=>p.map((_,j)=>Math.abs(i-j)));return {dur:m,dist:m,osrm:true}};osrm=async()=>null;`);
   await run('buildRoute()');assert.equal(run('routeOrder.map(s=>s.id).join()'),'3,1,2','elle sıra korunur');
-  run(`stops.pop();clearTimeout(autoT)`);await run('buildRoute()');assert.equal(run('elleSira'),null,'durak değişince elle sıra düşer');assert.equal(run('routeOrder.length'),2);
+  run(`stops.pop();clearTimeout(autoT)`);await run('buildRoute()');assert.deepEqual(plain(run('elleSira')),[1,2],'durak çıkınca elle sıra korunur, yalnız çıkan düşer');assert.equal(run('routeOrder.length'),2);
   // Elle rut: bölge ve ilçe sayısı seçilir (24 nokta, Avrupa 1, 2+ ilçe → 1,5 rut 8.700)
   assert.equal(run(`gunHesap({durum:'calisti',nokta:24,bolge:'avrupa1',ilceSayisi:2,ilceler:[]}).net`),8700);
   assert.equal(run(`gunHesap({durum:'calisti',nokta:28,parcalar:[{nokta:24,bolge:'avrupa1',ilceSayisi:2},{nokta:4,bolge:'anadolu',ilceSayisi:1}]}).net`),13700);
@@ -321,6 +321,9 @@ async function main(){
     assert.equal(p('Fenerbahçe mah. kadiköy fenerbahçe mahallesi bağdat caddesi no 94'),'bağdat Caddesi|94|Fenerbahçe');
     assert.equal(p('Tambur Çk Sk. Pera Camping CUMHURİYET MAH. /'),'Tambur Çk Sokak||CUMHURİYET');
     assert.equal(p('Yavuztürk mah. Yavuztürk mah. Karadeniz cad. Goncagül sk. Goncagül çıkmazı No:11/1 Üsküdar'),'Goncagül Çıkmazı|11/1|Yavuztürk'); }
+  { const p=a=>{const r=run('parseAddress('+JSON.stringify(a)+',"Kadıköy")');return r.street+'|'+r.no};
+    assert.equal(p('Göztepe mah. Mehmet Şeyda Sok. Four Winds Residences Cadde No:2/3 D Blok Kat:3'),'Mehmet Şeyda Sokak|2/3','site adındaki Cadde yol değil');
+    assert.equal(p('Feneryolu mah. FENERYOLU SKNO:37SEPAŞ SİTESİA BLOKK:6D:12'),'FENERYOLU Sokak|37','bitişik SKNO:37SEPAŞ'); }
   { const ka=a=>run('konumAnahtarlari({...parseAddress('+JSON.stringify(a)+',"Kadıköy"),raw:'+JSON.stringify(a)+'})');
     assert.ok(!ka('Kozyatağı mah. şenesenevler Forsa sokak Dilek apt kat:7').some(k=>k.startsWith('yer2|')),'sokaklı adreste yalnız apartman adıyla anahtar yok');
     assert.notEqual(ka('Kozyatağı mah. Forsa sokak Dilek apt')[0],ka('Göztepe mah. Tütüncü Mehmet Efendi cad. Dilek apt')[0],'farklı sokaktaki aynı adlı apartman ayrı'); }
