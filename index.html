@@ -253,6 +253,7 @@ html[data-theme="dark"] .tk.on.acti{background:#1fbf63;border-color:#1fbf63;colo
 .av input[type=password]{flex:1 1 100%}.av button{padding:8px 14px}
 @media(max-width:640px){.ar{grid-template-columns:1fr}.ay{grid-column:1}.av input.kisa,.av input[type=number]{flex:1 1 120px}}
 .yakit-rozet[hidden],.cevrim[hidden]{display:none!important}.yakit-rozet{display:inline-flex;align-items:center;gap:5px;font-size:14px;font-weight:800;padding:6px 11px;border-radius:16px;background:var(--soft);color:var(--pri);border:1.5px solid var(--pri);margin-right:6px;white-space:nowrap}.yakit-rozet .ic{width:1em;height:1em}
+.sira-tas{align-items:center}.sira-no{width:56px;height:44px;text-align:center;font-size:20px;font-weight:800;padding:0;border:2px solid var(--pri);border-radius:10px;background:var(--card);color:var(--ink);-moz-appearance:textfield}.sira-no::-webkit-inner-spin-button,.sira-no::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 </style>
 </head>
 <body>
@@ -1604,8 +1605,9 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
     // koordinatın kendisi açılır (adres metniyle aratılırsa Yandex evraktaki yanlış mahalleye göre başka yer gösterebiliyor)
     const yhref=`https://yandex.com.tr/maps/?ll=${ll}&z=18&pt=${ll},pm2rdm&whatshere%5Bpoint%5D=${ll}&whatshere%5Bzoom%5D=18`;
     const ya=`<div class="yx-actions hide-print"><a class="yx" href="${yhref}" target="_blank" rel="noopener" data-app="${esc(yandexUygulama(yhref))}"><i class="ic" data-ic="star"></i> Yandex’te aç / kaydet</a><a class="yx" href="https://yandex.com.tr/maps/?rtt=auto&rtext=~${(+s.lat).toFixed(6)},${(+s.lon).toFixed(6)}" target="_blank" rel="noopener" data-app="yandexnavi://build_route_on_map?lat_to=${(+s.lat).toFixed(6)}&lon_to=${(+s.lon).toFixed(6)}"><i class="ic" data-ic="nav"></i> Git</a></div>`;
-    const tas=siraDuzenle?`<div class="sira-tas hide-print"><button data-tas="${i}" data-y="-1" ${i?'':'disabled'} aria-label="Yukarı taşı"><i class="ic" data-ic="up"></i></button><button data-tas="${i}" data-y="1" ${i<routeOrder.length-1?'':'disabled'} aria-label="Aşağı taşı"><i class="ic" data-ic="down"></i></button></div>`:'';
-    if(takip&&s.tamam&&!siraDuzenle){h+=`<div class="sira bitti"><span class="n"><i class="ic" data-ic="check"></i></span><div><div class="ad">${i+1+delivered.length}. ${names(s)} <span class="tk-zaman">tamamlandı ${esc(s.tamamZaman||'')}${s.arama?' · '+ARAMA[s.arama][1]:''}</span> <button class="tk-geri hide-print" data-tm="${i}">Geri al</button></div>${teslimBilgiHTML(s)}</div></div>`;return}
+    const acikIdx=routeOrder.map((x,k)=>x.tamam?null:k).filter(k=>k!=null),ai=acikIdx.indexOf(i);
+    const tas=siraDuzenle&&!s.tamam?`<div class="sira-tas hide-print"><button data-tas="${i}" data-y="-1" ${ai>0?'':'disabled'} aria-label="Yukarı taşı"><i class="ic" data-ic="up"></i></button><input class="sira-no" type="number" inputmode="numeric" min="1" max="${routeOrder.length+delivered.length}" value="${i+1+delivered.length}" data-sno="${i}" aria-label="Sıra numarası"><button data-tas="${i}" data-y="1" ${ai>=0&&ai<acikIdx.length-1?'':'disabled'} aria-label="Aşağı taşı"><i class="ic" data-ic="down"></i></button></div>`:'';
+    if(s.tamam&&(takip||siraDuzenle)){h+=`<div class="sira bitti"><span class="n"><i class="ic" data-ic="check"></i></span><div><div class="ad">${i+1+delivered.length}. ${names(s)} <span class="tk-zaman">tamamlandı ${esc(s.tamamZaman||'')}${s.arama?' · '+ARAMA[s.arama][1]:''}</span> <button class="tk-geri hide-print" data-tm="${i}">Geri al</button></div>${teslimBilgiHTML(s)}</div></div>`;return}
     const tk=takip&&!siraDuzenle?`<div class="takip hide-print">${Object.entries(ARAMA).map(([v,[icn,ad]])=>`<button class="tk ${s.arama===v?'on '+v:''}" data-tk="${i}" data-v="${v}"><i class="ic" data-ic="${icn}"></i> ${ad}</button>`).join('')}${s.arama?`<span class="tk-zaman">${esc(s.aramaZaman||'')}</span>`:''}<button class="tk tamam" data-tm="${i}"><i class="ic" data-ic="check"></i> Tamamlandı</button></div>${s.arama==='acti'?teslimFormHTML(s,i):''}`:'';
     h+=`<div class="sira${siraDuzenle?' duzen':''}${takip&&i===siradaki?' siradaki':''}"${takip&&i===siradaki?' id="siradakiDurak"':''}>${tas}<span class="n">${i+1+delivered.length}</span><div><div class="ad">${names(s)} <button class="copy hide-print" data-copy="${esc(stopNames(s))}" title="İsmi kopyala" aria-label="İsmi kopyala"><i class="ic" data-ic="copy"></i></button>${warn}${siraDuzenle?'':`<button class="urun-yok hide-print" data-cikar="${s.id}" title="Ürünü yok: rotadan ve müşteri sayısından çıkar"><i class="ic" data-ic="x"></i> Ürün yok</button>`}</div><div class="tipler">${tipRozet(s)}</div><div class="adr">${esc(s.raw)}</div>${gidilecekHTML(s)}${denetimHTML(s,stops.indexOf(s))}${teslimBilgiHTML(s)}${tk}${ya}<div class="small">${esc(neighborhoodLabel(s))} · ${(legs[i].d/1000).toFixed(1)} km / ${fmtT(legs[i].t)}${legs[i].delay>60?` (<i class="ic" data-ic="traffic"></i> +${fmtT(legs[i].delay)})`:''} · <b>varış ≈ ${clock(eta[i])}</b></div><div class="small">${[s.orders.length>1?s.orders.length+' sipariş':'',k?k+' koli':'',[...new Set(s.orders.map(o=>o.musteri).filter(Boolean))].join(', ')].filter(Boolean).join(' · ')}</div></div></div>`;
   });
@@ -1628,13 +1630,25 @@ function renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison=
     if(s.tamam&&routeOrder.length&&routeOrder.every(x=>x.tamam)){clearTimeout(window._bitisZ);window._bitisZ=setTimeout(()=>{if(routeOrder?.length&&routeOrder.every(x=>x.tamam))planiKapat('Bütün duraklar tamamlandı; rota Özet’e kaydedildi.')},4000)}if(s.tamam)setTimeout(()=>document.getElementById('siradakiDurak')?.scrollIntoView({behavior:'smooth',block:'center'}),60)});
   $('siraBtn').onclick=()=>{siraDuzenle=!siraDuzenle;renderResult(seq,legs,dist,dur,exact,homeDistances,roadLegs,comparison)};
   if($('otoSiraBtn'))$('otoSiraBtn').onclick=()=>{elleSira=null;siraDuzenle=false;buildRoute()};
-  $('result').querySelectorAll('[data-tas]').forEach(b=>b.onclick=()=>{
-    const i=+b.dataset.tas,j=i+ +b.dataset.y,o=routeOrder.slice();if(j<0||j>=o.length)return;
-    [o[i],o[j]]=[o[j],o[i]];elleSira=o.map(x=>x.id);routeOrder=o;
-    // ekranda hemen göster: eski bacak süreleri yer değiştirmiş duraklarla geçici olarak kullanılır
+  // Elle sıra: yalnız tamamlanmamış duraklar yer değiştirir, tamamlananlar yerinde kalır
+  const siraTasi=(from,to)=>{
+    const o=routeOrder.slice(),acik=o.map((x,k)=>x.tamam?null:k).filter(k=>k!=null);
+    if(!acik.includes(from)||!acik.length)return;
+    const hedef=acik.reduce((b,k)=>Math.abs(k-to)<Math.abs(b-to)?k:b,acik[0]);if(hedef===from){renderResult(...sonRender);return}
+    const P=acik.map(k=>o[k]),[x]=P.splice(acik.indexOf(from),1);P.splice(acik.indexOf(hedef),0,x);acik.forEach((k,n)=>o[k]=P[n]);
+    elleSira=o.map(x=>x.id);routeOrder=o;
+    // ekranda hemen göster; yol süreleri arkadan hesaplanır
     const [sq,lg,...kalan]=sonRender,sq2=[sq[0],...o.map(x=>({...x})),sq.at(-1)];
     renderResult(sq2,lg,...kalan);bildirim('Sıra değişti; yol süreleri hesaplanıyor…',1800);
     clearTimeout(window._siraZ);window._siraZ=setTimeout(buildRoute,700);
+  };
+  $('result').querySelectorAll('[data-tas]').forEach(b=>b.onclick=()=>{
+    const i=+b.dataset.tas,acik=routeOrder.map((x,k)=>x.tamam?null:k).filter(k=>k!=null),n=acik[acik.indexOf(i)+ +b.dataset.y];
+    if(n!=null)siraTasi(i,n);
+  });
+  $('result').querySelectorAll('[data-sno]').forEach(inp=>{
+    const uygula=()=>{const v=parseInt(inp.value,10);if(Number.isFinite(v))siraTasi(+inp.dataset.sno,v-1-delivered.length)};
+    inp.onchange=uygula;inp.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();inp.blur()}};inp.onfocus=()=>inp.select();
   });
 }
 
@@ -1721,10 +1735,18 @@ const durakKey=s=>fold(stopNames(s))+'|'+fold(s.raw);
 function planHaricUygula(haric){
   const h=new Set(haric||[]);let degisti=false;
   for(const s of stops){if(delivered.includes(s))continue;const ist=h.has(durakKey(s));if(!!s.skip!==ist){s.skip=ist;degisti=true}}
-  if(degisti){elleSira=null;savePlan();renderStops();clearRoute()}
+  if(degisti){siraKoru();savePlan();renderStops();clearRoute()}
 }
 // Rota sayfasından: "Ürün yok" → rotadan çıkar; geri al → rotaya ekle
-function durakCikar(s,cikar){s.skip=!!cikar;elleSira=null;savePlan();renderStops();clearRoute()}
+function durakCikar(s,cikar){s.skip=!!cikar;siraKoru();savePlan();renderStops();clearRoute()}
+// Elle sıra varsa ya da teslimata başlanmışsa (tamamlanan durak var) mevcut sıra korunur: çıkan durak sıradan düşer,
+// geri eklenen durak sona eklenir. Böylece "Ürün yok" elle yapılan sıralamayı bozmaz.
+function siraKoru(){
+  const baslandi=(routeOrder||[]).some(x=>x.tamam);
+  if(!elleSira&&!baslandi)return;
+  const aktif=planningStops().map(x=>x.id),temel=elleSira||(routeOrder||[]).map(x=>x.id);
+  elleSira=[...temel.filter(id=>aktif.includes(id)),...aktif.filter(id=>!temel.includes(id))];
+}
 // Plandan günün müşteri listesi (rota sırasıyla) ve otomatik bilgiler
 function planMusteriler(){
   // yalnızca bu plandaki duraklar, her biri bir kez (teslim edilenler → kalan sıra → atlananlar)
