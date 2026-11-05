@@ -217,6 +217,23 @@ html[data-theme="dark"] .tip{background:#16304d;color:#a9cdf5;border-color:#5d95
 @media(max-width:720px){#result .sira .adr{font-size:17px}}
 #ekleCard>summary{list-style:none}#ekleCard>summary::-webkit-details-marker{display:none}#ekleCard>summary h2{margin:0;display:flex;align-items:center;gap:8px}#ekleCard>summary h2:after{content:'▾';margin-left:auto;color:var(--mute);transition:transform .2s}#ekleCard[open]>summary h2:after{transform:rotate(180deg)}#ekleCard[open]>summary{margin-bottom:6px}.ekle-ozet{font-style:normal;font-size:13px;font-weight:600;color:var(--ok)}
 .depo-t>div:first-child{background:var(--soft);border-color:var(--pri)}.depo-t>div:first-child b{color:var(--pri)}
+/* depo doluluk göstergesi: sıvı alttan dolar, yüzeyi dalgalanır; renk seviyeye göre */
+.depo-g{display:flex;gap:16px;align-items:stretch;margin-top:14px}.depo-g .tiles{flex:1;margin:0}
+.depo-g{--lv:var(--ok)}.depo-g.orta{--lv:var(--warn)}.depo-g.az{--lv:var(--bad)}
+.dg-tank{position:relative;flex:0 0 96px;min-height:170px;border:3px solid var(--line);border-radius:22px 22px 16px 16px;background:var(--surf2);overflow:hidden;isolation:isolate}
+.dg-tank:after{content:'';position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 2px var(--card),inset 10px 0 18px rgba(255,255,255,.12);pointer-events:none;z-index:3}
+.dg-sivi{position:absolute;left:0;right:0;bottom:0;height:var(--p);background:linear-gradient(180deg,color-mix(in srgb,var(--lv) 78%,#fff),var(--lv));animation:dgDol 1.8s cubic-bezier(.22,.9,.25,1) both;z-index:1}
+.dg-sivi:before,.dg-sivi:after{content:'';position:absolute;left:50%;width:240px;height:240px;top:-232px;margin-left:-120px;background:var(--surf2);border-radius:43%;animation:dgDalga 7s linear infinite}
+.dg-sivi:after{top:-229px;border-radius:40%;opacity:.55;animation-duration:11s;animation-direction:reverse}
+.depo-g.bos .dg-sivi:before,.depo-g.bos .dg-sivi:after{display:none}
+@keyframes dgDol{from{height:0}}@keyframes dgDalga{to{transform:rotate(360deg)}}
+.dg-cizgi{position:absolute;right:0;width:14px;height:2px;background:var(--mute);opacity:.55;z-index:2}.dg-cizgi.y{width:22px}
+.dg-yuzde{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:4;font-size:26px;font-weight:900;color:var(--ink);text-shadow:0 0 6px var(--card),0 0 3px var(--card);font-variant-numeric:tabular-nums}
+.dg-yuzde small{font-size:12px;font-weight:700;color:var(--ink);letter-spacing:.3px}
+.depo-g.az .dg-tank{border-color:var(--bad);animation:dgUyar 1.6s ease-in-out infinite}
+@keyframes dgUyar{50%{box-shadow:0 0 0 5px color-mix(in srgb,var(--bad) 30%,transparent)}}
+@media(max-width:560px){.depo-g{flex-direction:column}.dg-tank{flex:none;min-height:0;height:120px;border-radius:18px}}
+@media(prefers-reduced-motion:reduce){.dg-sivi,.dg-sivi:before,.dg-sivi:after,.depo-g.az .dg-tank{animation:none}}
 .tk.on.nohatali{background:#7a3db8;border-color:#7a3db8;color:#fff}html[data-theme="dark"] .tk.on.nohatali{background:#8a52c8;color:#fff}
 .teslim-form{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 10px;padding:10px 12px;border:2px solid var(--ok);border-radius:12px;background:var(--soft)}
 .teslim-form input[type=text]{flex:1 1 180px;min-width:0;font-size:16px;padding:10px 12px}.tf-kapi{display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px;cursor:pointer}.tf-kapi input{width:22px;height:22px}
@@ -2329,17 +2346,20 @@ async function depoTahmini(son){
   }
   const gunler=[...new Set([...km.keys(),...alim.keys()])].sort();
   // 1) iki fulleme arası: (ikinci fullemede alınan + aradaki alımlar) / aradaki km
-  // İki fulleme arasında 3 günden fazla iş günü olmayan boşluk varsa araç iş dışında da kullanılmıştır: o aralık sayılmaz
+  // İki fulleme arasında art arda 3 günden uzun işsiz boşluk varsa (ör. 13–18 Ekim) araç iş dışında kullanılmış olabilir:
+  // o aralık sayılmaz. Pazar ve tek tük izin günleri normaldir.
   const gunFark=(a,b)=>Math.round((Date.parse(b+'T12:00')-Date.parse(a+'T12:00'))/864e5);
-  let fullT=null,arada=0,kmArada=0,isGunu=0;const oranlar=[];
+  let fullT=null,arada=0,kmArada=0,sonIs=null,enUzunBosluk=0;const oranlar=[];
   for(const t of gunler){
     const al=alim.get(t);
-    if(al&&al.full){if(fullT&&kmArada>=80&&gunFark(fullT,t)-isGunu<=3){const r=(arada+al.l)/kmArada*100;if(r>=4&&r<=40)oranlar.push(r)}fullT=t;arada=0;kmArada=0;isGunu=0}
+    if(fullT&&(km.get(t)||(al&&al.full)))enUzunBosluk=Math.max(enUzunBosluk,gunFark(sonIs||fullT,t)-1);
+    if(al&&al.full){if(fullT&&kmArada>=80&&enUzunBosluk<=3){const r=(arada+al.l)/kmArada*100;if(r>=4&&r<=40)oranlar.push(r)}fullT=t;arada=0;kmArada=0;sonIs=null;enUzunBosluk=0}
     else if(al&&fullT)arada+=al.l;
-    if(fullT&&km.get(t)){kmArada+=km.get(t);isGunu++}
+    if(fullT&&km.get(t)){kmArada+=km.get(t);sonIs=t}
   }
-  const sonOran=oranlar.slice(-3).sort((a,b)=>a-b);
-  ogrenilenTuketim=sonOran.length?Math.round(sonOran[Math.floor((sonOran.length-1)/2)]*10)/10:null;
+  // son 3 aralığın ortancası (çift sayıda ise ortadaki ikisinin ortalaması)
+  const so=oranlar.slice(-3).sort((a,b)=>a-b),orta=so.length%2?so[(so.length-1)/2]:(so[so.length/2-1]+so[so.length/2])/2;
+  ogrenilenTuketim=so.length?Math.round(orta*10)/10:null;
   const a=aracAyar();
   if(!alim.size||![...alim.values()].some(x=>x.l>0))return {eksik:!fiyat,sonAlim};
   // 2) depo: full gününde dolu, kısmi alımda eklenir (kapasiteyle sınırlı), her gün km × tüketim düşülür
@@ -2350,7 +2370,15 @@ async function depoTahmini(son){
 function depoHTML(dt){
   if(!dt)return '';
   if(dt.litre==null)return dt.sonAlim?'<div class="small">Güncel yakıt fiyatı alınamadı; depo tahmini için Ayarlar → Araç ve yakıt bölümüne motorin fiyatını yazın ya da yakıt eklerken litreyi girin.</div>':'';
-  return `<div class="tiles depo-t"><div><b>${litreYaz(dt.litre)}</b>depoda tahmini kalan<span class="tnot">depo ${dt.a.depo} L</span></div><div><b>≈ ${Math.round(dt.km).toLocaleString('tr-TR')} km</b>daha gider<span class="tnot">${String(dt.a.tuketim).replace('.',',')} L / 100 km ile${dt.a.ogrenildi?' (fullemelerden öğrenildi)':''}</span></div>${dt.sonAlim?`<div><b>${tl(dt.sonAlim.tutar)}</b>son yakıt · ${trTarih(dt.sonAlim.tarih)}<span class="tnot">≈ ${litreYaz(dt.sonAlim.l)}${dt.sonAlim.full?' · depo full':''}</span></div>`:''}</div>`;
+  const yuzde=Math.max(0,Math.min(100,Math.round(dt.litre/dt.a.depo*100))),sinif=yuzde<=20?'az':yuzde<=40?'orta':'';
+  return `<div class="depo-g ${sinif}${yuzde<3?' bos':''}" style="--p:${yuzde}%"><div class="dg-tank" role="img" aria-label="Depo yüzde ${yuzde} dolu"><div class="dg-sivi"></div>${[25,50,75].map(k=>`<i class="dg-cizgi${k===50?' y':''}" style="bottom:${k}%"></i>`).join('')}<div class="dg-yuzde"><span data-dgsay="${yuzde}">%${yuzde}</span><small>${yuzde<=20?'YAKIT AL':'DOLU'}</small></div></div><div class="tiles depo-t"><div><b>${litreYaz(dt.litre)}</b>depoda tahmini kalan<span class="tnot">depo ${dt.a.depo} L</span></div><div><b>≈ ${Math.round(dt.km).toLocaleString('tr-TR')} km</b>daha gider<span class="tnot">${String(dt.a.tuketim).replace('.',',')} L / 100 km ile${dt.a.ogrenildi?' (fullemelerden öğrenildi)':''}</span></div>${dt.sonAlim?`<div><b>${tl(dt.sonAlim.tutar)}</b>son yakıt · ${trTarih(dt.sonAlim.tarih)}<span class="tnot">≈ ${litreYaz(dt.sonAlim.l)}${dt.sonAlim.full?' · depo full':''}</span></div>`:''}</div></div>`;
+}
+// yüzde sayısı sıvıyla birlikte 0'dan yukarı sayar
+function depoSay(kok){
+  const el=kok&&kok.querySelector('[data-dgsay]');if(!el)return;
+  const hedef=+el.dataset.dgsay,bas=performance.now(),sure=window.matchMedia?.('(prefers-reduced-motion: reduce)').matches?0:1800;
+  const adim=t=>{const k=sure?Math.min(1,(t-bas)/sure):1,e=1-Math.pow(1-k,3);el.textContent='%'+Math.round(hedef*e);if(k<1)requestAnimationFrame(adim)};
+  requestAnimationFrame(adim);
 }
 const calisilanGun=rutlar=>rutlar.filter(r=>r.durum!=='gidilmedi').length;
 const gunlukYakit=(toplam,gun)=>gun>0?toplam/gun:0;
@@ -2383,7 +2411,7 @@ async function renderYakit(){
     const ayLitre=rutlar.reduce((a,r)=>a+gunLitre(r),0),fy=aracAyar().fiyat;
     $('yOzet').innerHTML=`<div class="tiles"><div><b>${tl(top)}</b>bu ay alınan yakıt</div><div><b>${gun}</b>çalışılan gün</div>${(()=>{const gg=gunlukGercek(rutlar);return gg?`<div><b>${tl(gg.tl)}</b>günlük yakıt (gerçek km)<span class="tnot">≈ ${litreYaz(gg.litre)} / gün · ${gg.gun} günün km'si</span></div>`:`<div><b>${gun?tl(gunlukYakit(top,gun)):'—'}</b>günlük tahmini yakıt${gun?'<span class="tnot">alınan yakıt ÷ gün</span>':''}</div>`})()}${ayLitre?`<div><b>${litreYaz(ayLitre)}</b>km'ye göre yakılan${fy?`<span class="tnot">≈ ${tl(ayLitre*fy)}</span>`:''}</div>`:''}</div><div id="yDepo"></div>`;
     const ayBitis=ay===todayISO().slice(0,7)?todayISO():ay+'-'+String(new Date(+ay.slice(0,4),+ay.slice(5,7),0).getDate()).padStart(2,'0');
-    depoTahmini(ayBitis).then(dt=>{if($('yDepo'))$('yDepo').innerHTML=depoHTML(dt)}).catch(()=>{});
+    depoTahmini(ayBitis).then(dt=>{if($('yDepo')){$('yDepo').innerHTML=depoHTML(dt);depoSay($('yDepo'))}}).catch(()=>{});
     $('yListe').innerHTML=yakitlar.length?`<table class="otab"><tr><th>Tarih</th><th>Tutar</th><th>Litre</th><th></th></tr>${yakitlar.map(y=>`<tr><td>${trTarih(y.tarih)}</td><td>${tl(y.tutar)}</td><td>${y.litre>0?litreYaz(+y.litre):(fy?'≈ '+litreYaz(y.tutar/fy):'')}${/full/i.test(y.notu||'')?' <span class="rozet">full</span>':''} <button class="copy" data-lt="${y.id}" title="Litre / full düzenle" aria-label="Litre düzenle"><i class="ic" data-ic="edit"></i></button></td><td><button class="copy" data-sil="${y.id}" title="Sil"><i class="ic" data-ic="x"></i></button></td></tr>`).join('')}<tr class="tot"><td>Toplam</td><td>${tl(top)}</td><td></td><td></td></tr></table>`:'Bu ay yakıt kaydı yok.';
     $('yListe').querySelectorAll('[data-lt]').forEach(b=>b.onclick=async()=>{
       const y=yakitlar.find(x=>x.id===+b.dataset.lt);if(!y)return;
